@@ -5,8 +5,8 @@
 // found on file: anaTree.root
 //////////////////////////////////////////////////////////
 
-#ifndef piInel_10000e_h
-#define piInel_10000e_h
+#ifndef pie_10000e_h
+#define pie_10000e_h
 
 #include <TROOT.h>
 #include <TChain.h>
@@ -16,7 +16,37 @@
 #include "vector"
 #include "vector"
 
-class piInel_10000e {
+class Vertex 
+{
+  public: 
+    Vertex(const TVector3&  v,
+         const std::string& t,
+         const size_t&      nd)
+    : fVertex(v), fType(t), fNDaughters(nd)
+    {};
+    ~Vertex(){};
+
+    friend std::ostream& operator<<(std::ostream& out, const Vertex& v)  
+    {
+      auto vert = v.GetVertex();
+      out << "My vertex    = " << "(" << vert.X() << ", " << vert.Y() << ", " << vert.Z() << ")" << endl;
+      out << "My type      = " << v.GetType()       << endl
+          << "My daughters = " << v.GetNDaughters() << endl; 
+      return out;
+    };
+
+    TVector3    GetVertex()     const { return fVertex; }
+    std::string GetType()       const { return fType; }
+    size_t      GetNDaughters() const { return fNDaughters; }
+
+  private:
+    TVector3    fVertex;
+    size_t      fNDaughters; 
+    std::string fType;
+};
+
+
+class pie_10000e {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -449,8 +479,8 @@ public :
    TBranch        *b_dEdxPerPlaneShw;   //!
    TBranch        *b_TotalMIPEShw;   //!
 
-   piInel_10000e(TTree *tree=0);
-   virtual ~piInel_10000e();
+   pie_10000e(TTree *tree=0);
+   virtual ~pie_10000e();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
@@ -458,12 +488,17 @@ public :
    virtual void     Loop();
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
+
+   void ApplyFVCut(bool& );
+   void AnaInelastic();
+   void AnaColAndElastic();
+   void GetVertices(std::vector<Vertex>&);
 };
 
 #endif
 
-#ifdef piInel_10000e_cxx
-piInel_10000e::piInel_10000e(TTree *tree) : fChain(0) 
+#ifdef pie_10000e_cxx
+pie_10000e::pie_10000e(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
@@ -479,19 +514,19 @@ piInel_10000e::piInel_10000e(TTree *tree) : fChain(0)
    Init(tree);
 }
 
-piInel_10000e::~piInel_10000e()
+pie_10000e::~pie_10000e()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t piInel_10000e::GetEntry(Long64_t entry)
+Int_t pie_10000e::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t piInel_10000e::LoadTree(Long64_t entry)
+Long64_t pie_10000e::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -504,7 +539,7 @@ Long64_t piInel_10000e::LoadTree(Long64_t entry)
    return centry;
 }
 
-void piInel_10000e::Init(TTree *tree)
+void pie_10000e::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -739,7 +774,7 @@ void piInel_10000e::Init(TTree *tree)
    Notify();
 }
 
-Bool_t piInel_10000e::Notify()
+Bool_t pie_10000e::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -750,18 +785,18 @@ Bool_t piInel_10000e::Notify()
    return kTRUE;
 }
 
-void piInel_10000e::Show(Long64_t entry)
+void pie_10000e::Show(Long64_t entry)
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
    if (!fChain) return;
    fChain->Show(entry);
 }
-Int_t piInel_10000e::Cut(Long64_t entry)
+Int_t pie_10000e::Cut(Long64_t entry)
 {
 // This function may be called from Loop.
 // returns  1 if entry is accepted.
 // returns -1 otherwise.
    return 1;
 }
-#endif // #ifdef piInel_10000e_cxx
+#endif // #ifdef pie_10000e_cxx
