@@ -39,6 +39,7 @@ class Vertex
     TVector3    GetVertex()     const { return fVertex; }
     std::string GetType()       const { return fType; }
     std::vector<size_t> GetDaughters() const { return fDaughterVec; }
+    std::vector<size_t>* GetDaughters() const { return &fDaughterVec; }
    
     void AddDaughter(const size_t& id) { fDaughterVec.push_back(id); }
     void RemoveDaughter(const size_t& id) { fDaughterVec.erase(fDaughterVec.begin()+id); }

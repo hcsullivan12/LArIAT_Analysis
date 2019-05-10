@@ -332,40 +332,60 @@ void pie_10000e::Ana(std::vector<Vertex>& theVertices)
   {
     // Get the interaction type and daughter vec
     std::vector<size_t> toRm;
+
+    // Loop over all the daughters
+    for(size_t d = 0; d < v.GetDaughters().size(); d++)
+    {
+      // Get the internal g4 ID and pdg for the first daughter
+      size_t theG4Id    = v.GetDaughters()[d];
+      size_t thepdg     = pdg[theG4Id];
+      size_t theTrackId = TrackId[theG4Id];
+      
+      if( thepdg == 3112 ||  // sigma-
+          thepdg == 3122 ||  // lambda0
+          thepdg == 3212)    cout << "NEED TO REMOVE " << thepdg << endl;
+    }
     
     // Loop over all the daughters
-    // Get the internal g4 ID and pdg for the first daughter
-    size_t d(0);
-    size_t theG4Id    = v.GetDaughters()[d];
-    size_t thepdg     = pdg[theG4Id];
-    size_t theTrackId = TrackId[theG4Id];
-    while (d < v.GetDaughters().size() && 
-           (thepdg == 3112 || // sigma-
-            thepdg == 3122 || // lambda0
-            thepdg == 3212) )   // sigma0
+    for(size_t d = 0; d < v.GetDaughters().size(); d++)
+    std::vector<size_t>* dVec = v.GetDaughters();
+    auto iter = dVec.begin();
+    while ()
     {
-      // Add this id to remove later
-      toRm.push_back(d);
-      // Determine if we need to add a new particle
-      std::vector<size_t> toAdd;
-      for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++)
+      // Get the internal g4 ID and pdg for the first daughter
+      size_t theG4Id    = v.GetDaughters()[d];
+      size_t thepdg     = pdg[theG4Id];
+      size_t theTrackId = TrackId[theG4Id];
+      
+      if( thepdg == 3112 ||  // sigma-
+          thepdg == 3122 ||  // lambda0
+          thepdg == 3212)    // sigma0 
       {
-        if ( Mother[thisPart] == theTrackId ) toAdd.push_back(thisPart);
+        cout << thepdg << " " << v.GetDaughters().size() << " " << d << endl;
+        cout << d << " " << v.GetDaughters()[d] << " " << pdg[v.GetDaughters()[d]] << endl;
+        // Determine if we need to add a new particle
+        std::vector<size_t> toAdd;
+        for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++)
+        {
+          if ( Mother[thisPart] == theTrackId ) toAdd.push_back(thisPart);
+        }
+        // Add 
+        for (const auto& i : toAdd) { cout << "Adding " << pdg[i] << endl; v.AddDaughter(i); }
       }
-      // Add 
-      for (const auto& i : toAdd) { cout << "Adding " << pdg[i] << endl; v.AddDaughter(i); }
-      // increment daughter counter
-      d++;
-      if (d >= v.GetDaughters().size()) break;
-      theG4Id    = v.GetDaughters()[d];
-      thepdg     = pdg[theG4Id];
-      theTrackId = TrackId[theG4Id];
-    }
+    }// <--- End loop over daughters
+
     // Delete
-    for (const auto& i : toRm) { cout << "Deleting " << pdg[v.GetDaughters()[i]] << endl; v.RemoveDaughter(i); }
+    // We should have remove all the particles that passed the if statement
+    // Probably a better way to do this, but this will work for now
+    //auto dVec = v.GetDaughters();
+    //dVec.erase( std::remove_if(), 
+     //           dVec.end(),
+     //           [](const size_t& d) { return } );
+    for (const auto& d : toRm) { cout << "Deleting " << d << " " << pdg[v.GetDaughters()[d]] << endl; v.RemoveDaughter(d); }
+    if (toRm.size() != 0) cout << "----------------\n";
   }// <--- End loop over vertices
 
-  if (theVertices.size() != 0) cout << "------------------\n";
+  //if (theVertices.size() != 0) cout << "------------------\n";
   // ###########################################
   // ### Fill Vertex Charged Multiplicities  ###
   // ###########################################
