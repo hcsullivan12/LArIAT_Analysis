@@ -88,7 +88,7 @@ void pie_10000e::Loop()
     if (ientry < 0) break;
     nb = fChain->GetEntry(jentry);   nbytes += nb;
 
-    cout << "EVENT = " << event << endl;
+    //cout << "EVENT = " << event << endl;
 
     // ####################################################
     // ### Register processes from daughters of primary ###
@@ -107,7 +107,7 @@ void pie_10000e::Loop()
     // #######################################
     std::vector<Vertex> theVertices;
     GetVertices(theVertices);
-    for (const auto& v : theVertices) cout << v << endl;
+    //for (const auto& v : theVertices) cout << v << endl;
 
     // ######################
     // ### Appling FV Cut ###
@@ -157,7 +157,7 @@ void pie_10000e::Loop()
             << endl;
 
   //for (const auto& p : processes) std::cout << p << std::endl;
-  //for (const auto& u : ufos) std::cout << u << std::endl;
+  for (const auto& u : ufos) std::cout << u << std::endl;
   MakePlots();
 }
 
@@ -230,12 +230,17 @@ void pie_10000e::GetVertices(std::vector<Vertex>& theVertices)
       {
         auto theVertex = v.GetVertex();
         temp.emplace( (theVertex-thisVertex).Mag(), id ); 
+        id++;
       }
       for (const auto& t : temp) 
       {
         // If the difference is zero, we already have this vertex
         // just add the daughter ID
-        if (t.first < 0.01) theVertices[t.second].AddDaughter(thisPart);
+        if (t.first < 0.01) 
+        {
+          if (type != theVertices[t.second].GetType()) { thisVertex.Print(); theVertices[t.second].GetVertex().Print(); }
+          theVertices[t.second].AddDaughter(thisPart);
+        }
         else
         {
           Vertex v(thisVertex, type);
@@ -252,33 +257,16 @@ void pie_10000e::GetVertices(std::vector<Vertex>& theVertices)
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void pie_10000e::CharacterizeVertices(std::vector<Vertex>& theVertices)
 {
-
-  
-  for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++)  
+  for (auto& v : theVertices)
   {
-    if ( Mother[thisPart] == 1 )
+    auto dList = v.GetDaughters();
+    auto type  = v.GetType();
+
+    if (type == "hadElastic")
     {
-      // Where did this particle originate?
-      // If it's not in the FV, we skip 
-      TVector3 thisVertex(StartPointx[thisPart], StartPointy[thisPart], StartPointz[thisPart]);
-      if (!InFV(thisVertex)) continue;
-      
-      // Now this vertex should correspond to only one of the vertices
-      // in our list of vertices
-      std::multimap<double, size_t> temp;
-      size_t id(0);
-      for (const auto& v : theVertices) { temp.emplace( (thisVertex-v.GetVertex()).Mag(), id ); id++; }
-      size_t count(0);
-      for (const auto& v : temp) 
-      { 
-        if (v.first < 0.01) count++;
-      }
-      if (count == 0) 
+      for (const auto& d : dList)
       {
-        cout << "------------\n" << NumberDaughters[0] << " " << theVertices.size() << endl; 
-        for (const auto& v : theVertices) cout << v << endl;
-        thisVertex.Print();
-        cout << pdg[thisPart] << " " << (*G4Process)[thisPart] << endl;
+        ufos.insert(pdg[d]);
       }
     }
   }

@@ -32,13 +32,13 @@ class Vertex
       auto vert = v.GetVertex();
       out << "My vertex    = " << "(" << vert.X() << ", " << vert.Y() << ", " << vert.Z() << ")" << endl;
       out << "My type      = " << v.GetType()       << endl
-          << "My daughters = " << v.GetNDaughters() << endl; 
+          << "My daughters = " << v.GetDaughters().size() << endl; 
       return out;
     };
 
     TVector3    GetVertex()     const { return fVertex; }
     std::string GetType()       const { return fType; }
-    size_t      GetNDaughters() const { return fDaughterList.size(); }
+    std::list<size_t> GetDaughters() const { return fDaughterList; }
    
     void AddDaughter(const size_t& id) { fDaughterList.emplace_back(id); }
 
