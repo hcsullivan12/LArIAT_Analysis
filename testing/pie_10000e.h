@@ -23,7 +23,7 @@ class Vertex
          const std::string& t)
     : fVertex(v), fType(t)
     {
-      fDaughterList.clear();
+      fDaughterVec.clear();
     };
     ~Vertex(){};
 
@@ -38,14 +38,15 @@ class Vertex
 
     TVector3    GetVertex()     const { return fVertex; }
     std::string GetType()       const { return fType; }
-    std::list<size_t> GetDaughters() const { return fDaughterList; }
+    std::vector<size_t> GetDaughters() const { return fDaughterVec; }
    
-    void AddDaughter(const size_t& id) { fDaughterList.emplace_back(id); }
+    void AddDaughter(const size_t& id) { fDaughterVec.push_back(id); }
+    void RemoveDaughter(const size_t& id) { fDaughterVec.erase(fDaughterVec.begin()+id); }
 
   private:
-    TVector3          fVertex;
-    std::list<size_t> fDaughterList;
-    std::string       fType;
+    TVector3            fVertex;
+    std::vector<size_t> fDaughterVec;
+    std::string         fType;
 };
 
 
@@ -494,7 +495,7 @@ public :
 
    void ApplyFVCut(std::vector<Vertex>&);
    void AnaInelastic();
-   void AnaColAndElastic();
+   void Ana(std::vector<Vertex>& theVertices);
    void GetVertices(std::vector<Vertex>&);
    void CharacterizeVertices(std::vector<Vertex>& theVertices);
 };

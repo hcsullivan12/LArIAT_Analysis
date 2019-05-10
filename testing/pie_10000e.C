@@ -2,7 +2,7 @@
 // ###############################################################
 // ### NOTES ON PION INELASTIC: IDEAS, QUESTIONS, AND COMMENTS ###
 // 
-// 1) Definition
+// Definition
 // 	* Pion must still be present after interaction
 // 	* There must be at least two charged particles
 // 	  (including primary) leaving vertex 
@@ -10,12 +10,16 @@
 // 	  or point like gammas (neutron capture)? 
 // 	* Should not see any showers
 // 	  (Should eliminate charge exchange)
-// 	* Pion production and absoprtion may be the more difficult
+// 	* Pion production and absorption may be the more difficult
 // 	  backgrounds
 //
 // I am interested in applying some classification algorithm here.
 // A couple choices are decision trees and nnets.
 // Will first need to find some good observables for input. 
+//
+// What is known
+//  * If vertex has > 2 tracks entering/leaving, it's not elastic (had/Coulomb)
+//
 //
 // ###############################################################
 // ###############################################################
@@ -74,6 +78,11 @@ bool drawFSMult(false);
 TH1F *fsProAngle = new TH1F("fsProAngle", "fsProAngle", 60, 0, 180);
 bool drawAngles(false);
 
+TH1S *vertCharMultSignal  = new TH1S("vertCharMultSignal", "vertCharMultSignal", 10, 0, 10);
+TH1S *vertCharMultElastic = new TH1S("vertCharMultElastic", "vertCharMultElastic", 10, 0, 10);
+TH1S *vertCharMultBack    = new TH1S("vertCharMultBack", "vertCharMultBack", 10, 0, 10);
+bool drawCharFSMult(false);
+
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // %%%     Main loop
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -119,12 +128,12 @@ void pie_10000e::Loop()
     // #################################
     // ### Characterize the vertices ###
     // #################################
-    CharacterizeVertices(theVertices);
+    //CharacterizeVertices(theVertices);
 
-    // ###################################################################
-    // ### Make deflection angle distributions for coloumb and elastic ###
-    // ###################################################################
-    //AnaColAndElastic();
+    // #################################
+    // ### Begin main analysis chain ###
+    // #################################
+    Ana(theVertices);
 
     // ###########################
     // ### Apply Inelastic Cut ###
@@ -236,11 +245,7 @@ void pie_10000e::GetVertices(std::vector<Vertex>& theVertices)
       {
         // If the difference is zero, we already have this vertex
         // just add the daughter ID
-        if (t.first < 0.01) 
-        {
-          if (type != theVertices[t.second].GetType()) { thisVertex.Print(); theVertices[t.second].GetVertex().Print(); }
-          theVertices[t.second].AddDaughter(thisPart);
-        }
+        if (t.first < 0.01) theVertices[t.second].AddDaughter(thisPart);
         else
         {
           Vertex v(thisVertex, type);
@@ -257,19 +262,6 @@ void pie_10000e::GetVertices(std::vector<Vertex>& theVertices)
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void pie_10000e::CharacterizeVertices(std::vector<Vertex>& theVertices)
 {
-  for (auto& v : theVertices)
-  {
-    auto dList = v.GetDaughters();
-    auto type  = v.GetType();
-
-    if (type == "hadElastic")
-    {
-      for (const auto& d : dList)
-      {
-        ufos.insert(pdg[d]);
-      }
-    }
-  }
 }
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -328,25 +320,77 @@ void pie_10000e::AnaInelastic()
 }
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// %%%     Looking at Coulomb and Elastic
+// %%%     Main analysis chain
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void pie_10000e::AnaColAndElastic()
+void pie_10000e::Ana(std::vector<Vertex>& theVertices)
 {
-  // ###############################################
-  // ### Fill the deflection angle distributions ###
-  // ###############################################
-  std::vector<TVector3> vertexVec;
-  //vertexVec.push_back
-  for (const auto& v : *InteractionPoint) cout << "Int point = " <<  MidPosX[0][v] << " " << MidPosY[0][v] << " " << MidPosZ[0][v] << " " << endl;
-  for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++)
+  // #################################
+  // ### Identify resonant decays  ###
+  // ### Update vertices vec       ###
+  // #################################
+  for (auto& v : theVertices)
   {
-    // Use the start position of the daughter
-    if ( Mother[thisPart] == 1 && 
-         //((*G4Process)[thisPart] == "hadElastic" ||
-         1 )//(*G4Process)[thisPart] == "CoulombScat") ) 
+    // Get the interaction type and daughter vec
+    std::vector<size_t> toRm;
+    
+    // Loop over all the daughters
+    // Get the internal g4 ID and pdg for the first daughter
+    size_t d(0);
+    size_t theG4Id    = v.GetDaughters()[d];
+    size_t thepdg     = pdg[theG4Id];
+    size_t theTrackId = TrackId[theG4Id];
+    while (d < v.GetDaughters().size() && 
+           (thepdg == 3112 || // sigma-
+            thepdg == 3122 || // lambda0
+            thepdg == 3212) )   // sigma0
     {
-      cout << StartPointx[thisPart] << " " << StartPointy[thisPart] << " " << StartPointz[thisPart] << endl;
-    }   
+      // Add this id to remove later
+      toRm.push_back(d);
+      // Determine if we need to add a new particle
+      std::vector<size_t> toAdd;
+      for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++)
+      {
+        if ( Mother[thisPart] == theTrackId ) toAdd.push_back(thisPart);
+      }
+      // Add 
+      for (const auto& i : toAdd) { cout << "Adding " << pdg[i] << endl; v.AddDaughter(i); }
+      // increment daughter counter
+      d++;
+      if (d >= v.GetDaughters().size()) break;
+      theG4Id    = v.GetDaughters()[d];
+      thepdg     = pdg[theG4Id];
+      theTrackId = TrackId[theG4Id];
+    }
+    // Delete
+    for (const auto& i : toRm) { cout << "Deleting " << pdg[v.GetDaughters()[i]] << endl; v.RemoveDaughter(i); }
+  }// <--- End loop over vertices
+
+  if (theVertices.size() != 0) cout << "------------------\n";
+  // ###########################################
+  // ### Fill Vertex Charged Multiplicities  ###
+  // ###########################################
+  for (const auto& v : theVertices)
+  {
+    auto theType = v.GetType();
+    auto dVec    = v.GetDaughters();
+
+    // How many daughters are charged? (Can we see?)
+    size_t nDau(0);
+    for (const auto& d : dVec)
+    {
+      size_t thepdg = pdg[d]; 
+      if (thepdg == 211  || // pion+-
+          thepdg == 2212 || // proton+-
+          thepdg == 13   || // muon+-
+          thepdg == 11   || // electron+-
+          thepdg == 321) nDau++; // kaon+- 
+      else ufos.insert(thepdg);     
+    }
+
+    if      (theType == "pi-Inelastic") vertCharMultSignal->Fill(nDau);
+    else if (theType == "hadElastic")   vertCharMultElastic->Fill(nDau);
+    else if (theType == "CoulombScat")  vertCharMultElastic->Fill(nDau);
+    else                                vertCharMultBack->Fill(nDau);
   }
 
 }
@@ -442,6 +486,32 @@ void MakePlots()
     fsTot->SetLineWidth(3);
     fsTot->SetLineColor(1);
     fsTot->Draw();
+  }
+
+  if (drawCharFSMult)
+  {
+    gStyle->SetOptStat(0);
+    TCanvas *c8 = new TCanvas("c8", "FSChargedMult", 800, 800);
+    c8->SetLogy();
+    std::vector<TH1S*> hists;
+    hists.push_back(vertCharMultSignal);
+    hists.push_back(vertCharMultBack);
+    hists.push_back(vertCharMultElastic);
+    std::sort(hists.begin(), hists.end(), [](const TH1S* lh, const TH1S* rh) { return lh->GetMaximum() > rh->GetMaximum(); });
+    for (auto& h : hists) { h->SetLineWidth(2); h->SetFillColor(0); }
+    vertCharMultSignal->SetLineColor(2);
+    vertCharMultBack->SetLineColor(4);
+    vertCharMultElastic->SetLineColor(3);
+    TLegend* leg8 = new TLegend(0.1,0.7,0.48,0.9);
+    leg8->AddEntry(vertCharMultSignal,"Inelastic","f");
+    leg8->AddEntry(vertCharMultBack,"Others","f");
+    leg8->AddEntry(vertCharMultElastic,"Elastic (hadronic & Coulomb)","f");
+    leg8->SetBorderSize(0);
+    auto iter = hists.begin();
+    (*iter)->SetTitle("Vertex Charged Multiplicities");
+    (*iter)->Draw(); iter++;
+    while (iter != hists.end()) { (*iter)->Draw("same"); iter++; }
+    leg8->Draw("same");
   }
 }
 
