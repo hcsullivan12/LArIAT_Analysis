@@ -88,10 +88,17 @@ void pie_10000e::Loop()
     if (ientry < 0) break;
     nb = fChain->GetEntry(jentry);   nbytes += nb;
 
+    cout << "EVENT = " << event << endl;
+
+    // ####################################################
+    // ### Register processes from daughters of primary ###
+    // ####################################################
+    for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++) 
+    { if (Mother[thisPart] == 1) processes.emplace((*G4Process)[thisPart]); }
+
     // #############
     // ### Flags ###
     // #############
-    bool passedFVCut(false);
     bool isInelastic(false);
     nPionsSim = nentries; 
     
@@ -100,24 +107,19 @@ void pie_10000e::Loop()
     // #######################################
     std::vector<Vertex> theVertices;
     GetVertices(theVertices);
+    for (const auto& v : theVertices) cout << v << endl;
 
     // ######################
     // ### Appling FV Cut ###
     // ######################
-    ApplyFVCut(passedFVCut, theVertices);
-    if (!passedFVCut) continue;
+    ApplyFVCut(theVertices);
+    if (theVertices.size() == 0) continue;
     nPionsInteractFV++;
 
     // #################################
     // ### Characterize the vertices ###
     // #################################
     CharacterizeVertices(theVertices);
-
-    // ####################################################
-    // ### Register processes from daughters of primary ###
-    // ####################################################
-    for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++) 
-    { if (Mother[thisPart] == 1) processes.emplace((*G4Process)[thisPart]); }
 
     // ###################################################################
     // ### Make deflection angle distributions for coloumb and elastic ###
@@ -175,22 +177,22 @@ bool InFV(const TVector3& vertexVec)
 // %%%  We're only looking for an interaction
 // %%%  in the fiducial volume
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void pie_10000e::ApplyFVCut(bool& passedFVCut, const std::vector<Vertex>& theVertices)
+void pie_10000e::ApplyFVCut(std::vector<Vertex>& theVertices)
 {
   // Remember, all the vertices are attached to the primary.
   // So if at least one of the vertices is in the FV, we
   // keep it
+  theVertices.erase( std::remove_if(theVertices.begin(), 
+                                    theVertices.end(),
+                                    [](const Vertex& v) { return !InFV(v.GetVertex()); } ),
+                     theVertices.end() );
+  // If it's not empty, it passed
   for (const auto& v : theVertices) 
-  {
+  { 
     auto vertexVec = v.GetVertex();
-    if (InFV(vertexVec))
-    { 
-      passedFVCut = true; 
-      fvCutX->Fill(vertexVec[0]);
-      fvCutY->Fill(vertexVec[1]);
-      fvCutZ->Fill(vertexVec[2]);
-      break;
-    }
+    fvCutX->Fill(vertexVec[0]);
+    fvCutY->Fill(vertexVec[1]);
+    fvCutZ->Fill(vertexVec[2]);
   }
 }
 
@@ -201,25 +203,48 @@ void pie_10000e::ApplyFVCut(bool& passedFVCut, const std::vector<Vertex>& theVer
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void pie_10000e::GetVertices(std::vector<Vertex>& theVertices)
 {
-  // Get the spacepoints and interaction type
-  std::vector<TVector3> vertexVec;
-  std::vector<size_t>   interType;
-  for (const auto& v : *InteractionPoint)     vertexVec.push_back( TVector3(MidPosX[0][v], MidPosY[0][v], MidPosZ[0][v]) ); 
-  for (const auto& i : *InteractionPointType) interType.push_back(i);
-  // Now create our vertices
-  for (size_t v = 0; v < vertexVec.size(); v++) 
+  // The interaction point variable wasn't giving sensible results
+  // So our vertices will be the starting points of particles
+  // with Mother == primary
+  for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++)  
   {
-    std::string type;
-    switch(interType[v])
+    if ( Mother[thisPart] == 1 )
     {
-      case 1:  { type = "pi-Inelastic"; break; } 
-      case 3:  { type = "hadElastic"; break; }
-      case 14: { type = "pi+Inelastic"; break; }
-      case 8:  { type = "coulombScat"; break; }
-      default: type = "other";
-    }
-    theVertices.push_back( Vertex(vertexVec[v], type) );
-  }
+      // Where did this particle originate?
+      // If it's not in the FV, we skip
+      std::string type = (*G4Process)[thisPart]; 
+      TVector3 thisVertex(StartPointx[thisPart], StartPointy[thisPart], StartPointz[thisPart]);
+      // Add this is we don't have any yet
+      if (theVertices.size() == 0) 
+      { 
+        Vertex v(thisVertex, type);
+        v.AddDaughter(thisPart);
+        theVertices.push_back(v); 
+        continue; 
+      }
+
+      // We don't want to add duplicates
+      std::multimap<double, size_t> temp;
+      size_t id(0);
+      for (const auto& v : theVertices)
+      {
+        auto theVertex = v.GetVertex();
+        temp.emplace( (theVertex-thisVertex).Mag(), id ); 
+      }
+      for (const auto& t : temp) 
+      {
+        // If the difference is zero, we already have this vertex
+        // just add the daughter ID
+        if (t.first < 0.01) theVertices[t.second].AddDaughter(thisPart);
+        else
+        {
+          Vertex v(thisVertex, type);
+          v.AddDaughter(thisPart);
+          theVertices.push_back(v); 
+        }
+      }// <--- End loop over temp
+    }// <--- End if mother is prim
+  }// <-- End loop over g4 particles 
 }
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -227,7 +252,8 @@ void pie_10000e::GetVertices(std::vector<Vertex>& theVertices)
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void pie_10000e::CharacterizeVertices(std::vector<Vertex>& theVertices)
 {
-  //cout << "------------\n" << NumberDaughters[0] << " " << theVertices.size() << endl;
+
+  
   for (size_t thisPart = 0; thisPart < geant_list_size; thisPart++)  
   {
     if ( Mother[thisPart] == 1 )
@@ -254,7 +280,6 @@ void pie_10000e::CharacterizeVertices(std::vector<Vertex>& theVertices)
         thisVertex.Print();
         cout << pdg[thisPart] << " " << (*G4Process)[thisPart] << endl;
       }
-      //cout << v.first << " " << pdg[thisPart] << " " << thisVertex.Z() << " " << theVertices[v.second].GetVertex().Z() << endl;
     }
   }
 }

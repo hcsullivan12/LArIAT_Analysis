@@ -492,7 +492,7 @@ public :
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
 
-   void ApplyFVCut(bool& , const std::vector<Vertex>&);
+   void ApplyFVCut(std::vector<Vertex>&);
    void AnaInelastic();
    void AnaColAndElastic();
    void GetVertices(std::vector<Vertex>&);
