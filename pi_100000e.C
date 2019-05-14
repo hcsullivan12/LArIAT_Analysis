@@ -94,7 +94,7 @@ void pie_10000e::Loop()
     if (ientry < 0) break;
     nb = fChain->GetEntry(jentry);   nbytes += nb;
 
-    cout << "EVENT = " << event << endl;
+    //cout << "EVENT = " << event << endl;
 
     // ####################################################
     // ### Register processes from daughters of primary ###
@@ -296,6 +296,12 @@ void pie_10000e::AnaInelastic()
       case  321: nKaP++; break;
       //default: ufos.emplace(pdg[thisPart]);
     }
+
+    // angles 
+    if (Mother[thisPart] == 1 && pdg[thisPart] == 2212)
+    {
+               
+    } 
   }
 
   fsPiP->Fill(nPiP);
@@ -315,10 +321,10 @@ void pie_10000e::AnaInelastic()
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void pie_10000e::Ana(std::vector<Vertex>& theVertices)
 {
-  // ######################################
-  // ### Identify short-lived particles ###
-  // ### Update vertices vec            ###
-  // ######################################
+  // #################################
+  // ### Identify resonant decays  ###
+  // ### Update vertices vec       ###
+  // #################################
   for (auto& v : theVertices)
   {
     // Get the interaction type and daughter vec
@@ -390,6 +396,7 @@ void pie_10000e::Ana(std::vector<Vertex>& theVertices)
     else if (theType == "CoulombScat")  vertCharMultElastic->Fill(nDau);
     else                                vertCharMultBack->Fill(nDau);
   }
+
 }
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

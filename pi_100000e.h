@@ -1,12 +1,12 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Mon Apr 29 16:48:51 2019 by ROOT version 6.10/04
+// Mon May 13 08:33:29 2019 by ROOT version 6.10/04
 // from TTree anatree/analysis tree
 // found on file: anaTree.root
 //////////////////////////////////////////////////////////
 
-#ifndef pie_10000e_h
-#define pie_10000e_h
+#ifndef pi_100000e_h
+#define pi_100000e_h
 
 #include <TROOT.h>
 #include <TChain.h>
@@ -50,7 +50,7 @@ class Vertex
 };
 
 
-class pie_10000e {
+class pi_100000e {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -187,30 +187,30 @@ public :
    Bool_t          HitExist1p06_1[1];   //[nAG]
    Bool_t          HitExist1p06_2[1];   //[nAG]
    Int_t           maxTrackIDE;
-   Double_t        IDEEnergy[3568];   //[maxTrackIDE]
-   Double_t        IDEPos[3568][3];   //[maxTrackIDE]
+   Double_t        IDEEnergy[3938];   //[maxTrackIDE]
+   Double_t        IDEPos[3938][3];   //[maxTrackIDE]
    Int_t           no_primaries;
    Int_t           geant_list_size;
-   Int_t           pdg[254];   //[geant_list_size]
-   Double_t        Eng[254];   //[geant_list_size]
-   Double_t        Px[254];   //[geant_list_size]
-   Double_t        Py[254];   //[geant_list_size]
-   Double_t        Pz[254];   //[geant_list_size]
-   Double_t        EndEng[254];   //[geant_list_size]
-   Double_t        EndPx[254];   //[geant_list_size]
-   Double_t        EndPy[254];   //[geant_list_size]
-   Double_t        EndPz[254];   //[geant_list_size]
-   Double_t        StartPointx[254];   //[geant_list_size]
-   Double_t        StartPointy[254];   //[geant_list_size]
-   Double_t        StartPointz[254];   //[geant_list_size]
-   Double_t        EndPointx[254];   //[geant_list_size]
-   Double_t        EndPointy[254];   //[geant_list_size]
-   Double_t        EndPointz[254];   //[geant_list_size]
-   Int_t           Process[254];   //[geant_list_size]
-   Int_t           NumberDaughters[254];   //[geant_list_size]
-   Int_t           Mother[254];   //[geant_list_size]
-   Int_t           TrackId[254];   //[geant_list_size]
-   Int_t           process_primary[254];   //[geant_list_size]
+   Int_t           pdg[290];   //[geant_list_size]
+   Double_t        Eng[290];   //[geant_list_size]
+   Double_t        Px[290];   //[geant_list_size]
+   Double_t        Py[290];   //[geant_list_size]
+   Double_t        Pz[290];   //[geant_list_size]
+   Double_t        EndEng[290];   //[geant_list_size]
+   Double_t        EndPx[290];   //[geant_list_size]
+   Double_t        EndPy[290];   //[geant_list_size]
+   Double_t        EndPz[290];   //[geant_list_size]
+   Double_t        StartPointx[290];   //[geant_list_size]
+   Double_t        StartPointy[290];   //[geant_list_size]
+   Double_t        StartPointz[290];   //[geant_list_size]
+   Double_t        EndPointx[290];   //[geant_list_size]
+   Double_t        EndPointy[290];   //[geant_list_size]
+   Double_t        EndPointz[290];   //[geant_list_size]
+   Int_t           Process[290];   //[geant_list_size]
+   Int_t           NumberDaughters[290];   //[geant_list_size]
+   Int_t           Mother[290];   //[geant_list_size]
+   Int_t           TrackId[290];   //[geant_list_size]
+   Int_t           process_primary[290];   //[geant_list_size]
    vector<string>  *G4Process;
    vector<string>  *G4FinalProcess;
    Int_t           NTrTrajPts[1];   //[no_primaries]
@@ -483,8 +483,8 @@ public :
    TBranch        *b_dEdxPerPlaneShw;   //!
    TBranch        *b_TotalMIPEShw;   //!
 
-   pie_10000e(TTree *tree=0);
-   virtual ~pie_10000e();
+   pi_100000e(TTree *tree=0);
+   virtual ~pi_100000e();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
@@ -492,7 +492,7 @@ public :
    virtual void     Loop();
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
-
+   
    void ApplyFVCut(std::vector<Vertex>&);
    void AnaInelastic();
    void Ana(std::vector<Vertex>& theVertices);
@@ -502,8 +502,8 @@ public :
 
 #endif
 
-#ifdef pie_10000e_cxx
-pie_10000e::pie_10000e(TTree *tree) : fChain(0) 
+#ifdef pi_100000e_cxx
+pi_100000e::pi_100000e(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
@@ -519,19 +519,19 @@ pie_10000e::pie_10000e(TTree *tree) : fChain(0)
    Init(tree);
 }
 
-pie_10000e::~pie_10000e()
+pi_100000e::~pi_100000e()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t pie_10000e::GetEntry(Long64_t entry)
+Int_t pi_100000e::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t pie_10000e::LoadTree(Long64_t entry)
+Long64_t pi_100000e::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -544,7 +544,7 @@ Long64_t pie_10000e::LoadTree(Long64_t entry)
    return centry;
 }
 
-void pie_10000e::Init(TTree *tree)
+void pi_100000e::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -779,7 +779,7 @@ void pie_10000e::Init(TTree *tree)
    Notify();
 }
 
-Bool_t pie_10000e::Notify()
+Bool_t pi_100000e::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -790,18 +790,18 @@ Bool_t pie_10000e::Notify()
    return kTRUE;
 }
 
-void pie_10000e::Show(Long64_t entry)
+void pi_100000e::Show(Long64_t entry)
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
    if (!fChain) return;
    fChain->Show(entry);
 }
-Int_t pie_10000e::Cut(Long64_t entry)
+Int_t pi_100000e::Cut(Long64_t entry)
 {
 // This function may be called from Loop.
 // returns  1 if entry is accepted.
 // returns -1 otherwise.
    return 1;
 }
-#endif // #ifdef pie_10000e_cxx
+#endif // #ifdef pi_100000e_cxx
