@@ -3,22 +3,14 @@
 // ### NOTES ON PION INELASTIC: IDEAS, QUESTIONS, AND COMMENTS ###
 // 
 // Definition
-// 	* Pion must still be present after interaction
 // 	* There must be at least two charged particles
 // 	  (including primary) leaving vertex 
 // 	  (this should eliminate elastic scattering) 
-// 	  or point like gammas (neutron capture)? 
-// 	* Should not see any showers
-// 	  (Should eliminate charge exchange)
-// 	* Pion production and absorption may be the more difficult
-// 	  backgrounds
+// 	* If not, look for showers from pi0 decay
 //
 // I am interested in applying some classification algorithm here.
 // A couple choices are decision trees and nnets.
 // Will first need to find some good observables for input. 
-//
-// What is known
-//  * If vertex has > 2 tracks entering/leaving, it's not elastic (had/Coulomb)
 //
 //
 // ###############################################################
