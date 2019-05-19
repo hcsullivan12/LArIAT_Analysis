@@ -11,8 +11,8 @@
 /////////////////////////////////////////////////////////////////
 
 
-#define pi_minus_100000e_cxx
-#include "pi_minus_100000e.h"
+#define pi_minus_10000e_g4step_cxx
+#include "pi_minus_10000e_g4step.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -26,7 +26,7 @@
 void MakePlots();
 void ComputeAngles(float& phi, float& theta, const TVector3& p0Hat);
 std::string ConvertProcessToString(const int& i);
-
+void CalculateG4Xs();
 
 // ==================================================================================================
 // ====================================  USEFUL VARIABLES  ==========================================
@@ -52,6 +52,9 @@ bool IS_XS_USING_RECO_INFO(false);
 
 // the interaction channel we're interested in
 std::string INTERACTION_CHANNEL("Pi-Inelastic");
+
+// step size
+float STEP_SIZE(0.005); // m
 
 // tpc boundaries
 float TPC_X_BOUND[2] = {   0.0, 47.0 };
@@ -104,13 +107,14 @@ float EVENT_WEIGHT(1.0);
 bool USE_EVENT_WEIGHT(true);
 
 // constants for cross section calculation
-float RHO(1400);                 //kg/m^3
-float MOLAR_MASS(39.9);          //g/mol
-float G_PER_KG(1000);
-float AVOGADRO(6.02e+23);        //number/mol
-float NUMBER_DENSITY(RHO*G_PER_KG/MOLAR_MASS*AVOGADRO);
-float SLAB_WIDTH(0.0045);        //in m
+double RHO(1400);                 //kg/m^3
+double MOLAR_MASS(39.9);          //g/mol
+double G_PER_KG(1000);
+double AVOGADRO(6.02e+23);        //number/mol
+double NUMBER_DENSITY( (RHO*G_PER_KG/MOLAR_MASS)*AVOGADRO );
+double SLAB_WIDTH(0.0045);        //in m
 double PI(3.141592654);
+double BARN_PER_M2(1e28);
 
 // cut on angle between wc and tpc track (degrees)
 float ALPHA_CUT(10.);
@@ -147,6 +151,7 @@ TH1D *hAlpha = new TH1D("hAlpha", "#alpha between MC Particle and TPC Track", 90
 TH1D *hXsG4IncidentKinEn = new TH1D("hXsG4IncidentKinEn", "MC Truth Incident Kinetic Energy", 20, 0, 1000);
 TH1D *hXsG4InteractingKinEn = new TH1D("hXsG4InteractingKinEn", "MC Truth Interacting Kinetic Energy", 20, 0, 1000);
 
+TH1D *hXsG4 = new TH1D("hXsG4", "XS", 20, 0, 1000);
 
 // =======================================================================================
 // ====================================  FILES  ==========================================
@@ -158,8 +163,23 @@ TFile myRootFile("piMinusAna.root", "RECREATE");
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // %%% Main loop
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void pi_minus_100000e::Loop(int inDebug)
+void pi_minus_10000e_g4step::Loop(int inDebug)
 {
+
+  // ########################
+  // ### Define our slabs ###
+  // ########################
+  if (IS_XS_USING_G4_INFO)
+  {
+    float iZ(TPC_Z_BOUND[0]);
+    while (iZ <= TPC_Z_BOUND[1])
+    {
+      slabsInZ.push_back(iZ);
+      iZ = iZ + STEP_SIZE*100; // convert to cm
+    }
+  }
+
+
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
@@ -179,22 +199,7 @@ void pi_minus_100000e::Loop(int inDebug)
     // ### Increment our total event counter ###
     // #########################################
     nTotalEvents++; 
-    if (nTotalEvents%5000 == 0) std::cout << "EVENT = " << nTotalEvents << std::endl;
-
-
-    // ########################
-    // ### Define our slabs ###
-    // ########################
-    if (IS_XS_USING_G4_INFO)
-    {
-      float iZ(TPC_Z_BOUND[0]);
-      while (iZ < TPC_Z_BOUND[2])
-      {
-        slabsInZ.push_back(iZ);
-        iZ = iZ + STEP_SIZE;
-      }
-    }
-
+    if (nTotalEvents%5000 == 0) std::cout << "EVENT = " << nTotalEvents << std::endl; 
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -442,53 +447,44 @@ void pi_minus_100000e::Loop(int inDebug)
                    FV_Y_BOUND[0] < theTrTrjPointVec.Y() && theTrTrjPointVec.Y() < FV_Y_BOUND[1] &&
                    FV_Z_BOUND[0] < theTrTrjPointVec.Z() && theTrTrjPointVec.Z() < FV_Z_BOUND[1] )
               { 
-                minIncPoint = theTrTrjPointVec.Z();
-                thIncMomVec = theTrTrjMomVec;
+                //minIncPoint = theTrTrjPointVec.Z();
+                theIncMomVec = theTrTrjMomVec;
 
                 // did it interact here?
                 auto it = std::find( InteractionPoint->begin(), InteractionPoint->end(), iPoint );
                 if ( it != InteractionPoint->end() )
                 {
                   temp++;
-
-                  kineticEnergy = std::sqrt( thIncMomVec.Mag()*thIncMomVec.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-
                   // we have an interaction at this point!
                   size_t d = std::distance(InteractionPoint->begin(), it);
                   std::string theProcess = ConvertProcessToString( (*InteractionPointType)[d] );
                   // check if it's the process we're interested in
-                  if (theProcess = INTERACTION_CHANNEL) didInteract = true;
+                  if (theProcess == INTERACTION_CHANNEL) didInteract = true;
                 }
               }
-            }
+
+              // fill the incident
+              kineticEnergy = std::sqrt( theIncMomVec.Mag()*theIncMomVec.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+              if (kineticEnergy < 0.001) continue;
+              hXsG4IncidentKinEn->Fill(kineticEnergy);
+
+              if (didInteract)
+              {
+                // we've got the one we're looking for
+                // fill the interacting histogram
+                nXsG4Signal++;
+                hXsG4InteractingKinEn->Fill(kineticEnergy);
+              }
+            }//<--- End if in this slab
           }//<--- End loop over trj points
 
           if (temp > 1) std::cout << "\n\n\n\n\nHEYYYYYYY\n\n\n\n\n";
 
           // if the momentum is zero, this primary is finished
           //if (theTrTrjMomVec.Mag() < 0.001) continue;  
-
-          // fill the incident
-          hXsG4IncidentKinEn->Fill(kineticEnergy);
-
-          if (didInteract)
-          {
-            // we've got the one we're looking for
-            // fill the interacting histogram
-            nXsG4Signal++;
-            hXsG4InteractingKinEn->Fill(kineticEnergy);
-          }
-
         }//<--- End loop over slabs
       }//<--- End loop over primaries
-    }//<--- End if xs using g4
-
-    // ###################################
-    // ### Calculate the cross section ###
-    // ###################################
-
-
-
+    }//<--- End if xs using g4 
 
 
 // End looking at only MC truth/G4 information
@@ -881,13 +877,49 @@ void pi_minus_100000e::Loop(int inDebug)
 
 
 
+  // ====================================================
+  // =================  CALCULATE G4 XS =================
+  // ====================================================
+  if (IS_XS_USING_G4_INFO) CalculateG4Xs();
+
+
+
   // ===============================================
   // =================  MAKE PLOTS =================
   // ===============================================
   MakePlots();
 
+
+
   gApplication->Terminate(0);
 }//<---- End main loop
+
+
+
+
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Calculate the g4 cross section
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void CalculateG4Xs()
+{
+  for (int bin = 1; bin <= hXsG4InteractingKinEn->GetXaxis()->GetNbins(); bin++)
+  {
+    auto num = hXsG4InteractingKinEn->GetBinContent(bin);
+    auto den = hXsG4IncidentKinEn->GetBinContent(bin);
+    auto err1 = std::sqrt(num);
+    auto err2 = std::sqrt(den);
+
+    double xs    = BARN_PER_M2*(1/NUMBER_DENSITY)*(1/STEP_SIZE)*(num/den);
+    // independent?
+    double error = xs*std::sqrt( (err1/num)*(err1/num) + (err2/den)*(err2/den)  );
+    cout << err1 << " " << err2 << " " << error <<endl;
+
+    hXsG4->SetBinContent(bin, xs);
+    hXsG4->SetBinError(bin, error);
+  }
+}
 
 
 
@@ -927,6 +959,8 @@ void MakePlots()
 
   hXsG4IncidentKinEn->Write();
   hXsG4InteractingKinEn->Write();
+
+  hXsG4->Write();
 
   myRootFile.Close();
 }
@@ -976,19 +1010,19 @@ std::string ConvertProcessToString(const int& i)
   {
     case 0:  { theProcess = "None"; break; }
     case 1:  { theProcess = "Pi-Inelastic"; break; }
-    case 2:  { theProcess = "NeutronInelastic"; break; }
-    case 3:  { theProcess = "HadElastic"; break; }
-    case 4:  { theProcess = "Ncapture"; break; }
-    case 5:  { theProcess = "ChipsNuclearCaptureAtRest"; break; }
-    case 6:  { theProcess = "Decay"; break; }
-    case 7:  { theProcess = "Kaon0Linelastic"; break; }
-    case 8:  { theProcess = "CoulombScat"; break; }
-    case 9:  { theProcess = "MuMinusCaptureAtRest"; break; }
-    case 10: { theProcess = "ProtonInelastic"; break; }
-    case 11: { theProcess = "Kaon+Inelastic"; break; }
-    case 12: { theProcess = "Kaon-Inelastic"; break; }
-    case 13: { theProcess = "ProtonInelastic"; break; }
-    case 14: { theProcess = "Pi+Inelastic"; break; }
+    case 2:  { theProcess = "Pi+Inelastic"; break; }
+    case 3:  { theProcess = "NeutronInelastic"; break; }
+    case 4:  { theProcess = "HadElastic"; break; }
+    case 5:  { theProcess = "Ncapture"; break; }
+    case 6:  { theProcess = "ChipsNuclearCaptureAtRest"; break; }
+    case 7:  { theProcess = "Decay"; break; }
+    case 8:  { theProcess = "Kaon0Linelastic"; break; }
+    case 9:  { theProcess = "CoulombScat"; break; }
+    case 10:  { theProcess = "MuMinusCaptureAtRest"; break; }
+    case 11: { theProcess = "ProtonInelastic"; break; }
+    case 12: { theProcess = "Kaon+Inelastic"; break; }
+    case 13: { theProcess = "Kaon-Inelastic"; break; }
+    case 14: { theProcess = "ProtonInelastic"; break; }
     default: { theProcess = "Unknown"; }
 
   }
