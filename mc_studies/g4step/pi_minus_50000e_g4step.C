@@ -5,14 +5,12 @@
 //    the TPC instead of just the primary? Presumably this would 
 //    give us a more realistic sample.
 //  * Pion.C requires all primaries to enter the TPC
-//  * It seems like AnaTreeT1034 doesn't handle the processes 
-//    properly. Maybe need to write my own.
 //
 /////////////////////////////////////////////////////////////////
 
 
-#define pi_minus_10000e_g4step_cxx
-#include "pi_minus_10000e_g4step.h"
+#define pi_minus_50000e_g4step_cxx
+#include "pi_minus_50000e_g4step.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -54,7 +52,7 @@ bool IS_XS_USING_RECO_INFO(false);
 std::string INTERACTION_CHANNEL("Pi-Inelastic");
 
 // step size
-float STEP_SIZE(0.005); // m
+float STEP_SIZE(0.0003); // m
 
 // tpc boundaries
 float TPC_X_BOUND[2] = {   0.0, 47.0 };
@@ -107,10 +105,10 @@ float EVENT_WEIGHT(1.0);
 bool USE_EVENT_WEIGHT(true);
 
 // constants for cross section calculation
-double RHO(1400);                 //kg/m^3
-double MOLAR_MASS(39.9);          //g/mol
+double RHO(1395);                 //kg/m^3
+double MOLAR_MASS(39.948);          //g/mol
 double G_PER_KG(1000);
-double AVOGADRO(6.02e+23);        //number/mol
+double AVOGADRO(6.022140857e+23);        //number/mol
 double NUMBER_DENSITY( (RHO*G_PER_KG/MOLAR_MASS)*AVOGADRO );
 double SLAB_WIDTH(0.0045);        //in m
 double PI(3.141592654);
@@ -153,6 +151,8 @@ TH1D *hXsG4InteractingKinEn = new TH1D("hXsG4InteractingKinEn", "MC Truth Intera
 
 TH1D *hXsG4 = new TH1D("hXsG4", "XS", 20, 0, 1000);
 
+TH1D *hStepSize = new TH1D("hStepSize", "G4 Step Size", 1000, 0, 0.0004);
+
 // =======================================================================================
 // ====================================  FILES  ==========================================
 // =======================================================================================
@@ -163,7 +163,7 @@ TFile myRootFile("piMinusAna.root", "RECREATE");
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // %%% Main loop
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void pi_minus_10000e_g4step::Loop(int inDebug)
+void pi_minus_50000e_g4step::Loop(int inDebug)
 {
 
   // ########################
@@ -178,7 +178,7 @@ void pi_minus_10000e_g4step::Loop(int inDebug)
       iZ = iZ + STEP_SIZE*100; // convert to cm
     }
   }
-
+ 
 
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
@@ -411,78 +411,58 @@ void pi_minus_10000e_g4step::Loop(int inDebug)
       // ###########################
       for (size_t iPrim = 0; iPrim < nPrimary; iPrim++)
       {
-        // #######################
-        // ### Loop over slabs ###
-        // #######################
-        for (size_t iSlab = 0; iSlab < (slabsInZ.size()-1); iSlab++)
+        // parameters
+        bool didInteract(false);
+        float kineticEnergy(0);
+
+        // ####################################################################
+        // ### Loop over tr trj points to look for interaction in this slab ###
+        // ####################################################################
+        size_t temp(0);
+        for (size_t iPoint = 1; iPoint < nTrTrjPoints[iPrim]; iPoint++)
         {
-          // the boundaries for this slab
-          float slabBound[2] = { slabsInZ[iSlab], slabsInZ[iSlab+1] };
+          TVector3 theTrTrjPointVec( g4PrimaryTrTrjX[iPrim][iPoint],  g4PrimaryTrTrjY[iPrim][iPoint],  g4PrimaryTrTrjZ[iPrim][iPoint] );
+          TVector3 thePreTrTrjPointVec( g4PrimaryTrTrjX[iPrim][iPoint-1],  g4PrimaryTrTrjY[iPrim][iPoint-1],  g4PrimaryTrTrjZ[iPrim][iPoint-1] );
+          double diff = (thePreTrTrjPointVec-theTrTrjPointVec).Mag();
+          if (diff < 1e-5) continue;
+          TVector3 theTrTrjMomVec( g4PrimaryTrTrjPx[iPrim][iPoint-1], g4PrimaryTrTrjPy[iPrim][iPoint-1], g4PrimaryTrTrjPz[iPrim][iPoint-1] );
 
-          // parameters
-          bool didInteract(false);
-          TVector3 theIncMomVec;
-          float kineticEnergy(0);
-          //float minIncPoint(slabBound[1]);
+          // compute the kinetic energy
+          kineticEnergy = std::sqrt( theTrTrjMomVec.Mag()*theTrTrjMomVec.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+          // should we do this later?
+          if (kineticEnergy < 0.001) continue;
 
-          // ####################################################################
-          // ### Loop over tr trj points to look for interaction in this slab ###
-          // ####################################################################
-          // skipping first point
-          size_t temp(0);
-          for (size_t iPoint = 1; iPoint < nTrTrjPoints[iPrim]; iPoint++)
-          {
-            TVector3 theTrTrjPointVec( g4PrimaryTrTrjX[iPrim][iPoint],  g4PrimaryTrTrjY[iPrim][iPoint],  g4PrimaryTrTrjZ[iPrim][iPoint] );
-            TVector3 theTrTrjMomVec( g4PrimaryTrTrjPx[iPrim][iPoint-1], g4PrimaryTrTrjPy[iPrim][iPoint-1], g4PrimaryTrTrjPz[iPrim][iPoint-1] );
-
-            // #############################
-            // ### Check if in this slab ###
-            // #############################
-            if ( slabBound[0]  < theTrTrjPointVec.Z() && theTrTrjPointVec.Z() < slabBound[1] )
+          // #######################################
+          // ### Check if in the fiducial volume ###
+          // #######################################
+          if ( FV_X_BOUND[0] < theTrTrjPointVec.X() && theTrTrjPointVec.X() < FV_X_BOUND[1] &&
+               FV_Y_BOUND[0] < theTrTrjPointVec.Y() && theTrTrjPointVec.Y() < FV_Y_BOUND[1] &&
+               FV_Z_BOUND[0] < theTrTrjPointVec.Z() && theTrTrjPointVec.Z() < FV_Z_BOUND[1] )
+          { 
+            // did it interact here?
+            auto it = std::find( InteractionPoint->begin(), InteractionPoint->end(), iPoint );
+            if ( it != InteractionPoint->end() )
             {
-              // #######################################
-              // ### Check if in the fiducial volume ###
-              // #######################################
-              if ( FV_X_BOUND[0] < theTrTrjPointVec.X() && theTrTrjPointVec.X() < FV_X_BOUND[1] &&
-                   FV_Y_BOUND[0] < theTrTrjPointVec.Y() && theTrTrjPointVec.Y() < FV_Y_BOUND[1] &&
-                   FV_Z_BOUND[0] < theTrTrjPointVec.Z() && theTrTrjPointVec.Z() < FV_Z_BOUND[1] )
-              { 
-                //minIncPoint = theTrTrjPointVec.Z();
-                theIncMomVec = theTrTrjMomVec;
+              // we have an interaction at this point!
+              size_t d = std::distance(InteractionPoint->begin(), it);
+              std::string theProcess = ConvertProcessToString( (*InteractionPointType)[d] );
+              cout << theProcess << endl;
+              // check if it's the process we're interested in
+              if (theProcess == INTERACTION_CHANNEL) didInteract = true;
+            }
+          }
 
-                // did it interact here?
-                auto it = std::find( InteractionPoint->begin(), InteractionPoint->end(), iPoint );
-                if ( it != InteractionPoint->end() )
-                {
-                  temp++;
-                  // we have an interaction at this point!
-                  size_t d = std::distance(InteractionPoint->begin(), it);
-                  std::string theProcess = ConvertProcessToString( (*InteractionPointType)[d] );
-                  // check if it's the process we're interested in
-                  if (theProcess == INTERACTION_CHANNEL) didInteract = true;
-                }
-              }
+          // fill the incident
+          hXsG4IncidentKinEn->Fill(kineticEnergy);
 
-              // fill the incident
-              kineticEnergy = std::sqrt( theIncMomVec.Mag()*theIncMomVec.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-              if (kineticEnergy < 0.001) continue;
-              hXsG4IncidentKinEn->Fill(kineticEnergy);
-
-              if (didInteract)
-              {
-                // we've got the one we're looking for
-                // fill the interacting histogram
-                nXsG4Signal++;
-                hXsG4InteractingKinEn->Fill(kineticEnergy);
-              }
-            }//<--- End if in this slab
-          }//<--- End loop over trj points
-
-          if (temp > 1) std::cout << "\n\n\n\n\nHEYYYYYYY\n\n\n\n\n";
-
-          // if the momentum is zero, this primary is finished
-          //if (theTrTrjMomVec.Mag() < 0.001) continue;  
-        }//<--- End loop over slabs
+          if (didInteract)
+          {
+            // we've got the one we're looking for
+            // fill the interacting histogram
+            nXsG4Signal++;
+            hXsG4InteractingKinEn->Fill(kineticEnergy);
+          }
+        }//<--- End loop over trj points  
       }//<--- End loop over primaries
     }//<--- End if xs using g4 
 
@@ -912,9 +892,8 @@ void CalculateG4Xs()
     auto err2 = std::sqrt(den);
 
     double xs    = BARN_PER_M2*(1/NUMBER_DENSITY)*(1/STEP_SIZE)*(num/den);
-    // independent?
     double error = xs*std::sqrt( (err1/num)*(err1/num) + (err2/den)*(err2/den)  );
-    cout << err1 << " " << err2 << " " << error <<endl;
+    cout << xs << " " << error << endl;
 
     hXsG4->SetBinContent(bin, xs);
     hXsG4->SetBinError(bin, error);
@@ -961,6 +940,8 @@ void MakePlots()
   hXsG4InteractingKinEn->Write();
 
   hXsG4->Write();
+
+  hStepSize->Write();
 
   myRootFile.Close();
 }
