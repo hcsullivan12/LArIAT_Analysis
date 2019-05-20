@@ -29,5 +29,11 @@ void comb()
   hInelXs->SetMarkerStyle(8);
   hInelXs->SetMarkerColor(kBlue-3);
   hInelXs->SetLineColor(kBlue-3);
-  hInelXs->Draw("p same e1");
+  hInelXs->SetLineWidth(2);
+  hInelXs->Draw("p same e");
+
+  auto legend = new TLegend(0.1,0.7,0.48,0.9);
+  legend->AddEntry(g,"G4Prediction Inelastic XS","l");
+  legend->AddEntry(hInelXs,"True Inelastic XS","lp");
+  legend->Draw("same");
 }
