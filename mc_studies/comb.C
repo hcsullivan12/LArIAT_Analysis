@@ -1,7 +1,7 @@
 void comb()
 {
   TFile *f1 = new TFile("piMinusAna.root", "READ");
-  TFile *f2 = new TFile("../../hists/g4XsPredictions.root", "READ");
+  TFile *f2 = new TFile("../hists/g4XsPredictions.root", "READ");
 
   TH1D *hInelXs = nullptr;
   TH1D *hG4Pred = nullptr;

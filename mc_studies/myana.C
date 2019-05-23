@@ -1,16 +1,5 @@
-/////////////////////////////////////////////////////////////////
-//  QUESTIONS
-//
-//  * Shouldn't we consider all species of particles that enter
-//    the TPC instead of just the primary? Presumably this would 
-//    give us a more realistic sample.
-//  * Pion.C requires all primaries to enter the TPC
-//
-/////////////////////////////////////////////////////////////////
-
-
-#define pi_minus_50000e_g4step_cxx
-#include "pi_minus_50000e_g4step.h"
+#define myana_cxx
+#include "myana.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -43,16 +32,16 @@ std::vector<float> slabsInZ;
 // ====================================  CUTS AND CONSTANTS  ==========================================
 // ====================================================================================================
 // option to compute xs using g4 info
-bool IS_XS_USING_G4_INFO(true);
-
-// option to compute xs using reco info
-bool IS_XS_USING_RECO_INFO(false);
+bool IS_XS_USING_G4_INFO(false);
 
 // the interaction channel we're interested in
 std::string INTERACTION_CHANNEL("Pi-Inelastic");
 
 // step size
 float STEP_SIZE(0.0003); // m
+
+// option to compute xs using reco info
+bool IS_XS_USING_RECO_INFO(true);
 
 // tpc boundaries
 float TPC_X_BOUND[2] = {   0.0, 47.0 };
@@ -163,7 +152,7 @@ TFile myRootFile("piMinusAna.root", "RECREATE");
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // %%% Main loop
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void pi_minus_50000e_g4step::Loop(int inDebug)
+void myana::Loop(int inDebug)
 {
 
   // ########################
@@ -199,7 +188,7 @@ void pi_minus_50000e_g4step::Loop(int inDebug)
     // ### Increment our total event counter ###
     // #########################################
     nTotalEvents++; 
-    if (nTotalEvents%10 == 0) std::cout << "EVENT = " << nTotalEvents << std::endl; 
+    if (nTotalEvents%1000 == 0) std::cout << "EVENT = " << nTotalEvents << std::endl; 
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -734,9 +723,20 @@ void pi_minus_50000e_g4step::Loop(int inDebug)
 
 
 
- /*   // =================================================================
+    // =================================================================
     // ================= ADDING TO CROSS SECTION PLOTS =================
     // =================================================================
+
+    //
+    // Outline of event selection:
+    //
+    //     * Can we find a vertex?
+    //          1) No. Look for 'activity' around track.
+    //
+    //     * Are there secondary tracks eminating from vertex?
+    //          1) No. Compare with elastic. Look for 'activity' around vertex/track.
+    //
+    //
    
     // ########################################################################
     // ### Variables for the track we are calculating the cross-section for ###
@@ -752,14 +752,22 @@ void pi_minus_50000e_g4step::Loop(int inDebug)
     float  xsMomentum(0);
 
     // calculating the momentum from the MC primary
-    TVector3 thisMomVec( g4PrimaryPx[0], g4PrimaryPy[0], g4PrimaryPz[0] );
+    // (this mocks our WC momentum meaurement)
+
+    // since we're using single particle gun, get the true momentum at z=0
+    TVector3 thisMomVec; //( g4PrimaryPx[0], g4PrimaryPy[0], g4PrimaryPz[0] );
+    for (size_t iPoint = 0; iPoint < nTrajPoint[0]; iPoint++)
+    {
+      if (g4PrimaryTrTrjZ[0][iPoint] > 0) break;
+      thisMomVec = TVector3( g4PrimaryTrTrjPx[0][iPoint, g4PrimaryTrTrjPy[0][iPoint], g4PrimaryTrTrjPz[0][iPoint] ]);
+    }
     xsMomentum = thisMomVec.Mag();
 
     // calculating the kinetic energy 
     // KE = E - mass 
     xsKineticEnergy = std::sqrt( xsMomentum*xsMomentum + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
     // subtract of the assumed energy loss
-    xsKineticEnergy = xsKineticEnergy - ENTRY_TPC_ENERGY_LOSS;
+    //xsKineticEnergy = xsKineticEnergy - ENTRY_TPC_ENERGY_LOSS;
     // fill the KE histo
     hMCInitialKE->Fill(xsKineticEnergy);
 
@@ -769,7 +777,7 @@ void pi_minus_50000e_g4step::Loop(int inDebug)
     for(size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
     {
       // only look at the one that passed the WC_TPC match and cuts
-      if(iTrk != xsRecoTrackIndex) continue;
+      if(iTrk != xsRecoTrkId) continue;
 
       // recording the end point of this track 
       xsTrackEndX = trkendx[iTrk];
@@ -788,12 +796,13 @@ void pi_minus_50000e_g4step::Loop(int inDebug)
       xsRecoLength = trklength[iTrk];
       hRecoLength->Fill(xsRecoLength);
 
-      // #################################################
-      // ### If this tracks end point is at a boundary ###
-      // ###   then tag this track as "through-going"  ###
-      // #################################################
-      if( xsTrackEndX < 1   || xsTrackEndX > 42.0 || xsTrackEndY > 19 ||
-          xsTrackEndY < -19 || xsTrackEndZ > 89.0) xsExitingTrack = true;
+      // ##################################################
+      // ### If this track's end point is at a boundary ###
+      // ###    then tag this track as "through-going"  ###
+      // ##################################################
+      if( FV_X_BOUND[0] > xsTrackEndX || xsTrackEndX > FV_X_BOUND[1] || 
+          FV_Y_BOUND[0] > xsTrackEndY || xsTrackEndY > FV_Y_BOUND[1] ||
+          FV_Z_BOUND[1] < xsTrackEndZ ) { xsExitingTrack = true; }
 
       iPionSp = 0;
       // ###################################################
@@ -835,7 +844,7 @@ void pi_minus_50000e_g4step::Loop(int inDebug)
         iPionSp++;
       }//<--- End iSpt loop
     }//<--- End iTrk loop
-*/
+
 
 
 
