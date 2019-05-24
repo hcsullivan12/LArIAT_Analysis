@@ -11,6 +11,9 @@
 // LArSoft includes
 #include "larsim/MCCheater/ParticleInventoryService.h"
 
+// c++
+#include <string>
+
 namespace piinelastic 
 {
 
@@ -20,7 +23,8 @@ class InelasticSubClassifier
     InelasticSubClassifier();
     ~InelasticSubClassifier();
 
-    const std::string Classify(const sim::ParticleList& plist);
-}
+    const std::string Classify(const sim::ParticleList& plist, const int& primaryTrkId);
+    bool InTPC(const simb::MCParticle& particle);
+};
 
 }
