@@ -22,6 +22,7 @@
 #include "canvas/Utilities/InputTag.h"
 #include "fhiclcpp/ParameterSet.h"
 #include "messagefacility/MessageLogger/MessageLogger.h"
+#include "art/Framework/Services/Optional/TFileService.h" 
 
 // LArSoft includes
 #include "larsim/MCCheater/BackTrackerService.h"
@@ -29,6 +30,11 @@
 
 // lariatsoft includes
 #include "LArIATFilterModule/InelasticSubClassifier.h"
+
+// root includes
+#include "TH1D.h"
+#include "TH2D.h"
+#include "TFile.h"
 
 namespace lariat
 {
@@ -61,9 +67,9 @@ private:
   float MOLAR_MASS     = 39.95; //g/mol
   float G_PER_KG       = 1000; 
   float AVOGADRO       = 6.022e+23; //number/mol
-  float NUMBER_DENSITY = RHO*G_PER_KG/MOLAR_MASS*AVOGADRO;
+  float NUMBER_DENSITY = (RHO*G_PER_KG/MOLAR_MASS)*AVOGADRO;
   float SLAB_WIDTH     = 0.0047; //in m
-  float M2_PER_BARN    = 1e-28
+  float M2_PER_BARN    = 1e-28;
 
   // histograms
   TH1D *hDE;
@@ -162,26 +168,25 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
       firstInTPCpoint = itTrj;
       break;
     }
-    nEvtsPreTPC++;
+    //nEvtsPreTPC++;
     hXZPre->Fill((firstInTPCpoint->first).Z(), (firstInTPCpoint->first).X());
     hYZPre->Fill((firstInTPCpoint->first).Z(), (firstInTPCpoint->first).Y());
 
     // ### If we didn't enter TPC, we're done here
     if (firstInTPCpoint == trueTrj.begin()) continue;
-    nEvtsPostTPC++;
+    //nEvtsPostTPC++;
     hXZ->Fill((firstInTPCpoint->first).Z(), (firstInTPCpoint->first).X());
     hYZ->Fill((firstInTPCpoint->first).Z(), (firstInTPCpoint->first).Y());
 
     // ### Storing the interaction type
     std::string interactionLabel("");
-    // ### Algorithm to extract last interesting point for this primary,
-    // ### and to identify the sub process type
+    // ### Algorithm to identify the sub process type
     // ### Sub processes = (inelastic, ch-exch, absorp, pi-prod)
     piinelastic::InelasticSubClassifier subclassifier;
+    auto lastInTPCpoint      = std::prev(trueTrj.end());
     auto interactionSubLabel = subclassifier.Classify(plist, mcParticle->TrackId());
-
-    // ### Identify the last interesting point in TPC
-    auto lastInTPCpoint = std::prev(trueTrj.end());
+    
+  // ### Identify the last interesting point in TPC
     // The last point is a bit more complicated:
     // if there's no interaction, then it is simply the last point in the TPC
     // if there's one or more interaction points, it's the first interaction point deemed interesting (no coulomb)
@@ -193,13 +198,14 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
       for (auto const& couple: trjProcessMap) 
       {
         auto tempProcess = trueTrj.KeyToProcess(couple.second); 
+        std::cout << tempProcess << std::endl;
         // I'm not interested in the CoulombScat, LArVoxel, OpDetReadout (if keeping all spacepoints)
         if (tempProcess.find("CoulombScat")  != std::string::npos) continue;
         if (tempProcess.find("LArVoxel")     != std::string::npos) continue;
         if (tempProcess.find("OpDetReadout") != std::string::npos) continue;
   
         // Let's check if the interaction is in the the TPC
-        auto interactionPos4D = (truetraj.at(couple.first)).first;
+        auto interactionPos4D = (trueTrj.at(couple.first)).first;
         if ( TPC_BOUND_X[0] > interactionPos4D.X() || interactionPos4D.X() > TPC_BOUND_X[1] ||
              TPC_BOUND_Y[0] > interactionPos4D.Y() || interactionPos4D.Y() > TPC_BOUND_Y[1] ||
              TPC_BOUND_Z[0] > interactionPos4D.Z() || interactionPos4D.Z() > TPC_BOUND_Z[1] ) continue;
@@ -209,7 +215,7 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
         interactionLabel = trueTrj.KeyToProcess(couple.second);
         lastInTPCpoint = trueTrj.begin() + couple.first; 
         keepInteraction = true;
-        nInteractInTPC++;
+        //nInteractInTPC++;
         break;
       }
     }
@@ -217,12 +223,14 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
     // ### If I didn't find anything interesting in the intereaction map, let's loop back!
     if ( !keepInteraction )
     {
+      std::cout << "HERERER\n";
       // Loop on the daughters 
       for (size_t d = 0; d < plist.size(); ++d) 
       {
         auto mcDaught = plist.Particle(d);
         // I'm not interested in CoulombScat
         if (mcDaught->Mother()  != 1 ) continue;
+        std::cout << mcDaught->Process() << std::endl;
         if ((mcDaught->Process()).find("CoulombScat")!= std::string::npos) continue;
 
         // Is the daughter born inside the TPC? If yes, store the process which created it 
@@ -233,7 +241,7 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
              TPC_BOUND_Y[0] > trjPoint.Y() || trjPoint.Y() > TPC_BOUND_Y[1] ||
              TPC_BOUND_Z[0] > trjPoint.Z() || trjPoint.Z() > TPC_BOUND_Z[1] ) continue;
 
-        interactionLabel - mcDaught->Process();
+        interactionLabel = mcDaught->Process();
         break;
       }	  
 
@@ -257,7 +265,16 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
     TVector3 firstPos = firstInTPCpoint->first.Vect();
     TVector3 lastPos  = lastInTPCpoint->first.Vect();
     double totalLength = (lastPos-firstPos).Mag();
-    if (totalLength < SLAB_SIZE) continue;
+    if (totalLength < (100*SLAB_WIDTH)) continue;
+
+    std::cout << "\n//////////////////////////////////////////////////"
+              << "\nPionUsingTruth...\n"
+              << "\nInteraction label:     " << interactionLabel
+              << "\nInteraction sublabel:  " << interactionSubLabel
+              << "\nFirst position:       (" << firstPos.X() << ", " << firstPos.Y() << ", " << firstPos.Z() << ")"
+              << "\nLast position:        (" << lastPos.X()  << ", " << lastPos.Y()  << ", " << lastPos.Z()  << ")"
+              << "\n//////////////////////////////////////////////////"
+              << std::endl;
 
     // ### We want to chop up the points between the first and last uniformely
     // Order them in increasing Z
@@ -268,16 +285,16 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
     orderedUniformTrjPts[lastPos.Z()]  = lastPos;
 
     // ### Calculate the number of points between first and last position
-    int nPts = (int) (totalLength/SLAB_SIZE);
-    for (int iPtr = 1; iPt <= nPts; iPt++)
+    int nPts = (int) (totalLength/(100*SLAB_WIDTH));
+    for (int iPt = 1; iPt <= nPts; iPt++)
     {
-      auto newPoint = firstPos + iPt*(SLAB_SIZE/totLength) * (lastPos - firstPos);
+      auto newPoint = firstPos + iPt*((100*SLAB_WIDTH)/totalLength) * (lastPos - firstPos);
       orderedUniformTrjPts[newPoint.Z()] = newPoint;
     }
 
     // ### Calculate the initial kinetic energy
-    auto   initialMom = inTPCPoint->second;
-    double initialKE  = 1000*(TMath::Sqrt(initialMom.X()*initialMom.X() + initialMom.Y()*initialMom.Y() + initialMom.Z()*initialMom.Z() + mass*mass ) - mass); // convert to MeV
+    auto   initialMom = firstInTPCpoint->second.Vect()*1000; // convert to MeV
+    double initialKE  = TMath::Sqrt( initialMom.Mag()*initialMom.Mag() + mass*mass ) - mass; 
     hKEAtTPCFF->Fill(initialKE);
     double kineticEnergy = initialKE;
 
@@ -303,7 +320,7 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
       }// Determing which simIDE is within the current slice
 
       // avoid overfilling super tiny energy depositions
-      if (currentDepEnergy/uniformDist < 0.1 ) continue;
+      if (currentDepEnergy/uniformDist < 0.1) continue;
       //Calculate the current kinetic energy
       kineticEnergy -= currentDepEnergy;
 
@@ -318,14 +335,14 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
 
     // ### fill the Inelastic and Total Interacting with the last point
     if ( interactionLabel.find("Inelastic")!= std::string::npos )
-	  {
+    {
       hInteractingKEInel->Fill(kineticEnergy);
 
            if (interactionSubLabel == "PionAbsorption") hInteractingKEPionAbsorp->Fill(kineticEnergy);
       else if (interactionSubLabel == "PionInelastic")  hInteractingKEPionInel->Fill(kineticEnergy);
       else if (interactionSubLabel == "ChargeExchange") hInteractingKEChargeExch->Fill(kineticEnergy);
       else if (interactionSubLabel == "PionProduction") hInteractingKEPionProd->Fill(kineticEnergy);
-	  }
+    }
       
     /*// ### fill the Elastic and Total Interacting with the last point
     if ( interactionLabel.find("Elastic")!= std::string::npos )
@@ -366,7 +383,7 @@ void PionXSUsingTruth::beginJob()
   hInteractingKEChargeExch = tfs->make<TH1D>("hInteractingKEChargeExch", "Charge Exchange Interacting Kinetic Energy [MeV]", 42, -100, 2000);
   hInteractingKEPionProd   = tfs->make<TH1D>("hInteractingKEPionProd", "Pion Production Interacting Kinetic Energy [MeV]", 42, -100, 2000);
   hCrossSectionInel   = tfs->make<TH1D>("hCrossSectionInel" , "Inelastic Cross-Section [barn]"   , 42, -100, 2000);
-  hCrossSectionPionAbsorp = tfs->make<TH1D>("hCrossSectionInel" , "Pion Absorption Cross-Section [barn]"   , 42, -100, 2000);
+  hCrossSectionPionAbsorp = tfs->make<TH1D>("hCrossSectionPionAbsorp" , "Pion Absorption Cross-Section [barn]"   , 42, -100, 2000);
   hCrossSectionPionInel   = tfs->make<TH1D>("hCrossSectionPionInel" , "Pion Inelastic Cross-Section [barn]"   , 42, -100, 2000);
   hCrossSectionPionProd   = tfs->make<TH1D>("hCrossSectionPionProd" , "Pion Production Cross-Section [barn]"   , 42, -100, 2000);
   hCrossSectionChargeExch = tfs->make<TH1D>("hCrossSectionChargeExch" , "Charge Exchange Cross-Section [barn]"   , 42, -100, 2000);
@@ -383,14 +400,14 @@ void PionXSUsingTruth::beginJob()
 // ### endjob
 void PionXSUsingTruth::endJob()
 {
-  std::cout << "-------------------------------------------"                     << std::endl;
+  /*std::cout << "-------------------------------------------"                     << std::endl;
   std::cout << "True Events pre-TPC .............. "         << evtsPreTPC       << std::endl;
   std::cout << "True Events pre-TPC .............. "         << evtsInTheMiddle  << std::endl;
   std::cout << "True Events post-TPC ............. "         << evtsPostTPC      << std::endl;
   std::cout << "True Throughgoing    ............. "         << throughgoing     << std::endl;
   std::cout << "True interactingInTPC ............ "         << interactingInTPC << std::endl;
   std::cout << "-------------------------------------------"                     << std::endl;
-
+*/
   // Calculate the Cross Section
   // ###################################################################
   // #### Looping over the exiting bins to extract the cross-section ###
@@ -412,22 +429,16 @@ void PionXSUsingTruth::endJob()
   ourXSHists.push_back(hCrossSectionChargeExch);
   ourXSHists.push_back(hCrossSectionPionProd);
 
-  for ( int iBin = 1; iBin <= hInteractingKE->GetNbinsX(); ++iBin )
+  for ( int iBin = 1; iBin <= hIncidentKE->GetNbinsX(); ++iBin )
   {
     // ### If an incident bin is equal to zero then skip that bin ###
     if ( hIncidentKE->GetBinContent(iBin) == 0 )continue; //Temporary fix to ensure that no Infinities are propagated to pad
    
     // ### our cross sections
-    std::vector<float> tempXS;
-    for (auto h : ourHists)
+    for (size_t h = 0; h < ourHists.size(); h++)
     {
-      tempXS.push_back( (h->GetBinContent(iBin)/hIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN) );
-    }
-
-    // ### fill our cross section histograms
-    for (size_t h = 0; h < tempXS.size(); h++)
-    {
-      ourXSHists[h]->SetBinContent(iBin, tempXS[h]);
+      float tempXS = (ourHists[h]->GetBinContent(iBin)/hIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
+      ourXSHists[h]->SetBinContent(iBin, tempXS);
     }
   
     // ###########################################################
@@ -439,21 +450,22 @@ void PionXSUsingTruth::endJob()
     if (denom == 0) continue; 
     float term2 = denomError/denom;
 
-    std::vector<float> ourErrorsNum, ourErrorsDen;
-    for (size_t h = 0; h < ourXSHists.size(); h++)
+    std::vector<float> ourNumError, ourNum;
+    for (size_t h = 0; h < ourHists.size(); h++)
     {
-      ourErrorsNum.push_back( std::sqrt(ourXSHists[h]->GetBinContent(iBin)) );
-      ourErrorsDen.push_back( ourXSHists[h]->GetBinContent(iBin) );
+      ourNumError.push_back( std::sqrt(ourHists[h]->GetBinContent(iBin)) );
+      ourNum.push_back( ourHists[h]->GetBinContent(iBin) );
     }
 
     // ### set the errors
-    for (size_t h = 0; h < ourXSHists.size(); h++)
+    for (size_t h = 0; h < ourHists.size(); h++)
     {
       // ### Putting in a protection against dividing by zero ###   
-      if (ourErrorsDen[h] != 0)
+      if (ourNum[h] != 0)
       {
-        float term1 = ourErrorsNum[h]/ourErrorsDen[h];
-        float totalError = ourXSHists[h] * std::sqrt( term1*term1 + term2*term2 ) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH); // I don't understand this --> * (1e26);
+        float term1 = ourNumError[h]/ourNum[h];
+        float xs    = ourXSHists[h]->GetBinContent(iBin);
+        float totalError = xs * std::sqrt( term1*term1 + term2*term2 ); 
         ourXSHists[h]->SetBinError(iBin,totalError);
       }
     }

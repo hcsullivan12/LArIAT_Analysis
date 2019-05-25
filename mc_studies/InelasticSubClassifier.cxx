@@ -110,8 +110,9 @@ const std::string InelasticSubClassifier::Classify(const sim::ParticleList& plis
     // add the process to our set
     processes.insert(particle.Process());
 
-    // check for inelastic
-    if (particle.Process().find("Inelastic") != std::string::npos) 
+    // check for pion inelastic
+    if (particle.Process().find("pi") != std::string::npos &&
+        particle.Process().find("Inelastic") != std::string::npos) 
     {
       foundInelastic = true;
       // keep this vertex if we don't already have it

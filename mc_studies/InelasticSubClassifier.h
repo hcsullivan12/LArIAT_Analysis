@@ -23,7 +23,9 @@ class InelasticSubClassifier
     InelasticSubClassifier();
     ~InelasticSubClassifier();
 
-    const std::string Classify(const sim::ParticleList& plist, const int& primaryTrkId);
+    const std::string Classify(const sim::ParticleList& plist, 
+                               const int& primaryTrkId);
+
     bool InTPC(const simb::MCParticle& particle);
 };
 
