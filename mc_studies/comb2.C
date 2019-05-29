@@ -23,17 +23,17 @@ void comb2()
   // rescale 
   for (size_t b = 1; b <= hists[0]->GetXaxis()->GetNbins(); b++)
   {
-    hists[0]->SetBinContent(b, 1000*hists[0]->GetBinContent(b)/100.);
-    hists[1]->SetBinContent(b, 1000*hists[1]->GetBinContent(b)/100.);
-    hists[2]->SetBinContent(b, 1000*hists[2]->GetBinContent(b)/100.);
-    hists[3]->SetBinContent(b, 1000*hists[3]->GetBinContent(b)/100.);
-    hists[4]->SetBinContent(b, 1000*hists[4]->GetBinContent(b)/100.);
+    hists[0]->SetBinContent(b, 1000*hists[0]->GetBinContent(b)/(100.));
+    hists[1]->SetBinContent(b, 1000*hists[1]->GetBinContent(b)/(100.));
+    hists[2]->SetBinContent(b, 1000*hists[2]->GetBinContent(b)/(100.));
+    hists[3]->SetBinContent(b, 1000*hists[3]->GetBinContent(b)/(100.));
+    hists[4]->SetBinContent(b, 1000*hists[4]->GetBinContent(b)/(100.));
 
-    hists[0]->SetBinError(b, 1000*hists[0]->GetBinError(b)/100.);
-    hists[1]->SetBinError(b, 1000*hists[1]->GetBinError(b)/100.);
-    hists[2]->SetBinError(b, 1000*hists[2]->GetBinError(b)/100.);
-    hists[3]->SetBinError(b, 1000*hists[3]->GetBinError(b)/100.);
-    hists[4]->SetBinError(b, 1000*hists[4]->GetBinError(b)/100.);
+    hists[0]->SetBinError(b, 1000*hists[0]->GetBinError(b)/(100.));
+    hists[1]->SetBinError(b, 1000*hists[1]->GetBinError(b)/(100.));
+    hists[2]->SetBinError(b, 1000*hists[2]->GetBinError(b)/(100.));
+    hists[3]->SetBinError(b, 1000*hists[3]->GetBinError(b)/(100.));
+    hists[4]->SetBinError(b, 1000*hists[4]->GetBinError(b)/(100.));
   }
   for (int i=0;i<g->GetN();i++) g->GetY()[i] *= 1000;
 
@@ -51,7 +51,7 @@ void comb2()
   
   hists[0]->SetMinimum(1);
   hists[0]->SetMaximum(1100);
-  hists[0]->GetXaxis()->SetRangeUser(0,1100);
+  hists[0]->GetXaxis()->SetRangeUser(0,1000);
   hists[0]->GetXaxis()->SetTitle("Kinetic energy (MeV)");
   hists[0]->GetYaxis()->SetTitle("Cross section (mb)");
   c1->SetLogy();
