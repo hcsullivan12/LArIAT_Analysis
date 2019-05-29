@@ -3,13 +3,12 @@
 // Module Type: analyzer
 // File:        PionXSUsingTruth_module.cc
 //
-// Generated at Wed May 22 11:52:52 2019 by Hunter Sullivan using artmod
-// from cetpkgsupport v1_10_02.
+// This module is a modification of TrueXS_module. This is supplemented 
+// with an algorithm to subclassify pion inelastic processes, e.g. 
+// inelastic, CX, absorption, pion production. This module uses MC truth
+// information to calculate the cross sections for these various channels.
 //
-// The module calculates various pion cross sections using mc truth
-// information. This is supplemented with an algorithm to subclassify 
-// inelastic processes, e.g. inelastic, CX, absorption, pion production.
-//
+// Hunter Sullivan hunter.sullivan@mavs.uta.edu
 ////////////////////////////////////////////////////////////////////////
 
 // framework includes
@@ -198,7 +197,6 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
       for (auto const& couple: trjProcessMap) 
       {
         auto tempProcess = trueTrj.KeyToProcess(couple.second); 
-        std::cout << tempProcess << std::endl;
         // I'm not interested in the CoulombScat, LArVoxel, OpDetReadout (if keeping all spacepoints)
         if (tempProcess.find("CoulombScat")  != std::string::npos) continue;
         if (tempProcess.find("LArVoxel")     != std::string::npos) continue;
@@ -223,14 +221,12 @@ void PionXSUsingTruth::analyze(art::Event const & evt)
     // ### If I didn't find anything interesting in the intereaction map, let's loop back!
     if ( !keepInteraction )
     {
-      std::cout << "HERERER\n";
       // Loop on the daughters 
       for (size_t d = 0; d < plist.size(); ++d) 
       {
         auto mcDaught = plist.Particle(d);
         // I'm not interested in CoulombScat
         if (mcDaught->Mother()  != 1 ) continue;
-        std::cout << mcDaught->Process() << std::endl;
         if ((mcDaught->Process()).find("CoulombScat")!= std::string::npos) continue;
 
         // Is the daughter born inside the TPC? If yes, store the process which created it 
@@ -414,12 +410,12 @@ void PionXSUsingTruth::endJob()
   // ###################################################################
 
   // ### place our histograms in a single container 
-  std::vector<TH1D*> ourHists;
-  ourHists.push_back(hInteractingKEInel);
-  ourHists.push_back(hInteractingKEPionAbsorp);
-  ourHists.push_back(hInteractingKEPionInel);
-  ourHists.push_back(hInteractingKEChargeExch);
-  ourHists.push_back(hInteractingKEPionProd);
+  std::vector<TH1D*> ourIntHists;
+  ourIntHists.push_back(hInteractingKEInel);
+  ourIntHists.push_back(hInteractingKEPionAbsorp);
+  ourIntHists.push_back(hInteractingKEPionInel);
+  ourIntHists.push_back(hInteractingKEChargeExch);
+  ourIntHists.push_back(hInteractingKEPionProd);
 
   // ### place our cross sections histograms in a single container
   std::vector<TH1D*> ourXSHists;
@@ -435,9 +431,9 @@ void PionXSUsingTruth::endJob()
     if ( hIncidentKE->GetBinContent(iBin) == 0 )continue; //Temporary fix to ensure that no Infinities are propagated to pad
    
     // ### our cross sections
-    for (size_t h = 0; h < ourHists.size(); h++)
+    for (size_t h = 0; h < ourIntHists.size(); h++)
     {
-      float tempXS = (ourHists[h]->GetBinContent(iBin)/hIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
+      float tempXS = (ourIntHists[h]->GetBinContent(iBin)/hIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
       ourXSHists[h]->SetBinContent(iBin, tempXS);
     }
   
@@ -445,27 +441,34 @@ void PionXSUsingTruth::endJob()
     // ### Calculating the error on the numerator of the ratio ###
     // ###########################################################
 
+    // ### incident taken as poissonian
     float denomError = std::sqrt(hIncidentKE->GetBinContent(iBin));
     float denom      = hIncidentKE->GetBinContent(iBin);
     if (denom == 0) continue; 
     float term2 = denomError/denom;
 
     std::vector<float> ourNumError, ourNum;
-    for (size_t h = 0; h < ourHists.size(); h++)
+    for (size_t h = 0; h < ourIntHists.size(); h++)
     {
-      ourNumError.push_back( std::sqrt(ourHists[h]->GetBinContent(iBin)) );
-      ourNum.push_back( ourHists[h]->GetBinContent(iBin) );
+      // ### interacting taken as binomial
+      auto intCounts = ourIntHists[h]->GetBinContent(iBin);
+      auto incCounts = hIncidentKE->GetBinContent(iBin);
+      float var      = intCounts*( 1 - intCounts/incCounts );
+      ourNumError.push_back( std::sqrt(var) );
+      ourNum.push_back( intCounts );
     }
 
     // ### set the errors
-    for (size_t h = 0; h < ourHists.size(); h++)
+    for (size_t h = 0; h < ourIntHists.size(); h++)
     {
-      // ### Putting in a protection against dividing by zero ###   
+      // ### protection against dividing by zero 
       if (ourNum[h] != 0)
       {
+        // ### errors are not independent 
         float term1 = ourNumError[h]/ourNum[h];
         float xs    = ourXSHists[h]->GetBinContent(iBin);
-        float totalError = xs * std::sqrt( term1*term1 + term2*term2 ); 
+        float totalError = xs * ( term1 + term2 ); 
+
         ourXSHists[h]->SetBinError(iBin,totalError);
       }
     }
