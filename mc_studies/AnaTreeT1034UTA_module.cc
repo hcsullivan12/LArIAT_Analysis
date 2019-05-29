@@ -466,7 +466,6 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
     int primary=0;
     int geant_particle=0;
     int numTrue_inTPC = 0;
-    double slab_size_z = 0.5;
     
     // ### Determine the number of primary particles from geant ###
     for( unsigned int i = 0; i < geant_part.size(); ++i )
@@ -563,9 +562,7 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
         //simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
         std::vector<double> midx;  std::vector<double> midy;  std::vector<double> midz;
         std::vector<double> midpx; std::vector<double> midpy; std::vector<double> midpz;
-        std::vector<double> slabx; std::vector<double> slaby; std::vector<double> slabz;
-        std::vector<double> slabe; std::vector<int> slabn;
-        std::vector<double> slapx; std::vector<double> slapy; std::vector<double> slapz; 
+  
         int iPrimPt = 0;	
         double true_total_distance = 0;
         double previous_mid_xpt = geant_part[i]->Vx();    
@@ -619,36 +616,44 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
           int interestingPoint = (int) (NTrTrajPts[i] - 1);
           InteractionPoint.push_back(interestingPoint);
           if(NumberDaughters[i])
-          {		 
+          {
+            InelasticClassifier myclassifier;
+            myclassifier.Classify();		 
+            InteractionPointSubType.push_back(subprocess);
             auto thePrimaryDaughterID = geant_part[i]-> Daughter(0); 
             for(unsigned int iD = 0; iD < geant_part.size(); ++iD )
             {
               if(geant_part[iD]->TrackId() == thePrimaryDaughterID) 
               {		      
-                if(geant_part[iD]->Process() == hadElastic)	       {InteractionPointType.push_back(hadElastic);}
-                if(geant_part[iD]->Process() == CoulombScat)	     {InteractionPointType.push_back(CoulombScat);}
-                if(geant_part[iD]->Process() == ProtonInelastic)   {InteractionPointType.push_back(ProtonInelastic);}
-                if(geant_part[iD]->Process() == PionPlusInelastic) {InteractionPointType.push_back(PiPlusInelastic);}
-                if(geant_part[iD]->Process() == PionMinusInelastic){InteractionPointType.push_back(PiMinusInelastic);}
+                     if(geant_part[iD]->Process() == hadElastic)	      {InteractionPointType.push_back(hadElastic);}
+                else if(geant_part[iD]->Process() == CoulombScat)	      {InteractionPointType.push_back(CoulombScat);}
+                else if(geant_part[iD]->Process() == ProtonInelastic)   {InteractionPointType.push_back(ProtonInelastic);}
+                else if(geant_part[iD]->Process() == PionPlusInelastic) {InteractionPointType.push_back(PiPlusInelastic);}
+                else if(geant_part[iD]->Process() == PionMinusInelastic){InteractionPointType.push_back(PiMinusInelastic);}
+                else {InteractionPointType.push_back("other");}
               }//<--- End if is daughter(0)
             }//<--- End particle loop
           }//<--- End if there are daughters
-          else {InteractionPointType.push_back("throughgoing");}
+          else {InteractionPointType.push_back("throughgoing"); InteractionPointSubType.push_back("none");}
         }
         else
         {
           // The map is not zero: somthing interesting might happen in the middle of the track!!
+          InelasticClassifier myclassifier;
+          myclassifier.Classify();		 
+          InteractionPointSubType.push_back(subprocess);
           for(auto const& couple: thisTracjectoryProcessMap) 
           {
             int interestingPoint = (int) couple.first;
             InteractionPoint.push_back(interestingPoint);         	   
-            if ((truetraj.KeyToProcess(couple.second)).find("hadElastic")      != std::string::npos) InteractionPointType.push_back(hadElastic);           
-            if ((truetraj.KeyToProcess(couple.second)).find("pi-Inelastic")    != std::string::npos) InteractionPointType.push_back(PiMinusInelastic);           
-            if ((truetraj.KeyToProcess(couple.second)).find("pi+Inelastic")    != std::string::npos) InteractionPointType.push_back(PiPlusInelastic);           
-            if ((truetraj.KeyToProcess(couple.second)).find("kaon-Inelastic")  != std::string::npos) InteractionPointType.push_back(KaonMinusInelastic);           
-            if ((truetraj.KeyToProcess(couple.second)).find("kaon+Inelastic")  != std::string::npos) InteractionPointType.push_back(KaonPlusInelastic);           
-            if ((truetraj.KeyToProcess(couple.second)).find("protonInelastic") != std::string::npos) InteractionPointType.push_back(ProtonInelastic);           
-            if ((truetraj.KeyToProcess(couple.second)).find("neutronInelastic")!= std::string::npos) InteractionPointType.push_back(NeutronInelastic);
+                 if ((truetraj.KeyToProcess(couple.second)).find("hadElastic")      != std::string::npos) InteractionPointType.push_back(hadElastic);           
+            else if ((truetraj.KeyToProcess(couple.second)).find("pi-Inelastic")    != std::string::npos) InteractionPointType.push_back(PiMinusInelastic);           
+            else if ((truetraj.KeyToProcess(couple.second)).find("pi+Inelastic")    != std::string::npos) InteractionPointType.push_back(PiPlusInelastic);           
+            else if ((truetraj.KeyToProcess(couple.second)).find("kaon-Inelastic")  != std::string::npos) InteractionPointType.push_back(KaonMinusInelastic);           
+            else if ((truetraj.KeyToProcess(couple.second)).find("kaon+Inelastic")  != std::string::npos) InteractionPointType.push_back(KaonPlusInelastic);           
+            else if ((truetraj.KeyToProcess(couple.second)).find("protonInelastic") != std::string::npos) InteractionPointType.push_back(ProtonInelastic);           
+            else if ((truetraj.KeyToProcess(couple.second)).find("neutronInelastic")!= std::string::npos) InteractionPointType.push_back(NeutronInelastic);
+            else {InteractionPointType.push_back("other");}
           }
         }	
    
@@ -673,7 +678,7 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
 
             simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
             int jDaughtPt = 0;	
-              std::vector<double> midx; std::vector<double> midy; std::vector<double> midz;
+            std::vector<double> midx; std::vector<double> midy; std::vector<double> midz;
             for(auto itTraj = truetraj.begin(); itTraj != truetraj.end(); ++itTraj)
             {
               midx.push_back(truetraj.X(jDaughtPt));
@@ -687,8 +692,6 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
         }//<-- End if primary daughter
       }//<-- End if not primary
     }//<--End loop on geant particles
-
-    std::cout<<std::endl;
   }//<---End checking if this is MC 
 
 // ------------------------------------------------------   
@@ -696,9 +699,11 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
 // ------------------------------------------------------
     num_tof_objects = tof.size();
     size_t tof_counter = 0; // book-keeping
-    for(size_t i = 0; i < tof.size(); i++){
+    for(size_t i = 0; i < tof.size(); i++)
+    {
       size_t number_tof = tof[i]->NTOF();
-      for(size_t tof_idx = 0; tof_idx < number_tof; ++tof_idx){
+      for(size_t tof_idx = 0; tof_idx < number_tof; ++tof_idx)
+      {
         tofObject[tof_counter] =  tof[i]->SingleTOF(tof_idx);
         ++tof_counter;
       } // loop over TOF
@@ -708,7 +713,8 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
 //                      wc track stuff
 // --------------------------------------------------------
     num_wctracks = wctrack.size();
-    for(size_t wct_count = 0; wct_count < wctrack.size(); wct_count++){
+    for(size_t wct_count = 0; wct_count < wctrack.size(); wct_count++)
+    {
       wctrk_momentum[wct_count] = wctrack[wct_count]->Momentum();
       wctrk_XFace[wct_count] = wctrack[wct_count]->XYFace(0);
       wctrk_YFace[wct_count] = wctrack[wct_count]->XYFace(1);
@@ -755,40 +761,30 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
   // === Association between WC Tracks and TPC Tracks ===
   int TempTrackMatchedID = -1;
   if(evt.getByLabel(fWCTrackLabel, wctrackHandle))
-    {
+  {
     std::cout<<"\t\t\tGOT LABEL\n";
     art::FindOneP<recob::Track> fWC2TPC(wctrackHandle, evt, fWC2TPCModuleLabel);
     if(fWC2TPC.isValid())
-      {
+    {
       std::cout<<"\t\t\t\t\tmodule is valid!\n";
       // === Loop on all the Assn WC-TPC tracks === 
       for(unsigned int indexAssn = 0; indexAssn < fWC2TPC.size(); ++indexAssn )
-        {
+      {
         // =========================                                                                                       
         // === Get the TPC track ===
         // =========================                                                                      
         cet::maybe_ref<recob::Track const> trackWC2TPC(*fWC2TPC.at(indexAssn));
-
         if(!trackWC2TPC) continue;
         recob::Track const& aTrack(trackWC2TPC.ref());
         TempTrackMatchedID = aTrack.ID();
         std::cout<<"\t\t\t\t\t\t\tTEMPTRACKID: "<<TempTrackMatchedID<<std::endl;
-
-        }//<----End indexAssn loop          
-      }//<---End checking that the WC2TPC   
-    }
-
-
+      }//<----End indexAssn loop          
+    }//<---End checking that the WC2TPC   
+  }
 
   // ### Looping over tracks ###
-  //double maxtrackenergy = -1;
-
-
-
-  //bool is_primary = false;
-  //std::cout << "Reco info! trying to track down calo info..." << std::endl;
   for(int iTrack = 0; iTrack < ntracks_reco; iTrack++)
-    {
+  {
     bool is_primary = false;
 
     // ### Storing an integer for the match of a WC to TPC track ###
@@ -796,8 +792,6 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
       {track_WC2TPC_match.push_back(1);std::cout<<"\n\n\t\tMATCHED\n";}//<---End match
     else{track_WC2TPC_match.push_back(0);std::cout<<"\t\tNOTMATCHED\n";}
 
-
-    
     // ### Setting the track information into memory ###
     auto trackStartEnd = tracklist[iTrack]->Extent();
     //larStart = tracklist[iTrack]->VertexDirection();
@@ -814,37 +808,24 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
     
     // ### Recording the track length as calculated by the tracking module ###
     track_length.push_back(tracklist[iTrack]->Length());
-    std::cout << "\ttrack length: " << tracklist[iTrack]->Length() << std::endl;
     
     // ### Grabbing the SpacePoints associated with this track ###
     std::vector< art::Ptr<recob::SpacePoint > > spts = fmsp.at(iTrack);
     ntrack_hits.push_back(fmsp.at(iTrack).size());
-    std::cout << "\tntrack hits: " << spts.size() << std::endl;
     if(spts[0]->XYZ()[2] < 1){is_primary = true;}
-    if(is_primary == true)
-      {
-      std::cout<<"\tprimary candidtate"<<std::endl;
-      std::cout<<"\t\tfirst z: "<<spts[0]->XYZ()[2]<<std::endl;
-      }
-  if(is_primary==true){track_primary.push_back(1);}
-  else                {track_primary.push_back(10);}
+    if(is_primary==true){track_primary.push_back(1);}
+    else                {track_primary.push_back(0);}
 
     // ### Looping over all the SpacePoints ###
     std::vector<double> x_spts;
     std::vector<double> y_spts;
     std::vector<double> z_spts;
     for(size_t jSpt = 0; jSpt < spts.size(); jSpt++)
-      {
+    {
       x_spts.push_back(spts[jSpt]->XYZ()[0]);
       y_spts.push_back(spts[jSpt]->XYZ()[1]);
       z_spts.push_back(spts[jSpt]->XYZ()[2]);
-      //if(is_primary == true)
-      //  {
-      //  std::cout << "\t\treco pt (x,y,z): " << spts[jSpt]->XYZ()[0] << ", "
-      //                                       << spts[jSpt]->XYZ()[1] << ", "
-      //                                       << spts[jSpt]->XYZ()[2] << ") " << std::endl;
-      //  }
-      }//<----End SpacePoint loop (j)
+    }//<----End SpacePoint loop (j)
     track_xpos.push_back(x_spts);
     track_ypos.push_back(y_spts);
     track_zpos.push_back(z_spts);

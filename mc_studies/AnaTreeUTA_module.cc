@@ -1,28 +1,12 @@
-Skip to content
- 
-Search or jump to…
-
-Pull requests
-Issues
-Marketplace
-Explore
- 
-@hcsullivan12 
-0
-0 0 hcsullivan12/LArIAT_Analysis
- Code  Issues 0  Pull requests 0  Projects 0  Wiki  Insights  Settings
-LArIAT_Analysis/mc_studies/MyAna_module.cc
-@hcsullivan12 hcsullivan12 Update
-2852066 a day ago
-2110 lines (1819 sloc)  97 KB
-  
 ////////////////////////////////////////////////////////////////////////
-// Class:       MyAna
+// Class:       AnaTreeUTA
 // Module Type: analyzer
-// File:        MyAna_module.cc
+// File:        AnaTreeUTA_module.cc
 //
-// Generated at Fri May 17 10:31:46 2019 by Hunter Sullivan using artmod
-// from cetpkgsupport v1_10_02.
+// Modified version of AnaTreeT1034_module.
+// 
+// Changes...
+//   * Added subprocess label for primaries 
 ////////////////////////////////////////////////////////////////////////
 
 #include "art/Framework/Core/EDAnalyzer.h"
@@ -109,6 +93,11 @@ LArIAT_Analysis/mc_studies/MyAna_module.cc
 #include "TTree.h"
 #include "TTimeStamp.h"
 
+// ###########################
+// ### LArIATSoft includes ###
+// ###########################
+#include "LArIATFilterModule/InelasticSubClassifier.h"
+
 const int kMaxTrack      = 1000;     //maximum number of tracks
 const int kMaxHits       = 20000;    //maximum number of hits
 const int kMaxTrackHits  = 1000;     //maximum number of space points
@@ -126,14 +115,14 @@ const int kMaxIDE = 5000; //maximum number of points in the true primary traject
 
 namespace lariat 
 {
-  class MyAna;
+  class AnaTreeUTA;
 }
 
-class lariat::MyAna : public art::EDAnalyzer 
+class lariat::AnaTreeUTA : public art::EDAnalyzer 
 {
 public:
-  explicit MyAna(fhicl::ParameterSet const & p);
-  virtual ~MyAna();
+  explicit AnaTreeUTA(fhicl::ParameterSet const & p);
+  virtual ~AnaTreeUTA();
 
   // Required functions.
   void analyze(art::Event const & e) override;
@@ -308,8 +297,9 @@ private:
   double IDEPos[kMaxIDE][3];
 
   // === Geant information for reconstruction track
-  std::vector<int>    InteractionPoint;         //<---Geant 4 Primary Trj Point Corresponding to the Interaction
-  std::vector<int>    InteractionPointType;     //<---Geant 4 Primary Interaction Type
+  std::vector<int>         InteractionPoint;         //<---Geant 4 Primary Trj Point Corresponding to the Interaction
+  std::vector<std::string> InteractionPointType;     //<---Geant 4 Primary Interaction Type
+  std::vector<std::string> InteractionPointSubType;
 
   int trkg4id[kMaxHits];         //<---geant track id for the track
 
@@ -443,19 +433,19 @@ private:
 };
 
 
-lariat::MyAna::MyAna(fhicl::ParameterSet const & pset) 
+lariat::AnaTreeUTA::AnaTreeUTA(fhicl::ParameterSet const & pset) 
   : EDAnalyzer(pset)
   , fCalorimetryAlg(pset.get<fhicl::ParameterSet>("CalorimetryAlg"))
 {
   this->reconfigure(pset);
 }
 
-lariat::MyAna::~MyAna()
+lariat::AnaTreeUTA::~AnaTreeUTA()
 {
   // Clean up dynamic memory and other resources here.
 }
 
-void lariat::MyAna::reconfigure(fhicl::ParameterSet const & pset)
+void lariat::AnaTreeUTA::reconfigure(fhicl::ParameterSet const & pset)
 {
   //fTrigModuleLabel	 	= pset.get< std::string >("TriggerUtility");
   fHitsModuleLabel      	= pset.get< std::string >("HitsModuleLabel");
@@ -474,7 +464,7 @@ void lariat::MyAna::reconfigure(fhicl::ParameterSet const & pset)
   return;
 }
 
-void lariat::MyAna::analyze(art::Event const & evt)
+void lariat::AnaTreeUTA::analyze(art::Event const & evt)
 {
   // #############################################
   // ### Reset variables before we get started ###
@@ -805,10 +795,8 @@ void lariat::MyAna::analyze(art::Event const & evt)
     for( unsigned int i = 0; i < geant_part.size(); ++i )
     {
       // ### If this particle is primary, set = 1 ###
-      if(geant_part[i]->Process()==pri) process_primary[i]=1;
-      
-      // ### If this particle is not-primary, set = 0 ###
-      else process_primary[i]=0;
+      if(geant_part[i]->Process()==pri) {process_primary[i]=1;}
+      else {process_primary[i]=0;}
           
            if (geant_part[i]->Process() == pri)                       Process[i] = 0;
       else if (geant_part[i]->Process() == pionMinusInelastic)        Process[i] = 1;
@@ -895,53 +883,59 @@ void lariat::MyAna::analyze(art::Event const & evt)
 
           if (NumberDaughters[i])
           {		 
+            piinelastic::InelasticSubClassifier subclassifier;
+            auto subprocess = subclassifier.Classify(plist, geant_part[i]->TrackId());
+            InteractionPointSubType.push_back(subprocess);
             auto thePrimaryDaughterID = geant_part[i]-> Daughter(0); 
             for( unsigned int iD = 0; iD < geant_part.size(); ++iD )
             {
               if (geant_part[iD]->TrackId() == thePrimaryDaughterID) 
               {		      
-                     if (geant_part[iD]->Process() == pionMinusInelastic)        InteractionPointType.push_back(1);
-                else if (geant_part[iD]->Process() == pionPlusInelastic)         InteractionPointType.push_back(2);
-                else if (geant_part[iD]->Process() == neutronInelastic)          InteractionPointType.push_back(3);
-                else if (geant_part[iD]->Process() == hadElastic)                InteractionPointType.push_back(4);
-                else if (geant_part[iD]->Process() == nCapture)                  InteractionPointType.push_back(5);
-                else if (geant_part[iD]->Process() == chipsNuclearCaptureAtRest) InteractionPointType.push_back(6);
-                else if (geant_part[iD]->Process() == decay)                     InteractionPointType.push_back(7);
-                else if (geant_part[iD]->Process() == kaonZeroLInelastic)        InteractionPointType.push_back(8);
-                else if (geant_part[iD]->Process() == coulombScat)               InteractionPointType.push_back(9);
-                else if (geant_part[iD]->Process() == muMinusCaptureAtRest)      InteractionPointType.push_back(10);
-                else if (geant_part[iD]->Process() == protonInelastic)           InteractionPointType.push_back(11);
-                else if (geant_part[iD]->Process() == kaonMinusInelastic)        InteractionPointType.push_back(12);
-                else if (geant_part[iD]->Process() == kaonPlusInelastic)         InteractionPointType.push_back(13);
-                else if (geant_part[iD]->Process() == hBertiniCaptureAtRest)     InteractionPointType.push_back(14);
-                else { InteractionPointType.push_back(15); G4UnknownProcess.insert(geant_part[iD]->Process()); }
+                     if (geant_part[iD]->Process() == pionMinusInelastic)        InteractionPointType.push_back(pionMinusInelastic);
+                else if (geant_part[iD]->Process() == pionPlusInelastic)         InteractionPointType.push_back(pionPlusInelastic);
+                else if (geant_part[iD]->Process() == neutronInelastic)          InteractionPointType.push_back(neutronInelastic);
+                else if (geant_part[iD]->Process() == hadElastic)                InteractionPointType.push_back(hadElastic);
+                else if (geant_part[iD]->Process() == nCapture)                  InteractionPointType.push_back(nCapture);
+                else if (geant_part[iD]->Process() == chipsNuclearCaptureAtRest) InteractionPointType.push_back(chipsNuclearCaptureAtRest);
+                else if (geant_part[iD]->Process() == decay)                     InteractionPointType.push_back(decay);
+                else if (geant_part[iD]->Process() == kaonZeroLInelastic)        InteractionPointType.push_back(kaonZeroLInelastic);
+                else if (geant_part[iD]->Process() == coulombScat)               InteractionPointType.push_back(coulombScat);
+                else if (geant_part[iD]->Process() == muMinusCaptureAtRest)      InteractionPointType.push_back(muMinusCaptureAtRest);
+                else if (geant_part[iD]->Process() == protonInelastic)           InteractionPointType.push_back(protonInelastic);
+                else if (geant_part[iD]->Process() == kaonMinusInelastic)        InteractionPointType.push_back(kaonMinusInelastic);
+                else if (geant_part[iD]->Process() == kaonPlusInelastic)         InteractionPointType.push_back(kaonPlusInelastic);
+                else if (geant_part[iD]->Process() == hBertiniCaptureAtRest)     InteractionPointType.push_back(hBertiniCaptureAtRest);
+                else { InteractionPointType.push_back("unknown"); G4UnknownProcess.insert(geant_part[iD]->Process()); }
               }
             }//<--- End loop over g4 particles
           }//<--- End if has daughters
-          else InteractionPointType.push_back(0);              
+          else InteractionPointType.push_back("throughgoing");              
         }
         else
         {
           // The map is not zero: somthing interesting might happen in the middle of the track!!
+          piinelastic::InelasticSubClassifier subclassifier;
+          auto subprocess = subclassifier.Classify(plist, geant_part[i]->TrackId());
+          InteractionPointSubType.push_back(subprocess);
           for (auto const& couple: thisTracjectoryProcessMap) 
           {
             int interestingPoint = (int) couple.first;
             InteractionPoint.push_back(interestingPoint);         	   
-                 if ((truetraj.KeyToProcess(couple.second)).find(pionMinusInelastic)        != std::string::npos) InteractionPointType.push_back(1);           
-            else if ((truetraj.KeyToProcess(couple.second)).find(pionPlusInelastic)         != std::string::npos) InteractionPointType.push_back(2);           
-            else if ((truetraj.KeyToProcess(couple.second)).find(neutronInelastic)          != std::string::npos) InteractionPointType.push_back(3);           
-            else if ((truetraj.KeyToProcess(couple.second)).find(hadElastic)                != std::string::npos) InteractionPointType.push_back(4);           
-            else if ((truetraj.KeyToProcess(couple.second)).find(nCapture)                  != std::string::npos) InteractionPointType.push_back(5);           
-            else if ((truetraj.KeyToProcess(couple.second)).find(chipsNuclearCaptureAtRest) != std::string::npos) InteractionPointType.push_back(6);           
-            else if ((truetraj.KeyToProcess(couple.second)).find(decay)                     != std::string::npos) InteractionPointType.push_back(7);
-            else if ((truetraj.KeyToProcess(couple.second)).find(kaonZeroLInelastic)        != std::string::npos) InteractionPointType.push_back(8);
-            else if ((truetraj.KeyToProcess(couple.second)).find(coulombScat)               != std::string::npos) InteractionPointType.push_back(9);
-            else if ((truetraj.KeyToProcess(couple.second)).find(muMinusCaptureAtRest)      != std::string::npos) InteractionPointType.push_back(10);
-            else if ((truetraj.KeyToProcess(couple.second)).find(protonInelastic)           != std::string::npos) InteractionPointType.push_back(11);
-            else if ((truetraj.KeyToProcess(couple.second)).find(kaonMinusInelastic)        != std::string::npos) InteractionPointType.push_back(12);
-            else if ((truetraj.KeyToProcess(couple.second)).find(kaonPlusInelastic)         != std::string::npos) InteractionPointType.push_back(13);
-            else if ((truetraj.KeyToProcess(couple.second)).find(hBertiniCaptureAtRest)     != std::string::npos) InteractionPointType.push_back(14);
-            else { InteractionPointType.push_back(15); G4UnknownProcess.insert((truetraj.KeyToProcess(couple.second))); }
+                 if ((truetraj.KeyToProcess(couple.second)).find(pionMinusInelastic)        != std::string::npos) InteractionPointType.push_back(pionMinusInelastic);          
+            else if ((truetraj.KeyToProcess(couple.second)).find(pionPlusInelastic)         != std::string::npos) InteractionPointType.push_back(pionPlusInelastic);          
+            else if ((truetraj.KeyToProcess(couple.second)).find(neutronInelastic)          != std::string::npos) InteractionPointType.push_back(neutronInelastic);          
+            else if ((truetraj.KeyToProcess(couple.second)).find(hadElastic)                != std::string::npos) InteractionPointType.push_back(hadElastic);          
+            else if ((truetraj.KeyToProcess(couple.second)).find(nCapture)                  != std::string::npos) InteractionPointType.push_back(nCapture);          
+            else if ((truetraj.KeyToProcess(couple.second)).find(chipsNuclearCaptureAtRest) != std::string::npos) InteractionPointType.push_back(chipsNuclearCaptureAtRest);
+            else if ((truetraj.KeyToProcess(couple.second)).find(decay)                     != std::string::npos) InteractionPointType.push_back(decay);            
+            else if ((truetraj.KeyToProcess(couple.second)).find(kaonZeroLInelastic)        != std::string::npos) InteractionPointType.push_back(kaonZeroLInelastic);   
+            else if ((truetraj.KeyToProcess(couple.second)).find(coulombScat)               != std::string::npos) InteractionPointType.push_back(coulombScat);    
+            else if ((truetraj.KeyToProcess(couple.second)).find(muMinusCaptureAtRest)      != std::string::npos) InteractionPointType.push_back(muMinusCaptureAtRest);
+            else if ((truetraj.KeyToProcess(couple.second)).find(protonInelastic)           != std::string::npos) InteractionPointType.push_back(protonInelastic);
+            else if ((truetraj.KeyToProcess(couple.second)).find(kaonMinusInelastic)        != std::string::npos) InteractionPointType.push_back(kaonMinusInelastic);
+            else if ((truetraj.KeyToProcess(couple.second)).find(kaonPlusInelastic)         != std::string::npos) InteractionPointType.push_back(kaonPlusInelastic);
+            else if ((truetraj.KeyToProcess(couple.second)).find(hBertiniCaptureAtRest)     != std::string::npos) InteractionPointType.push_back(hBertiniCaptureAtRest);
+            else { InteractionPointType.push_back("unknown"); G4UnknownProcess.insert((truetraj.KeyToProcess(couple.second))); }
           }
         }	
         iPrim++;
@@ -1633,7 +1627,7 @@ void lariat::MyAna::analyze(art::Event const & evt)
 }
 
 
-void lariat::MyAna::beginJob()
+void lariat::AnaTreeUTA::beginJob()
 {
   // Implementation of optional member function here.
   art::ServiceHandle<art::TFileService> tfs;
@@ -1812,6 +1806,7 @@ void lariat::MyAna::beginJob()
   fTree->Branch("MidPz",MidPz,"MidPz[no_primaries][5000]/D");
   fTree->Branch("InteractionPoint"         ,&InteractionPoint         );
   fTree->Branch("InteractionPointType"     ,&InteractionPointType     );
+  fTree->Branch("InteractionPointSubType"  ,&InteractionPointSubType  );
 
 
   fTree->Branch("no_mcshowers", &no_mcshowers, "no_mcshowers/I");
@@ -1871,7 +1866,7 @@ void lariat::MyAna::beginJob()
 
 }
 
-void lariat::MyAna::ResetVars()
+void lariat::AnaTreeUTA::ResetVars()
 {
   G4Process.clear();
   G4FinalProcess.clear();
@@ -1879,6 +1874,7 @@ void lariat::MyAna::ResetVars()
 
   InteractionPoint.clear();
   InteractionPointType.clear();
+  InteractionPointSubType.clear();
 
   run = -99999;
   subrun = -99999;
@@ -2124,4 +2120,4 @@ void lariat::MyAna::ResetVars()
   
 }
 
-DEFINE_ART_MODULE(lariat::MyAna)
+DEFINE_ART_MODULE(lariat::AnaTreeUTA)
