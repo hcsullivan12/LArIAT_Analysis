@@ -31,18 +31,6 @@ std::vector<float> slabsInZ;
 // ====================================================================================================
 // ====================================  CUTS AND CONSTANTS  ==========================================
 // ====================================================================================================
-// option to compute xs using g4 info
-bool IS_XS_USING_G4_INFO(false);
-
-// the interaction channel we're interested in
-std::string INTERACTION_CHANNEL("Pi-Inelastic");
-
-// step size
-float STEP_SIZE(0.0003); // m
-
-// option to compute xs using reco info
-bool IS_XS_USING_RECO_INFO(true);
-
 // tpc boundaries
 float TPC_X_BOUND[2] = {   0.0, 47.0 };
 float TPC_Y_BOUND[2] = { -20.0, 20.0 };
@@ -135,13 +123,6 @@ TH1D *hDataUpstreamZPos = new TH1D("hDataUpstreamZPos", "Most upstream spacepoin
 
 TH1D *hAlpha = new TH1D("hAlpha", "#alpha between MC Particle and TPC Track", 90, 0, 90);
 
-TH1D *hXsG4IncidentKinEn = new TH1D("hXsG4IncidentKinEn", "MC Truth Incident Kinetic Energy", 20, 0, 1000);
-TH1D *hXsG4InteractingKinEn = new TH1D("hXsG4InteractingKinEn", "MC Truth Interacting Kinetic Energy", 20, 0, 1000);
-
-TH1D *hXsG4 = new TH1D("hXsG4", "XS", 20, 0, 1000);
-
-TH1D *hStepSize = new TH1D("hStepSize", "G4 Step Size", 1000, 0, 0.0004);
-
 // =======================================================================================
 // ====================================  FILES  ==========================================
 // =======================================================================================
@@ -154,21 +135,6 @@ TFile myRootFile("piMinusAna.root", "RECREATE");
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void myana::Loop(int inDebug)
 {
-
-  // ########################
-  // ### Define our slabs ###
-  // ########################
-  if (IS_XS_USING_G4_INFO)
-  {
-    float iZ(TPC_Z_BOUND[0]);
-    while (iZ <= TPC_Z_BOUND[1])
-    {
-      slabsInZ.push_back(iZ);
-      iZ = iZ + STEP_SIZE*100; // convert to cm
-    }
-  }
- 
-
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
@@ -200,303 +166,57 @@ void myana::Loop(int inDebug)
     // count the number of primaries
     // this is to save us from a memory crash
     // which is not an easy bug to hunt down
-    int nPrimary(0);                                                                                      // number of primaries
-    int maxTrTrjPoints(0);                                                                                // max number of truth traj points
+    int nPrimary(0);                                       // number of primaries
+    int maxTrTrjPoints(0);                                 // max number of truth traj points
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
       if (process_primary[iG4] == 1) nPrimary++;
       if (process_primary[iG4] == 1 && maxTrTrjPoints < NTrTrajPts[iG4]) maxTrTrjPoints = NTrTrajPts[iG4];
     }
-    int nTrTrjPoints[nPrimary];                                                               // n truth trajectory points
-    int g4PrimaryTrkId[nPrimary];                                                             // track id 
-    int g4PrimaryProcess[nPrimary];                                                           // interaction process
-    float g4PrimaryX0[nPrimary], g4PrimaryY0[nPrimary], g4PrimaryZ0[nPrimary];                // start pos
-    float g4PrimaryXf[nPrimary], g4PrimaryYf[nPrimary], g4PrimaryZf[nPrimary];                // final pos 
-    float g4PrimaryPx[nPrimary], g4PrimaryPy[nPrimary], g4PrimaryPz[nPrimary];                // momentum
-    float g4PrimaryTrTrjX[nPrimary][maxTrTrjPoints],  g4PrimaryTrTrjY[nPrimary][maxTrTrjPoints],  g4PrimaryTrTrjZ[nPrimary][maxTrTrjPoints]; // trajectory sp
-    float g4PrimaryTrTrjPx[nPrimary][maxTrTrjPoints], g4PrimaryTrTrjPy[nPrimary][maxTrTrjPoints], g4PrimaryTrTrjPz[nPrimary][maxTrTrjPoints]; // trajectory momentum 
-    float g4PrimaryProjX0[nPrimary], g4PrimaryProjY0[nPrimary], g4PrimaryProjZ0[nPrimary];    // projected position
+    std::vector<int>      g4PrimaryTrkId;                  // track id 
+    std::vector<TVector3> g4PrimaryPos0;                   // start pos
+    std::vector<TVector3> g4PrimaryPosf;                   // final pos 
+    std::vector<TVector3> g4PrimaryMom0;                   // momentum
+    std::vector<TVector3> g4PrimaryProjPos0;               // projected position
+    std::vector<std::vector<TVector3>> g4PrimaryTrTrjPos;  // trajectory sp
+    std::vector<std::vector<TVector3>> g4PrimaryTrTrjMom;  // trajectory momentum 
+    
+    // ###########################
+    // ### Fill our containers ###
+    // ###########################
+    FillContainers(g4PrimaryTrkId, 
+                   g4PrimaryPos0, 
+                   g4PrimaryPosf, 
+                   g4PrimaryMom0, 
+                   g4PrimaryProjPos0, 
+                   g4PrimaryTrTrjPos, 
+                   g4PrimaryTrTrjMom);
 
-    // ##############################
-    // ### Loop over g4 particles ###
-    // ##############################
-    {
-    // counter for the primary
-    size_t iPrim(0);
-    for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
-    {
-      // #########################################
-      // ### If this is not a primary, skip it ###
-      // #########################################
-      if (process_primary[iG4] == 0) continue;
-       
-      // store the position and momentum 
-      g4PrimaryX0[iPrim] = StartPointx[iG4];
-      g4PrimaryY0[iPrim] = StartPointy[iG4];
-      g4PrimaryZ0[iPrim] = StartPointz[iG4];
-
-      g4PrimaryXf[iPrim] = EndPointx[iG4];
-      g4PrimaryYf[iPrim] = EndPointy[iG4];
-      g4PrimaryZf[iPrim] = EndPointz[iG4];
-
-      g4PrimaryPx[iPrim] = Px[iG4] * 1000; // convert to MeV
-      g4PrimaryPy[iPrim] = Py[iG4] * 1000; // convert to MeV
-      g4PrimaryPz[iPrim] = Pz[iG4] * 1000; // convert to MeV
-
-      // setting a global event weight 
-      // 100 MeV < P < 200 MeV = 0.02
-      // 200 MeV < P < 300 MeV = 0.10
-      // 300 MeV < P < 400 MeV = 0.535
-      // 400 MeV < P < 500 MeV = 0.84
-      // 500 MeV < P < 600 MeV = 0.965
-      // 600 MeV < P < 700 MeV = 1.0
-      // 700 MeV < P < 800 MeV = 0.62
-      // 800 MeV < P < 900 MeV = 0.225
-      // 900 MeV < P < 1000MeV = 0.094
-      // 1000MeV < P < 1100MeV = 0.0275
-      // 1100MeV < P < 1500MeV = 0.01
-
-      // setting Event weight 
-      if(USE_EVENT_WEIGHT)
-      {
-        if(g4PrimaryPz[iPrim] > 0   && g4PrimaryPz[iPrim] < 100) EVENT_WEIGHT = 0.010;
-        if(g4PrimaryPz[iPrim] > 100 && g4PrimaryPz[iPrim] < 200) EVENT_WEIGHT = 0.020;
-        if(g4PrimaryPz[iPrim] > 200 && g4PrimaryPz[iPrim] < 300) EVENT_WEIGHT = 0.100;
-        if(g4PrimaryPz[iPrim] > 300 && g4PrimaryPz[iPrim] < 400) EVENT_WEIGHT = 0.535;
-        if(g4PrimaryPz[iPrim] > 400 && g4PrimaryPz[iPrim] < 500) EVENT_WEIGHT = 0.840;
-        if(g4PrimaryPz[iPrim] > 500 && g4PrimaryPz[iPrim] < 600) EVENT_WEIGHT = 0.965;
-        if(g4PrimaryPz[iPrim] > 600 && g4PrimaryPz[iPrim] < 700) EVENT_WEIGHT = 1.000;
-        if(g4PrimaryPz[iPrim] > 700 && g4PrimaryPz[iPrim] < 800) EVENT_WEIGHT = 0.620;
-        if(g4PrimaryPz[iPrim] > 800 && g4PrimaryPz[iPrim] < 900) EVENT_WEIGHT = 0.225;
-        if(g4PrimaryPz[iPrim] > 900 && g4PrimaryPz[iPrim] <1000) EVENT_WEIGHT = 0.094;
-        if(g4PrimaryPz[iPrim] >1000 && g4PrimaryPz[iPrim] <1100) EVENT_WEIGHT = 0.0275;
-        if(g4PrimaryPz[iPrim] >1100)                             EVENT_WEIGHT = 0.010;
-      }
-
-      // fill momentum histos
-      TVector3 thisMomVec( g4PrimaryPx[iPrim], g4PrimaryPy[iPrim], g4PrimaryPz[iPrim] );
-      hMCPrimaryPx->Fill(thisMomVec.X(), EVENT_WEIGHT);
-      hMCPrimaryPy->Fill(thisMomVec.Y(), EVENT_WEIGHT);
-      hMCPrimaryPz->Fill(thisMomVec.Z(), EVENT_WEIGHT);
-      hMCPrimaryP->Fill(thisMomVec.Mag(), EVENT_WEIGHT);
-
-      // fill true length histo
-      TVector3 thisPos0Vec( g4PrimaryX0[iPrim], g4PrimaryY0[iPrim], g4PrimaryZ0[iPrim] );
-      TVector3 thisPos1Vec( g4PrimaryXf[iPrim], g4PrimaryYf[iPrim], g4PrimaryZf[iPrim] );
-
-      float g4TrueLength = (thisPos1Vec - thisPos0Vec).Mag();
-      hTrueLength->Fill(g4TrueLength);
-
-      // project onto tpc 
-      TVector3 thisPosProjVec = thisPos0Vec - ( thisPos0Vec.Z()/thisMomVec.Z() )*thisMomVec;
-
-      g4PrimaryProjX0[iPrim] = thisPosProjVec.X();
-      g4PrimaryProjY0[iPrim] = thisPosProjVec.Y();
-      g4PrimaryProjZ0[iPrim] = thisPosProjVec.Z();
-
-      // fill the proj histos
-      hMCPrimaryProjX0->Fill(g4PrimaryProjX0[iPrim]);
-      hMCPrimaryProjY0->Fill(g4PrimaryProjY0[iPrim]);
-      hMCPrimaryProjZ0->Fill(g4PrimaryProjZ0[iPrim]);
-
-      // store the track id 
-      g4PrimaryTrkId[iPrim] = TrackId[iG4];
-
-      // store the trajectory points and momentum
-      nTrTrjPoints[iPrim] = NTrTrajPts[iG4];
-      for (size_t iPoint = 0; iPoint < nTrTrjPoints[iPrim]; iPoint++)
-      {
-        g4PrimaryTrTrjX[iPrim][iPoint] = MidPosX[iG4][iPoint];
-        g4PrimaryTrTrjY[iPrim][iPoint] = MidPosY[iG4][iPoint];
-        g4PrimaryTrTrjZ[iPrim][iPoint] = MidPosZ[iG4][iPoint];
-
-        g4PrimaryTrTrjPx[iPrim][iPoint] = MidPx[iG4][iPoint] * 1000; // convert to MeV
-        g4PrimaryTrTrjPy[iPrim][iPoint] = MidPy[iG4][iPoint] * 1000; // convert to MeV
-        g4PrimaryTrTrjPz[iPrim][iPoint] = MidPz[iG4][iPoint] * 1000; // convert to MeV
-      }
-      iPrim++;
-    } 
-    }
-
-    // ###################################
-    // ### Get the interaction process ###
-    // ###################################
-    for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
-    {
-      for (size_t iPrim = 0; iPrim < nPrimary; iPrim++)
-      {
-        if ( Mother[iG4] == g4PrimaryTrkId[iPrim] ) g4PrimaryProcess[iPrim] = Process[iG4];
-      }
-    }
-  
-
-
-
-
+    
     // ==========================================================================
     // =================  LOOKING AT EVENTS THAT ENTER THE TPC  =================
     // ==========================================================================
-
-    // ###########################
-    // ### Loop over primaries ###
-    // ###########################
     bool isGoodEvent(false);
-    for (size_t iPrim = 0; iPrim < nPrimary; iPrim++)
-    {
-      // only look if a primary entered the tpc
-      if ( g4PrimaryZf[iPrim] > 0 ) isGoodEvent = true;
-      if ( !isGoodEvent ) 
-      {
-        hMCPrimaryMissedTpcX->Fill(g4PrimaryXf[iPrim]);
-        hMCPrimaryMissedTpcY->Fill(g4PrimaryYf[iPrim]);
-        hMCPrimaryMissedTpcZ->Fill(g4PrimaryZf[iPrim]);
-        continue;
-      }
-
-      // ####################################
-      // ### This primary entered the TPC ###
-      // ####################################
-      nPrimariesEntered++;
-
-      // calculate energy loss
-      float energyLoss(0);
-      // loop over trj points for this primary
-      for (size_t iPoint = 0; iPoint < nTrTrjPoints[iPrim]; iPoint++)
-      {
-        // only look at the upstream portion
-        if ( g4PrimaryTrTrjZ[iPrim][iPoint] > 0 ) continue;
-        // ignore last point
-        if ( (iPoint+1) >= nTrTrjPoints[iPrim] ) break;
- 
-        TVector3 mom1Vec = TVector3( g4PrimaryTrTrjPx[iPrim][iPoint], 
-                                     g4PrimaryTrTrjPy[iPrim][iPoint], 
-                                     g4PrimaryTrTrjPz[iPrim][iPoint] );
-        TVector3 mom2Vec = TVector3( g4PrimaryTrTrjPx[iPrim][iPoint+1], 
-                                     g4PrimaryTrTrjPy[iPrim][iPoint+1], 
-                                     g4PrimaryTrTrjPz[iPrim][iPoint+1] );
-        float mom1    = mom1Vec.Mag();
-        float energy1 = std::sqrt( mom1*mom1 + PARTICLE_MASS*PARTICLE_MASS ); 
-        float mom2 = mom2Vec.Mag();
-        float energy2 = std::sqrt( mom2*mom2 + PARTICLE_MASS*PARTICLE_MASS ); 
-
-        energyLoss += (energy1 - energy2);
-      }//<--- End loop over true traj points
-      hMCELossUpstream->Fill(energyLoss);
-    }//<--- End loop over primaries
+    ApplyEnterTPCCut(isGoodEvent,
+                     g4PrimaryPosf, 
+                     g4PrimaryTrTrjPos, 
+                     g4PrimaryTrTrjMom);
     if (!isGoodEvent) continue;
     nGoodMCEvents++;
-
-
-
-
-
     
-    // ================================================================
-    // ================= MC TRUTH LEVEL CROSS SECTION =================
-    // ================================================================
-    if (IS_XS_USING_G4_INFO) 
-    {
-      // ###########################
-      // ### Loop over primaries ###
-      // ###########################
-      for (size_t iPrim = 0; iPrim < nPrimary; iPrim++)
-      {
-        // #######################
-        // ### Loop over slabs ###
-        // #######################
-        size_t iPoint(1);
-        for (size_t iSlabZ = 0; iSlabZ < (slabsInZ.size()-1); iSlabZ++)
-        {
-          double slabBound[2] = { slabsInZ[iSlabZ], slabsInZ[iSlabZ+1] };
-          // ####################################################################
-          // ### Loop over tr trj points to look for interaction in this slab ###
-          // ####################################################################
-          for (; iPoint < nTrTrjPoints[iPrim]; iPoint++)
-          {
-            TVector3 theTrTrjPointVec( g4PrimaryTrTrjX[iPrim][iPoint],  g4PrimaryTrTrjY[iPrim][iPoint],  g4PrimaryTrTrjZ[iPrim][iPoint] );
-            TVector3 thePreTrTrjPointVec( g4PrimaryTrTrjX[iPrim][iPoint-1],  g4PrimaryTrTrjY[iPrim][iPoint-1],  g4PrimaryTrTrjZ[iPrim][iPoint-1] );
-            double diff = (thePreTrTrjPointVec-theTrTrjPointVec).Mag();
-            
-            // Check if it's in this slab
-            if (theTrTrjPointVec.Z() < slabBound[0]) continue;
-
-            TVector3 theTrTrjMomVec( g4PrimaryTrTrjPx[iPrim][iPoint-1], g4PrimaryTrTrjPy[iPrim][iPoint-1], g4PrimaryTrTrjPz[iPrim][iPoint-1] );
-            bool  didInteract(false);
-
-            // compute the kinetic energy
-            double kineticEnergy = std::sqrt( theTrTrjMomVec.Mag()*theTrTrjMomVec.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-            // should we do this later?
-            if (kineticEnergy < 0.001) break;
-
-            // loop over the next few points until next boundary looking for interaction
-            while (theTrTrjPointVec.Z() < slabBound[1])
-            {
-              // #######################################
-              // ### Check if in the fiducial volume ###
-              // #######################################
-              if ( FV_X_BOUND[0] < theTrTrjPointVec.X() && theTrTrjPointVec.X() < FV_X_BOUND[1] &&
-                   FV_Y_BOUND[0] < theTrTrjPointVec.Y() && theTrTrjPointVec.Y() < FV_Y_BOUND[1] &&
-                   FV_Z_BOUND[0] < theTrTrjPointVec.Z() && theTrTrjPointVec.Z() < FV_Z_BOUND[1] )
-              { 
-                // did it interact here?
-                auto it = std::find( InteractionPoint->begin(), InteractionPoint->end(), iPoint );
-                if ( it != InteractionPoint->end() )
-                {
-                  // we have an interaction at this point!
-                  size_t d = std::distance(InteractionPoint->begin(), it);
-                  std::string theProcess = ConvertProcessToString( (*InteractionPointType)[d] );
-                  // check if it's the process we're interested in
-                  if (theProcess == INTERACTION_CHANNEL) didInteract = true;
-                }
-              }
-
-              iPoint = iPoint + 1;
-              if (iPoint >= nTrTrjPoints[iPrim]) break;
-
-              theTrTrjPointVec    = TVector3( g4PrimaryTrTrjX[iPrim][iPoint],  g4PrimaryTrTrjY[iPrim][iPoint],  g4PrimaryTrTrjZ[iPrim][iPoint] );
-              thePreTrTrjPointVec = TVector3( g4PrimaryTrTrjX[iPrim][iPoint-1],  g4PrimaryTrTrjY[iPrim][iPoint-1],  g4PrimaryTrTrjZ[iPrim][iPoint-1] );
-            }
-
-            // fill the incident
-            hXsG4IncidentKinEn->Fill(kineticEnergy);
-
-            if (didInteract)
-            {
-              // we've got the one we're looking for
-              // fill the interacting histogram
-              nXsG4Signal++;
-              hXsG4InteractingKinEn->Fill(kineticEnergy);
-            }
-            iPoint = iPoint - 1;
-            break;
-          }//<--- End loop over trj points  
-        }//<--- End loop over slabs
-      }//<--- End loop over primaries
-    }//<--- End if xs using g4 
-
-
 // End looking at only MC truth/G4 information
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
 
 
-
-
-
-    // quit if we don't care about reconstructed variables
-    if(!IS_XS_USING_RECO_INFO) continue;
-
-
-
-
-    // ============================================================================
     // =================      APPLY FRONT FACE TPC TRACK CUT      =================
     // =================  APPLY CUT ON NUMBER OF UPSTREAM TRACKS  =================
     // =================          (Cuts on EM showers)            =================
     // ============================================================================
-    std::vector<double> frontFaceTrkX,      frontFaceTrkY,      frontFaceTrkZ;
-    std::vector<double> frontFaceTrkP0HatX, frontFaceTrkP0HatY, frontFaceTrkP0HatZ;
-    std::vector<double> frontFaceTrkPhi,    frontFaceTrkTheta;
-    std::vector<size_t> frontFaceTrkId;
+    std::vector<TVector3> frontFaceTrksPos;
+    std::vector<TVector3> frontFaceTrksP0Hat;
+    std::vector<double> frontFaceTrksPhi, frontFaceTrksTheta;
+    std::vector<size_t> frontFaceTrksId;
     size_t nUpstreamTpcTrks(0);
 
     // ##########################################################
@@ -512,8 +232,8 @@ void myana::Loop(int inDebug)
       bool isUpstreamTpcTrk(false); 
 
       // dummy variables for observables attached to tempMinZ
-      float dummyTrkX, dummyTrkY, dummyTrkZ;
-      float dummyTrkP0HatX, dummyTrkP0HatY, dummyTrkP0HatZ;
+      TVector3 dummyTrkPos(0,0,0);
+      TVector3 dummyTrkP0Hat(0,0,0);
       size_t dummyTrkId;
 
       // ###################################
@@ -539,15 +259,9 @@ void myana::Loop(int inDebug)
             isFrontTpcTrk = true;
             
             // Store these points for later
-            dummyTrkX = theTrjPointVec.X();
-            dummyTrkY = theTrjPointVec.Y();
-            dummyTrkZ = theTrjPointVec.Z();
-
-            dummyTrkP0HatX = theTrjP0HatVec.X();
-            dummyTrkP0HatY = theTrjP0HatVec.Y();
-            dummyTrkP0HatZ = theTrjP0HatVec.Z();
-
-            dummyTrkId = iTrk;
+            dummyTrkPos   = theTrjPointVec;
+            dummyTrkP0Hat = theTrjP0HatVec; 
+            dummyTrkId    = iTrk;
           }//<--- End if within first few cm of TPC
 
           // check if this point is in the upstream portion
@@ -560,15 +274,9 @@ void myana::Loop(int inDebug)
       // if it is at the front, append to our vectors
       if (isFrontTpcTrk)
       {
-        frontFaceTrkX.push_back( dummyTrkX );
-        frontFaceTrkY.push_back( dummyTrkY );
-        frontFaceTrkZ.push_back( dummyTrkZ );
-
-        frontFaceTrkP0HatX.push_back( dummyTrkP0HatX );
-        frontFaceTrkP0HatY.push_back( dummyTrkP0HatY );        
-        frontFaceTrkP0HatZ.push_back( dummyTrkP0HatZ );        
-
-        frontFaceTrkId.push_back( dummyTrkId );
+        frontFaceTrksPos.  push_back( dummyTrkPos );
+        frontFaceTrksP0Hat.push_back( dummyTrkP0Hat ); 
+        frontFaceTrksId.   push_back( dummyTrkId );
       }
 
       // increment if in upstream portion
@@ -579,7 +287,7 @@ void myana::Loop(int inDebug)
     }//<-- End loop over reconstructed tracks
 
     // skip events that do not have a trk at the front
-    if (frontFaceTrkId.size() == 0) continue;
+    if (frontFaceTrksId.size() == 0) continue;
     nEventsFrontTpcTrk++;
 
     // skip events that have too many tracks upstream        
@@ -594,25 +302,21 @@ void myana::Loop(int inDebug)
     // ========================================================================
     // =================  MATCHING MC TO RECONSTRUCTED TRACK  =================
     // ========================================================================
-    if ( nPrimary > 1 ) std::cout << "\n\n\nTHERE IS MORE THAN ONE PRIMARY\n\n\n";
-  
     size_t nMcTpcMatch(0);
     // ###########################################
     // ### Loop over all the front face Tracks ###
     // ###########################################
-    for(size_t iFrFaTrk = 0; iFrFaTrk < frontFaceTrkId.size(); iFrFaTrk++)
+    for(size_t iFrFaTrk = 0; iFrFaTrk < frontFaceTrksId.size(); iFrFaTrk++)
     {
-      float deltaX = frontFaceTrkX[iFrFaTrk] - g4PrimaryProjX0[0];
-      float deltaY = frontFaceTrkY[iFrFaTrk] - g4PrimaryProjY0[0];
-      float deltaZ = frontFaceTrkZ[iFrFaTrk] - g4PrimaryProjZ0[0];
+      auto deltaVec = frontFaceTrkPos[iFrFaTrk] - g4PrimaryProjPos0[0];
 
-      hDeltaX->Fill(deltaX);
-      hDeltaY->Fill(deltaY);
-      hDeltaZ->Fill(deltaZ);
+      hDeltaX->Fill(deltaVec.X());
+      hDeltaY->Fill(deltaVec.Y());
+      hDeltaZ->Fill(deltaVec.Z());
 
       // matching in delta X and delta Y 
-      if( DELTA_X_BOUND[0] < deltaX && deltaX < DELTA_X_BOUND[1] && 
-          DELTA_Y_BOUND[0] < deltaY && deltaY < DELTA_Y_BOUND[1] )
+      if( DELTA_X_BOUND[0] < deltaVec.X() && deltaVec.X() < DELTA_X_BOUND[1] && 
+          DELTA_Y_BOUND[0] < deltaVec.Y() && deltaVec.Y() < DELTA_Y_BOUND[1] )
       {
         nMcTpcMatch++;
       }
@@ -630,7 +334,7 @@ void myana::Loop(int inDebug)
     // #################################################
     // ### Calculating the angles for the G4 primary ###
     // #################################################
-    TVector3 mcP0Hat( g4PrimaryPx[0], g4PrimaryPy[0], g4PrimaryPz[0]);
+    TVector3 mcP0Hat = g4PrimaryMom0[0]; 
     mcP0Hat = mcP0Hat.Unit();
     float    mcPhi(0), mcTheta(0);
   
@@ -640,25 +344,23 @@ void myana::Loop(int inDebug)
     // ##############################################################
     // ### Calculating the angles for the front face tracks (TPC) ###
     // ##############################################################
-    for(int iFrFaTrk = 0; iFrFaTrk < frontFaceTrkId.size(); iFrFaTrk++)
+    for(int iFrFaTrk = 0; iFrFaTrk < frontFaceTrksId.size(); iFrFaTrk++)
     {
       // setting the TVector 
-      TVector3 tpcP0Hat( frontFaceTrkP0HatX[iFrFaTrk], 
-                         frontFaceTrkP0HatY[iFrFaTrk], 
-                         frontFaceTrkP0HatZ[iFrFaTrk] );
+      auto tpcP0Hat = frontFaceTrkP0Hat[iFrFaTrk];
       tpcP0Hat = tpcP0Hat.Unit();
 
       float thisPhi(0), thisTheta(0);
       ComputeAngles( thisPhi, thisTheta, tpcP0Hat );
 
-      frontFaceTrkPhi.push_back(thisPhi);
-      frontFaceTrkTheta.push_back(thisTheta);
+      frontFaceTrksPhi.push_back(thisPhi);
+      frontFaceTrksTheta.push_back(thisTheta);
     }//<--- End iFrFaTrk loop
 
     // sanity check
-    assert( frontFaceTrkX.size()      == frontFaceTrkY.size()      == frontFaceTrkZ.size()      == 
-            frontFaceTrkP0HatX.size() == frontFaceTrkP0HatY.size() == frontFaceTrkP0HatZ.size() ==
-            frontFaceTrkPhi.size()    == frontFaceTrkTheta.size()  == frontFaceTrkId.size() );
+    assert( frontFaceTrkPos.size()  == frontFaceTrkP0Hat.size()   == 
+            frontFaceTrksPhi.size() == frontFaceTrksTheta.size()  == 
+            frontFaceTrksId.size() );
 
     
 
@@ -671,7 +373,7 @@ void myana::Loop(int inDebug)
     // ======================================================
     bool isAlphaMatch(false);
     size_t xsRecoTrkId;
-    for(int iFrFaTrk = 0; iFrFaTrk < frontFaceTrkId.size(); iFrFaTrk++)
+    for(int iFrFaTrk = 0; iFrFaTrk < frontFaceTrksId.size(); iFrFaTrk++)
     {
       // compute the g4 primary momentum unit vector
       TVector3 theMCUnit( std::sin(mcTheta)*std::cos(mcPhi),
@@ -679,9 +381,9 @@ void myana::Loop(int inDebug)
                           std::cos(mcTheta) );
 
       // compute the front face tpc trk momontum unit vector
-      TVector3 theTpcUnit( std::sin(frontFaceTrkTheta[iFrFaTrk])*std::cos(frontFaceTrkPhi[iFrFaTrk]),
-                           std::sin(frontFaceTrkTheta[iFrFaTrk])*std::sin(frontFaceTrkPhi[iFrFaTrk]),
-                           std::cos(frontFaceTrkTheta[iFrFaTrk]) );
+      TVector3 theTpcUnit( std::sin(frontFaceTrksTheta[iFrFaTrk])*std::cos(frontFaceTrksPhi[iFrFaTrk]),
+                           std::sin(frontFaceTrksTheta[iFrFaTrk])*std::sin(frontFaceTrksPhi[iFrFaTrk]),
+                           std::cos(frontFaceTrksTheta[iFrFaTrk]) );
       
       // ###########################################################
       // ### Calculating the angle between WCTrack and TPC Track ###
@@ -695,7 +397,7 @@ void myana::Loop(int inDebug)
       if (alpha < ALPHA_CUT)
       {
         isAlphaMatch = true;
-        xsRecoTrkId = frontFaceTrkId[iFrFaTrk];
+        xsRecoTrkId = frontFaceTrksId[iFrFaTrk];
       }
     }
 
@@ -713,143 +415,118 @@ void myana::Loop(int inDebug)
     // ### We are know tracking a uniquely WC/TPC matched track ###
     // ###         The ID is in xsRecoTrkId variable            ###
     // ############################################################
+    
 
 
 
 
 
-
-
-
-
-
-    // =================================================================
-    // ================= ADDING TO CROSS SECTION PLOTS =================
-    // =================================================================
-
-    //
-    // Outline of event selection:
-    //
-    //     * Can we find a vertex?
-    //          1) No. Look for 'activity' around track.
-    //
-    //     * Are there secondary tracks eminating from vertex?
-    //          1) No. Compare with elastic. Look for 'activity' around vertex/track.
-    //
-    //
-   
-    // ########################################################################
-    // ### Variables for the track we are calculating the cross-section for ###
-    // ########################################################################
-    double xsdEdX[1000]    ={0.};
-    double xsResRange[1000]={0.};
-    double xsPitchHit[1000]={0.};
-    int    xsSpts(0);
-    double xsSumEnergy(0);
-    float  xsTrackEndX(999), xsTrackEndY(999), xsTrackEndZ(999);
-    bool   xsExitingTrack(false);
-    float  xsKineticEnergy(0);
-    float  xsMomentum(0);
-
-    // calculating the momentum from the MC primary
-    // (this mocks our WC momentum meaurement)
-
-    // since we're using single particle gun, get the true momentum at z=0
-    TVector3 thisMomVec; //( g4PrimaryPx[0], g4PrimaryPy[0], g4PrimaryPz[0] );
-    for (size_t iPoint = 0; iPoint < nTrajPoint[0]; iPoint++)
-    {
-      if (g4PrimaryTrTrjZ[0][iPoint] > 0) break;
-      thisMomVec = TVector3( g4PrimaryTrTrjPx[0][iPoint, g4PrimaryTrTrjPy[0][iPoint], g4PrimaryTrTrjPz[0][iPoint] ]);
-    }
-    xsMomentum = thisMomVec.Mag();
-
-    // calculating the kinetic energy 
-    // KE = E - mass 
-    xsKineticEnergy = std::sqrt( xsMomentum*xsMomentum + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-    // subtract of the assumed energy loss
-    //xsKineticEnergy = xsKineticEnergy - ENTRY_TPC_ENERGY_LOSS;
-    // fill the KE histo
-    hMCInitialKE->Fill(xsKineticEnergy);
-
-    // ################################
-    // ### Loop over all TPC Tracks ###
-    // ################################
+    // #####################################################
+    // ### 
+    // #####################################################
+    // define the containers of the important information about the track for the XS
+    std::vector<double> pitchVec;
+    std::vector<double> dEdXVec;
+    std::vector<double> eDepVec; // Energy deposition at each slice. Simply dEdX*Pitch
+    std::vector<double> resRanVec;
+    std::vector<double> zPosVec;
+    std::vector<double> incidentKEVec;
+  
+    // ### loop over the reconstructed tracks
+    size_t furtherstInZCaloPointIndex  = 0;
+    double furtherstInZCaloPointZ      = 0.;
+    bool   isTrackInteracting          = false;
+    bool   isTrackInelastic            = false;
     for(size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
     {
       // only look at the one that passed the WC_TPC match and cuts
       if(iTrk != xsRecoTrkId) continue;
 
-      // recording the end point of this track 
-      xsTrackEndX = trkendx[iTrk];
-      xsTrackEndY = trkendy[iTrk];
-      xsTrackEndZ = trkendz[iTrk];
-
-      hDataPionTrackEndX->Fill(xsTrackEndX);
-      hDataPionTrackEndY->Fill(xsTrackEndY);
-      hDataPionTrackEndZ->Fill(xsTrackEndZ);
-
-      // recording the start-point of this track 
-      hdataPionTrackStartX->Fill(trkvtxx[iTrk]);
-      hdataPionTrackStartY->Fill(trkvtxy[iTrk]);
-      hdataPionTrackStartZ->Fill(trkvtxz[iTrk]);
-
-      xsRecoLength = trklength[iTrk];
-      hRecoLength->Fill(xsRecoLength);
-
-      // ##################################################
-      // ### If this track's end point is at a boundary ###
-      // ###    then tag this track as "through-going"  ###
-      // ##################################################
-      if( FV_X_BOUND[0] > xsTrackEndX || xsTrackEndX > FV_X_BOUND[1] || 
-          FV_Y_BOUND[0] > xsTrackEndY || xsTrackEndY > FV_Y_BOUND[1] ||
-          FV_Z_BOUND[1] < xsTrackEndZ ) { xsExitingTrack = true; }
-
-      iPionSp = 0;
-      // ###################################################
-      // ### Looping over the spacepoints for this track ###
-      // ###################################################
-      for(size_t iSpt = 0; iSpt < ntrkhits[iTrk]; iSpt++)
+      // we need the calorimetry information for this track
+      size_t limit = sizeof(trkxyz[xsREcoTrkId][1])/sizeof(*trkxyz[xsREcoTrkId][1]);
+      for (size_t k = 0; k < limit; k++)
       {
-        // Note: Format for this variable is:           
-        //         [trk number][plane 0 = induction, 1 = collection][spts number] 
-        xsdEdX[iPionSp] = trkdedx[iTrk][1][iSpt];  
+        // make sure we can actually see this
+        TVector3 theXYZ(trkxyz[xsRecoTrkId][1][k][0], trkxyz[xsRecoTrkId][1][k][1], trkxyz[xsRecoTrkId][1][k][2]); 
+        if ( FV_X_BOUND[0] > theXYZ.X() || theXYZ.X() > FV_X_BOUND[1] ||
+             FV_Y_BOUND[0] > theXYZ.Y() || theXYZ.Y() > FV_Y_BOUND[1] ||
+             FV_Z_BOUND[0] > theXYZ.Z() || theXYZ.Z() > FV_Z_BOUND[1] ) continue;
 
-        // putting in a fix in the case that the dE/dX is negative in this step 
-        // then take the point before and the point after and average them
-        if( xsdEdX[iPionSp] < 0 && iSpt < ntrkhits[iTrk] && iSpt > 0)
+        // we're determining the most downstream point
+        if (theXYZ.Z() > furtherstInZCaloPointZ) 
         {
-          xsdEdX[iPionSp] =  ( trkdedx[iTrk][1][iSpt - 1] + trkdedx[iTrk][1][iSpt + 1] )*0.5;
+          furtherstInZCaloPointIndex = k;
+          furtherstInZCaloPointZ = theXYZ.Z();
         }
+        pitchVec. push_back( trkpitchhit[xsRecoTrkId][1][k] );
+        dEdXVec.  push_back( trkdedx[xsRecoTrkId][1][k]     );
+        eDepVec.  push_back( trkdedx[xsRecoTrkId][1][k]*trkpitchhit[xsRecoTrkId][1][k] );
+        resRanVec.push_back( trkrr[xsRecoTrkId][1][k] );
+        zPosVec.  push_back( theXYZ.Z() );
+      }//<-- End loop over track points 
+    }//<--- End loop over tracks
 
-        // if this didn't fix it, then just put in a flat 2.4 MeV / cm fix 
-        if(xsdEdX[iPionSp] < 0)
-        {
-          xsdEdX[iPionSp] = 2.4;
-          continue;
-        }
+    // determine if the particle interacted 
+    if (furtherstInZCaloPointIndex)
+    {
+      TVector3 theXYZ( trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][0], 
+                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][1], 
+                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][2] ); 
+      if ( FV_X_BOUND[0] > theXYZ.X() || theXYZ.X() > FV_X_BOUND[1] ||
+           FV_Y_BOUND[0] > theXYZ.Y() || theXYZ.Y() > FV_Y_BOUND[1] ||
+           FV_Z_BOUND[0] > theXYZ.Z() || theXYZ.Z() > FV_Z_BOUND[1] ) isTrackIntercting = true;
+    }
 
-        xsResRange[iPionSp] = trkrr[iTrk][1][iSpt];
-        xsPitchHit[iPionSp] = trkpitchhit[iTrk][1][iSpt];
-        xsSumEnergy         = (xsdEdX[iPionSp] * xsPionPitchHit[iPionSp]) + xsPionSumEnergy;
+    // determine if the interaction was inelastic
+    if (isTrackInteracting)
+    {
+      // i think for now, we will just look for any daughters around this 
+      // furthest in Z calo point
+      TVector3 theXYZ( trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][0], 
+                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][1], 
+                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][2] );
 
-        // recording the dE/dX
-        hDataPiondEdX->Fill(xsdEdX[iPionSp], EVENT_WEIGHT);
-        // recording the residual range 
-        hDataPionRR->Fill(xsPionResRange[iPionSp]);
-        // recording the Pitch 
-        hDataPionTrkPitch->Fill(xsPionPitchHit[iPionSp], EVENT_WEIGHT);
-        // filling 2d dE/dX vs RR 
-        hDataPiondEdXvsRR->Fill(xsPionResRange[iPionSp], xsdEdX[iPionSp]);
+      // loop over tracks to find a starting point close to this
+      size_t nTracksLeaving(0);
+      for(size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
+      {
+        // skip our primary track
+        if (iTrk == xsRecoTrkId) continue;
 
-        iPionSp++;
-      }//<--- End iSpt loop
-    }//<--- End iTrk loop
+        // what determines the start and ending point here??
+        TVector dXYZstart( trkvtxx[iTrk], trkvtxy[iTrk], trkvtxz[iTrk] );
+        double diff = (theXYZ - dXYZstart).Mag();
+        if ( diff < 0.01 ) nTracksLeaving++;
+      }
+      // there must be at least 2 visible tracks leaving this vertex
+      if (nTracksLeaving >= 2) isTrackInelastic = true;
+    }
 
+    // make sure we have stuff here to work with
+    if (pitchVec.size() == 0) continue;
 
+    // get the kinetic energy at "WC 4" 
+    // (for single particle gun just use KE at z=0)
+    TVector3 theWCMom(0,0,0);
+    for (size_t iPt = 0; iPt < maxTrTrjPoints; iPt++)
+    {
+      if (g4PrimaryTrTrjZ[0][iPt] > 0) break;
+      theWCMom = TVector3( g4PrimaryTrTrjPx[0][iPt], g4PrimaryTrTrjPy[0][iPt], g4PrimaryTrTrjPz[0][iPt]);
+    }
+    double theWCKE = std::sqrt( theWCMag()*theWCMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+    incidentKEVec.push_back(theWCKE);
 
+    // fill the energy depositions
+    double totalEnDep(0);
+    for (size_t iDep = 0; iDep < eDepVec.size(); iDep++)
+    {
+      totalEnDep = totalEnDep + eDepVec[iDep];
+      incidentKEVec.push_back(theWCKE - totalEnDep);
+    }
 
-
-
+    // fill the Incident and interacting histograms
+    for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
+    if (isInteracting && incideKEVec.size() != 0) hRecoMCInteractingKE->Fill(incidentKEVec.back());
   }//<---End loop over entries
 
 
@@ -859,45 +536,22 @@ void myana::Loop(int inDebug)
   // ==========================================================
   // =================  EVENT REDUCTION TABLE =================
   // ==========================================================
-  if (IS_XS_USING_RECO_INFO)
-  {
-    std::cout << endl
-              << "Events simulated:                           " << nTotalEvents                 << endl
-              << "Tracks entered TPC:                         " << nPrimariesEntered            << endl
-              << "Events with > 0 entered tracks:             " << nGoodMCEvents                << endl
-              << "Events with front TPC track:                " << nEventsFrontTpcTrk           << endl
-              << "Events with < N upper TPC tracks:           " << nEventsUpperTpcTrkCount      << endl
-              << "Events with WC_TPC match (nocut):           " << nEventsDeltaMatch            << endl
-              << "Events with unique WC_TPC match (nocut):    " << nEventsWcTpcUniqueMatch      << endl
-              << "Events with unique WC TPC match (alphacut): " << nEventsWcTpcUniqueMatchAlpha << endl
-              << "Inelastic interactions:                     " << nEventsInelastic             << endl
-              << endl;
-  }
-  if (IS_XS_USING_G4_INFO)
-  {
-    std::cout << endl
-              << "Events simulated:                           " << nTotalEvents                 << endl
-              << "Tracks entered TPC:                         " << nPrimariesEntered            << endl
-              << "Events with > 0 entered tracks:             " << nGoodMCEvents                << endl
-              << "Signal events:                              " << nXsG4Signal                  << endl
-              << endl;
-  }
-
-
-
-  // ====================================================
-  // =================  CALCULATE G4 XS =================
-  // ====================================================
-  if (IS_XS_USING_G4_INFO) CalculateG4Xs();
-
-
+  std::cout << endl
+            << "Events simulated:                           " << nTotalEvents                 << endl
+            << "Tracks entered TPC:                         " << nPrimariesEntered            << endl
+            << "Events with > 0 entered tracks:             " << nGoodMCEvents                << endl
+            << "Events with front TPC track:                " << nEventsFrontTpcTrk           << endl
+            << "Events with < N upper TPC tracks:           " << nEventsUpperTpcTrkCount      << endl
+            << "Events with WC_TPC match (nocut):           " << nEventsDeltaMatch            << endl
+            << "Events with unique WC_TPC match (nocut):    " << nEventsWcTpcUniqueMatch      << endl
+            << "Events with unique WC TPC match (alphacut): " << nEventsWcTpcUniqueMatchAlpha << endl
+            << "Inelastic interactions:                     " << nEventsInelastic             << endl
+            << endl;
 
   // ===============================================
   // =================  MAKE PLOTS =================
   // ===============================================
   MakePlots();
-
-
 
   gApplication->Terminate(0);
 }//<---- End main loop
@@ -906,29 +560,134 @@ void myana::Loop(int inDebug)
 
 
 
-
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// %%% Calculate the g4 cross section
+// %%% Fill containers
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void CalculateG4Xs()
+void myana::FillContainers(std::vector<int>&                   g4PrimaryTrkId, 
+                           std::vector<TVector3>&              g4PrimaryPos0, 
+                           std::vector<TVector3>&              g4PrimaryPosf, 
+                           std::vector<TVector3>&              g4PrimaryMom0, 
+                           std::vector<TVector3>&              g4PrimaryProjPos0, 
+                           std::vector<std::vector<TVector3>>& g4PrimaryTrTrjPos, 
+                           std::vector<std::vector<TVector3>>& g4PrimaryTrTrjMom)
 {
-  for (int bin = 1; bin <= hXsG4InteractingKinEn->GetXaxis()->GetNbins(); bin++)
+  // ##############################
+  // ### Loop over g4 particles ###
+  // ##############################
+  // counter for the primary
+  size_t iPrim(0);
+  for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
   {
-    auto num = hXsG4InteractingKinEn->GetBinContent(bin);
-    auto den = hXsG4IncidentKinEn->GetBinContent(bin);
-    auto err1 = std::sqrt(num);
-    auto err2 = std::sqrt(den);
+    // #########################################
+    // ### If this is not a primary, skip it ###
+    // #########################################
+    if (process_primary[iG4] == 0) continue;
+     
+    // store the track id 
+    g4PrimaryTrkId.push_back(TrackId[iG4]);
 
-    double xs    = BARN_PER_M2*(1/NUMBER_DENSITY)*(1/STEP_SIZE)*(num/den);
-    double error = xs*std::sqrt( (err1/num)*(err1/num) + (err2/den)*(err2/den)  );
-    cout << xs << " " << error << endl;
+    // store the positions and momentum 
+    g4PrimaryPos0.push_back( TVector3(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]) );
+    g4PrimaryPosf.push_back( TVector3(EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]) );
+    g4PrimaryMom0.push_back( TVector3(Px[iG4]*1000,     Py[iG4]*1000,     Pz[iG4]*1000) ); // convert to MeV
 
-    hXsG4->SetBinContent(bin, xs);
-    hXsG4->SetBinError(bin, error);
-  }
+    // setting a global event weight 
+    // setting Event weight 
+    if(USE_EVENT_WEIGHT)
+    {
+      if(g4PrimaryMom0[iPrim].Z() > 0   && g4PrimaryMom0[iPrim].Z() < 100) EVENT_WEIGHT = 0.010;
+      if(g4PrimaryMom0[iPrim].Z() > 100 && g4PrimaryMom0[iPrim].Z() < 200) EVENT_WEIGHT = 0.020;
+      if(g4PrimaryMom0[iPrim].Z() > 200 && g4PrimaryMom0[iPrim].Z() < 300) EVENT_WEIGHT = 0.100;
+      if(g4PrimaryMom0[iPrim].Z() > 300 && g4PrimaryMom0[iPrim].Z() < 400) EVENT_WEIGHT = 0.535;
+      if(g4PrimaryMom0[iPrim].Z() > 400 && g4PrimaryMom0[iPrim].Z() < 500) EVENT_WEIGHT = 0.840;
+      if(g4PrimaryMom0[iPrim].Z() > 500 && g4PrimaryMom0[iPrim].Z() < 600) EVENT_WEIGHT = 0.965;
+      if(g4PrimaryMom0[iPrim].Z() > 600 && g4PrimaryMom0[iPrim].Z() < 700) EVENT_WEIGHT = 1.000;
+      if(g4PrimaryMom0[iPrim].Z() > 700 && g4PrimaryMom0[iPrim].Z() < 800) EVENT_WEIGHT = 0.620;
+      if(g4PrimaryMom0[iPrim].Z() > 800 && g4PrimaryMom0[iPrim].Z() < 900) EVENT_WEIGHT = 0.225;
+      if(g4PrimaryMom0[iPrim].Z() > 900 && g4PrimaryMom0[iPrim].Z() <1000) EVENT_WEIGHT = 0.094;
+      if(g4PrimaryMom0[iPrim].Z() >1000 && g4PrimaryMom0[iPrim].Z() <1100) EVENT_WEIGHT = 0.0275;
+      if(g4PrimaryMom0[iPrim].Z() >1100)                             EVENT_WEIGHT = 0.010;
+    }
+
+    // fill momentum histos
+    hMCPrimaryPx->Fill(g4PrimaryMom0[iPrim].X(),   EVENT_WEIGHT);
+    hMCPrimaryPy->Fill(g4PrimaryMom0[iPrim].Y(),   EVENT_WEIGHT);
+    hMCPrimaryPz->Fill(g4PrimaryMom0[iPrim].Z(),   EVENT_WEIGHT);
+    hMCPrimaryP ->Fill(g4PrimaryMom0[iPrim].Mag(), EVENT_WEIGHT);
+
+    // fill true length histo;
+    hTrueLength->Fill( (g4PrimaryPosf[iPrim] - g4PrimaryPos0[iPrim]).Mag() );
+
+    // project onto tpc 
+    TVector3 thisPosProjVec = g4PrimaryPos0[iPrim] - ( g4PrimaryPos0[iPrim].Z()/g4PrimaryMom0[iPrim].Z() )*g4PrimaryMom0[iPrim];
+    g4PrimaryProjPos0.push_back(thisPosProjVec);
+
+    // fill the proj histos
+    hMCPrimaryProjX0->Fill( g4PrimaryProjPos0[iPrim].X() );
+    hMCPrimaryProjY0->Fill( g4PrimaryProjPos0[iPrim].Y() );
+    hMCPrimaryProjZ0->Fill( g4PrimaryProjPos0[iPrim].Z() );
+
+    // store the trajectory points and momentum
+    g4PrimaryTrTrjPos.push_back(std::vector<TVector3>);
+    g4PrimaryTrTrjMom.push_back(std::vector<TVector3>);
+
+    for (size_t iPoint = 0; iPoint < NTrTrajPts[iG4]; iPoint++)
+    {
+      g4PrimaryTrTrjPos[iPrim].push_back( TVector3(MidPosX[iG4][iPoint],    MidPosY[iG4][iPoint],    MidPosZ[iG4][iPoint]) );
+      g4PrimaryTrTrjMom[iPrim].push_back( TVector3(MidPx[iG4][iPoint]*1000, MidPy[iG4][iPoint]*1000, MidPz[iG4][iPoint]*1000)   ); // convert to MeV
+    }
+    iPrim++;
+  } 
 }
 
 
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Apply enter tpc cut
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void ApplyEnterTPCCut()
+{
+  // ###########################
+  // ### Loop over primaries ###
+  // ###########################
+  for (size_t iPrim = 0; iPrim < nPrimary; iPrim++)
+  {
+    // only look if a primary entered the tpc
+    if ( g4PrimaryPosf[iPrim].Z() > 0 ) isGoodEvent = true;
+    if ( !isGoodEvent ) 
+    {
+      hMCPrimaryMissedTpcX->Fill(g4PrimaryPosf[iPrim].X());
+      hMCPrimaryMissedTpcY->Fill(g4PrimaryPosf[iPrim].Y());
+      hMCPrimaryMissedTpcZ->Fill(g4PrimaryPosf[iPrim].Z());
+      continue;
+    }
+
+    // ####################################
+    // ### This primary entered the TPC ###
+    // ####################################
+    nPrimariesEntered++;
+
+    // calculate energy loss
+    float energyLoss(0);
+    // loop over trj points for this primary
+    for (size_t iPoint = 0; iPoint < g4PrimaryTrTrjPos[iPrim].size(); iPoint++)
+    {
+      // only look at the upstream portion
+      if ( g4PrimaryTrTrjPos[iPrim][iPoint].Z() > 0 ) continue;
+      // ignore last point
+      if ( (iPoint+1) >= g4PrimaryTrTrjPos[iPrim].size() ) break;
+ 
+      auto mom1Vec = g4PrimaryTrTrjMom[iPrim][iPoint];
+      auto mom2Vec = g4PrimaryTrTrjMom[iPrim][iPoint+1];
+
+      float energy1 = std::sqrt( mom1Vec.Mag()*mom1Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS );
+      float energy2 = std::sqrt( mom2Vec.Mag()*mom2Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS ); 
+
+      energyLoss += (energy1 - energy2);
+    }//<--- End loop over true traj points
+    hMCELossUpstream->Fill(energyLoss);
+  }//<--- End loop over primaries
+}
 
 
 
