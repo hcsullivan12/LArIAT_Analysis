@@ -12,6 +12,7 @@
 #include "art/Framework/Core/ModuleMacros.h"
 #include "art/Framework/Principal/Event.h"
 #include "art/Framework/Principal/Handle.h"
+#include "art/Framework/Services/Optional/TFileService.h" 
 #include "art/Framework/Principal/Run.h"
 #include "art/Framework/Principal/SubRun.h"
 #include "fhiclcpp/ParameterSet.h"
@@ -31,6 +32,7 @@
 
 // ROOT includes
 #include "TVector3.h"
+#include "TH1D.h"
 
 // LArIAT includes
 #include "LArIATFilterModule/InelasticSubClassifier.h"
@@ -55,13 +57,14 @@ public:
   
 private:
 
+  void ResetVars();
   void FillTruthInfo(const sim::ParticleList& plist);
   bool InActiveRegion(const TVector3& thePos);
   void ComputeAngles(float& phi, float& theta, const TVector3& p0Hat);
   void TrackMatchedTrack(const size_t& xsRecoTrkId, 
                          const std::vector<art::Ptr<recob::Track> >& tracklist,
                          art::FindManyP<anab::Calorimetry>& fmcal);
-  bool DetermineInelasticity(const size_t& xsRecoTrkId,
+  void DetermineInelasticity(const size_t& xsRecoTrkId,
                              const TVector3& furtherstInZCaloPoint,
                              const std::vector<art::Ptr<recob::Track> >& tracklist);
 
@@ -69,19 +72,41 @@ private:
   std::string fTrackModuleLabel;
   std::string fCalorimetryModuleLabel;
 
-  // counters  
-  size_t fTotalEvents = 0;
-  size_t fPrimariesEntered = 0;
-  size_t fGoodMCEvents = 0;
-  size_t fEventsFrontTpcTrk = 0;
-  size_t fEventsUpperTpcTrkCount = 0;
-  size_t fEventsWcTpcUniqueMatchAlpha = 0;
-  size_t fEventsDeltaMatch = 0;
-  size_t fEventsWcTpcUniqueMatch = 0;
+  // =========================================================================
+  // ==============================  VARIABLES  ==============================
+  // =========================================================================  
+  int    fTotalEvents = 0;
+  int    fPrimariesEntered = 0;
+  int    fGoodMCEvents = 0;
+  int    fEventsFrontTpcTrk = 0;
+  int    fEventsUpperTpcTrkCount = 0;
+  int    fEventsWcTpcUniqueMatchAlpha = 0;
+  int    fEventsDeltaMatch = 0;
+  int    fEventsWcTpcUniqueMatch = 0;
+
+  int    fRun;
+  int    fSubrun;
+  int    fEvent;
+  int    fIsTrackInteracting;
+  int    fIsTrackSignal;
+  int    fDidDetermineInteracting;
+  int    fDidDetermineSignal;
+  double fTrueKEFF;
+  double fTrueInteractingKE;
+  double fRecoInteractingKE;
+
+  // ====================================================================
+  // ==============================  CUTS  ==============================
+  // ====================================================================
 
   // maximum distance to allow track to be seperated from vertex
   float fVertexCut;
 
+  // minimum length of secondary tracks
+  float fSecondaryLengthCut;
+
+  // minimum angle between primary and secondary (degrees)
+  float fSecondaryAngleCut;
 
   // =====================================================================================
   // ==============================  VARIABLES FOR G4 INFO  ==============================
@@ -99,9 +124,9 @@ private:
 
   
   
-  // ====================================================================================================
-  // ====================================  CUTS AND CONSTANTS  ==========================================
-  // ====================================================================================================
+  // ==========================================================================================
+  // ==================================== CONSTANTS  ==========================================
+  // ==========================================================================================
   // tpc boundaries
   const float TPC_X_BOUND[2] = {   0.0, 47.0 };
   const float TPC_Y_BOUND[2] = { -20.0, 20.0 };
@@ -116,7 +141,7 @@ private:
   const float PARTICLE_MASS = 139.57; 
   
   // number of centimeters in Z we require a track to have a spacepoint
-  const float FIRST_SP_Z_POS = 2.0;
+  const float FIRST_SP_Z_POS = 5.0;
    
   // portion of upstream TPC which we will restrict the number of tracks
   const float UPPER_PART_OF_TPC = 14.0;
@@ -150,7 +175,7 @@ private:
   
   // True  = Use the momentum based weighting  
   // False = Don't weight events
-  const bool USE_EVENT_WEIGHT = true;
+  const bool USE_EVENT_WEIGHT = false;
    
   // constants for cross section calculation
   const double RHO            = 1395;          //kg/m^3
@@ -164,7 +189,39 @@ private:
    
   // cut on angle between wc and tpc track (degrees)
   const float ALPHA_CUT = 10.; 
+
+
+
+  // ============================================================================================
+  // ====================================  HISTOGRAMS  ==========================================
+  // ============================================================================================
+
+  TH1D* hMCPrimaryMissedTpcX;
+  TH1D* hMCPrimaryMissedTpcY;
+  TH1D* hMCPrimaryMissedTpcZ;
+  TH1D* hMCELossUpstream;
+  TH1D* hDataUpstreamZPos;
+  TH1D* hDeltaX;
+  TH1D* hDeltaY;
+  TH1D* hDeltaZ;
+  TH1D* hAlpha;
+  TH1D* hMCPrimaryPx;
+  TH1D* hMCPrimaryPy;
+  TH1D* hMCPrimaryPz;
+  TH1D* hMCPrimaryP ;
+  TH1D* hMCPrimaryProjX0;
+  TH1D* hMCPrimaryProjY0;
+  TH1D* hMCPrimaryProjZ0;
+  TH1D* hTrueLength;
+  TH1D* hFurtherstInZCaloX;
+  TH1D* hFurtherstInZCaloY;
+  TH1D* hFurtherstInZCaloZ;
+  TH1D* hRecoMCIncidentKE;
+  TH1D* hRecoMCInteractingKE;
 };
+
+
+
 
 //----------------------------------------------------------------------------------------------------
 // Contructor
@@ -174,6 +231,9 @@ CalculatePionXS::CalculatePionXS(fhicl::ParameterSet const & p)
   this->reconfigure(p);
 }
 
+
+
+
 //----------------------------------------------------------------------------------------------------
 // Reconfigure
 void CalculatePionXS::reconfigure(fhicl::ParameterSet const & p)
@@ -181,19 +241,32 @@ void CalculatePionXS::reconfigure(fhicl::ParameterSet const & p)
   fTrackModuleLabel        = p.get< std::string >("TrackModuleLabel"      , "pmtrack");
   fCalorimetryModuleLabel  = p.get< std::string >("CalorimetryModuleLabel", "calo"     );
 
-  fVertexCut = p.get< float >("VertexCut", 5.0);
+  fVertexCut          = p.get< float >("VertexCut",          2.0);
+  fSecondaryLengthCut = p.get< float >("SecondaryLengthCut", 3.0); 
+  fSecondaryAngleCut  = p.get< float >("SecondaryAngleCut",  10.0); 
 }
+
+
+
 
 
 //----------------------------------------------------------------------------------------------------
 // Analyze
 void CalculatePionXS::analyze(art::Event const & e)
 {
+  // ### Reset vars
+  ResetVars();
+
+  fRun    = e.run();
+  fSubrun = e.subrun();
+  fEvent  = e.event();
+
   // ### Handles
   art::Handle< std::vector<recob::Track> > trackListHandle; // Container of reco tracks
   std::vector<art::Ptr<recob::Track> >     tracklist;       // Vector of wc tracks
 
   // ### Get the track information
+  std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" << std::endl;
   if(!e.getByLabel(fTrackModuleLabel,trackListHandle)) return;
   fTotalEvents++; 
   if (fTotalEvents%1000 == 0) std::cout << "EVENT = " << fTotalEvents << std::endl; 
@@ -205,22 +278,17 @@ void CalculatePionXS::analyze(art::Event const & e)
   art::ServiceHandle<cheat::ParticleInventoryService> pi_serv;
   const sim::ParticleList& plist = pi_serv->ParticleList();
 
-  // ==================================================================
-  // =================  CLEAN UP AND FILL TRUTH INFO  =================
-  // ==================================================================
-  fG4PrimaryTrkId.clear();
-  fG4PrimaryProcesses.clear();
-  fG4PrimarySubProcesses.clear();
-  fG4PrimaryPos0.clear();
-  fG4PrimaryPosf.clear();
-  fG4PrimaryMom0.clear();
-  fG4PrimaryProjPos0.clear();
-  fG4PrimaryTrTrjPos.clear();
-  fG4PrimaryTrTrjMom.clear();
-  fG4PrimaryVtx.clear();
+  // =====================================================
+  // =================  FILL TRUTH INFO  =================
+  // =====================================================
   FillTruthInfo(plist);
 
   
+
+  // ============================================
+  // =================  FILTER  =================
+  // ============================================
+  Filter();
 
   // ==========================================================================
   // =================  LOOKING AT EVENTS THAT ENTER THE TPC  =================
@@ -233,9 +301,9 @@ void CalculatePionXS::analyze(art::Event const & e)
     if ( fG4PrimaryPosf[iPrim].Z() > 0 ) isGoodEvent = true;
     if ( !isGoodEvent ) 
     {
-      //hMCPrimaryMissedTpcX->Fill(fG4PrimaryPosf[iPrim].X());
-      //hMCPrimaryMissedTpcY->Fill(fG4PrimaryPosf[iPrim].Y());
-      //hMCPrimaryMissedTpcZ->Fill(fG4PrimaryPosf[iPrim].Z());
+      hMCPrimaryMissedTpcX->Fill(fG4PrimaryPosf[iPrim].X());
+      hMCPrimaryMissedTpcY->Fill(fG4PrimaryPosf[iPrim].Y());
+      hMCPrimaryMissedTpcZ->Fill(fG4PrimaryPosf[iPrim].Z());
       continue;
     }
     // ####################################
@@ -257,9 +325,10 @@ void CalculatePionXS::analyze(art::Event const & e)
       float energy2 = std::sqrt( mom2Vec.Mag()*mom2Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS ); 
       energyLoss += (energy1 - energy2);
     }//<--- End loop over true traj points
-    //hMCELossUpstream->Fill(energyLoss);
+    hMCELossUpstream->Fill(energyLoss);
   }//<--- End loop over primaries
   if (!isGoodEvent) return;
+  std::cout << "[ x ] Good Event" << std::endl;
   fGoodMCEvents++;
   
 
@@ -335,15 +404,17 @@ void CalculatePionXS::analyze(art::Event const & e)
     if (isUpstreamTpcTrk) nUpstreamTpcTrks++;
     
     // fill histos
-    //hDataUpstreamZPos->Fill(tempMinZ);
+    hDataUpstreamZPos->Fill(tempMinZ);
   }//<-- End loop over reconstructed tracks
   
   // ### Skip events that do not have a trk at the front
   if (frontFaceTrksId.size() == 0) return;
+  std::cout << "[ x ] Front face tracks" << std::endl;
   fEventsFrontTpcTrk++;
 
   // ### Skip events that have too many tracks upstream        
   if(nUpstreamTpcTrks > N_UPPER_TPC_TRACKS || nUpstreamTpcTrks == 0) return;
+  std::cout << "[ x ] Upper TPC tracks" << std::endl;
   fEventsUpperTpcTrkCount++;
 
 
@@ -360,9 +431,9 @@ void CalculatePionXS::analyze(art::Event const & e)
   for(size_t iFrFaTrk = 0; iFrFaTrk < frontFaceTrksId.size(); iFrFaTrk++)
   {
     auto deltaVec = frontFaceTrksPos[iFrFaTrk] - fG4PrimaryProjPos0[0];
-    //hDeltaX->Fill(deltaVec.X());
-    //hDeltaY->Fill(deltaVec.Y());
-    //hDeltaZ->Fill(deltaVec.Z());
+    hDeltaX->Fill(deltaVec.X());
+    hDeltaY->Fill(deltaVec.Y());
+    hDeltaZ->Fill(deltaVec.Z());
     // matching in delta X and delta Y 
     if( DELTA_X_BOUND[0] < deltaVec.X() && deltaVec.X() < DELTA_X_BOUND[1] && 
         DELTA_Y_BOUND[0] < deltaVec.Y() && deltaVec.Y() < DELTA_Y_BOUND[1] )
@@ -430,7 +501,7 @@ void CalculatePionXS::analyze(art::Event const & e)
     // ###########################################################
     float alpha = std::acos( theMCUnit.Dot(theTpcUnit) ) * (180.0/PI); // convert to degrees
     // fill histo 
-    //hAlpha->Fill(alpha);
+    hAlpha->Fill(alpha);
     // checking if this made our cut
     if (alpha < ALPHA_CUT)
     {
@@ -442,9 +513,11 @@ void CalculatePionXS::analyze(art::Event const & e)
   if (nMcTpcMatch > 0) fEventsDeltaMatch++;
   // force there to be one match
   if (nMcTpcMatch != 1) return;
+  std::cout << "[ x ] WC to TPC unique match" << std::endl;
   fEventsWcTpcUniqueMatch++;
   // force this unique match to pass our alpha cut
   if (!isAlphaMatch) return;
+  std::cout << "[ x ] Alpha cut" << std::endl;
   fEventsWcTpcUniqueMatchAlpha++;
   
   
@@ -470,13 +543,91 @@ void CalculatePionXS::analyze(art::Event const & e)
   fG4PrimarySubProcesses.push_back(subprocess);
 
   TrackMatchedTrack(xsRecoTrkId, tracklist, fmcal);
+
+  fTree->Fill();
 }
+
+
+
+
+
+//----------------------------------------------------------------------------------------------------
+// Reset vars
+void CalculatePionXS::ResetVars()
+{
+  fRun    = -999;
+  fSubrun = -999;
+  fEvent  = -999;
+  fIsTrackInteracting = -1;
+  fIsTrackSignal      = -1;
+  fDidDetermineInteracting = -1;
+  fDidDetermineSignal = -1;
+  fTrueKEFF = -999;
+  fTrueInteractingKE = -999;
+  fRecoInteractingKE = -999;
+
+  fG4PrimaryTrkId.clear();
+  fG4PrimaryProcesses.clear();
+  fG4PrimarySubProcesses.clear();
+  fG4PrimaryPos0.clear();
+  fG4PrimaryPosf.clear();
+  fG4PrimaryMom0.clear();
+  fG4PrimaryProjPos0.clear();
+  fG4PrimaryTrTrjPos.clear();
+  fG4PrimaryTrTrjMom.clear();
+  fG4PrimaryVtx.clear();
+}
+
+
+
+
 
 //----------------------------------------------------------------------------------------------------
 // Begin job
 void CalculatePionXS::beginJob()
 {
+  art::ServiceHandle<art::TFileService> tfs;
+  
+  hMCPrimaryMissedTpcX = tfs->make<TH1D>("hMCPrimaryMissedTpcX", "X Position of Missed Primary", 1000, -50, 100);
+  hMCPrimaryMissedTpcY = tfs->make<TH1D>("hMCPrimaryMissedTpcY", "Y Position of Missed Primary", 1000, -40, 40);
+  hMCPrimaryMissedTpcZ = tfs->make<TH1D>("hMCPrimaryMissedTpcZ", "Z Position of Missed Primary", 1000, -50, 150);
+  hMCELossUpstream     = tfs->make<TH1D>("hMCELossUpstream",     "Primary Energy Loss Upstream", 1000, 0, 1100);
+  hDataUpstreamZPos    = tfs->make<TH1D>("hDataUpstreamZPos",    "Minimum Z Position Upstream", 1000, 0, 100);
+  hDeltaX              = tfs->make<TH1D>("hDeltaX",              "Primary Delta X", 1000, -10, 10);
+  hDeltaY              = tfs->make<TH1D>("hDeltaY",              "Primary Delta Y", 1000, -10, 10);
+  hDeltaZ              = tfs->make<TH1D>("hDeltaZ",              "Primary Delta Z", 1000, -10, 10);
+  hAlpha               = tfs->make<TH1D>("hAlpha",               "Alpha", 1000, 0, 90);
+  hMCPrimaryPx         = tfs->make<TH1D>("hMCPrimaryPx",         "Primary P_{x}", 1000, 0, 1100);
+  hMCPrimaryPy         = tfs->make<TH1D>("hMCPrimaryPy",         "Primary P_{y}", 1000, 0, 1100);
+  hMCPrimaryPz         = tfs->make<TH1D>("hMCPrimaryPz",         "Primary P_{z}", 1000, 0, 1100);
+  hMCPrimaryP          = tfs->make<TH1D>("hMCPrimaryP",          "Primary P", 1000, 0, 1100);
+  hMCPrimaryProjX0     = tfs->make<TH1D>("hMCPrimaryProjX0",     "Projected X Position on Front Face", 1000, 0, 47);
+  hMCPrimaryProjY0     = tfs->make<TH1D>("hMCPrimaryProjY0",     "Projected Y Position on Front Face", 1000, -20, 40);
+  hMCPrimaryProjZ0     = tfs->make<TH1D>("hMCPrimaryProjZ0",     "Projected Z Position on Front Face", 1000, 0, 100);
+  hTrueLength          = tfs->make<TH1D>("hTrueLength",          "Primary True Length", 1000, 0, 100);
+  hFurtherstInZCaloX   = tfs->make<TH1D>("hFurtherstInZCaloX",   "Furtherst Calorimetry X Position", 1000, 0, 47);
+  hFurtherstInZCaloY   = tfs->make<TH1D>("hFurtherstInZCaloY",   "Furtherst Calorimetry Y Position", 1000, -20, 20);
+  hFurtherstInZCaloZ   = tfs->make<TH1D>("hFurtherstInZCaloZ",   "Furtherst Calorimetry Z Position", 1000, 0, 100);
+  hRecoMCIncidentKE    = tfs->make<TH1D>("hRecoMCIncidentKE",    "Incident",    23, -50, 1100);
+  hRecoMCInteractingKE = tfs->make<TH1D>("hRecoMCInteractingKE", "Interacting", 23, -50, 1100);
+
+  fTree = tfs->make<TTree>("effTree","analysis tree");
+  fTree->Branch("run"      ,&fRun      ,"run/I");
+  fTree->Branch("subrun"   ,&fSubrun   ,"subrun/I");
+  fTree->Branch("event"    ,&fEvent    ,"event/I");
+  fTree->Branch("isTrackInteracting"  ,&fIsTrackInteracting   ,"isTrackInteracting/I");
+  fTree->Branch("isTrackSignal"       ,&fIsTrackSignal        ,"isTrackSignal/I");
+  fTree->Branch("didDetermineInteracting" , &fDidDetermineInteracting   ,"didDetermineInteracting/I");
+  fTree->Branch("didDetermineSignal" , &fDidDetermineSignal   ,"didDetermineSignal/I");
+  fTree->Branch("trueKEFF" ,&fTrueKEFF ,"trueKEFF/D");
+  fTree->Branch("trueInteractingKE" ,&fTrueInteractingKE ,"trueInteractingKE/D");
+  fTree->Branch("recoInteractingKE" ,&fRecoInteractingKE ,"recoInteractingKE/D");
+  fTree->Branch("mass" , &PARTICLE_MASS ,"mass/D");
 }
+
+
+
+
 
 //----------------------------------------------------------------------------------------------------
 // End job
@@ -484,6 +635,11 @@ void CalculatePionXS::endJob()
 {
   // Implementation of optional member function here.
 }
+
+
+
+
+
 
 //----------------------------------------------------------------------------------------------------
 // Fill truth info
@@ -561,22 +717,22 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
       if(fG4PrimaryMom0[iPrim].Z() >1100)                             EVENT_WEIGHT = 0.010;
     }
     // ### Fill momentum histos
-    //hMCPrimaryPx->Fill(fG4PrimaryMom0[iPrim].X(),   EVENT_WEIGHT);
-    //hMCPrimaryPy->Fill(fG4PrimaryMom0[iPrim].Y(),   EVENT_WEIGHT);
-    //hMCPrimaryPz->Fill(fG4PrimaryMom0[iPrim].Z(),   EVENT_WEIGHT);
-    //hMCPrimaryP ->Fill(fG4PrimaryMom0[iPrim].Mag(), EVENT_WEIGHT);
+    hMCPrimaryPx->Fill(fG4PrimaryMom0[iPrim].X(),   EVENT_WEIGHT);
+    hMCPrimaryPy->Fill(fG4PrimaryMom0[iPrim].Y(),   EVENT_WEIGHT);
+    hMCPrimaryPz->Fill(fG4PrimaryMom0[iPrim].Z(),   EVENT_WEIGHT);
+    hMCPrimaryP ->Fill(fG4PrimaryMom0[iPrim].Mag(), EVENT_WEIGHT);
     
     // ### Fill true length histo;
-    //hTrueLength->Fill( (fG4PrimaryPosf[iPrim] - fG4PrimaryPos0[iPrim]).Mag() );
+    hTrueLength->Fill( (fG4PrimaryPosf[iPrim] - fG4PrimaryPos0[iPrim]).Mag() );
     
     // ### Project onto tpc 
     TVector3 thisPosProjVec = fG4PrimaryPos0[iPrim] - ( fG4PrimaryPos0[iPrim].Z()/fG4PrimaryMom0[iPrim].Z() )*fG4PrimaryMom0[iPrim];
     fG4PrimaryProjPos0.push_back(thisPosProjVec);
 
     // ### Fill the proj histos
-    //hMCPrimaryProjX0->Fill( fG4PrimaryProjPos0[iPrim].X() );
-    //hMCPrimaryProjY0->Fill( fG4PrimaryProjPos0[iPrim].Y() );
-    //hMCPrimaryProjZ0->Fill( fG4PrimaryProjPos0[iPrim].Z() );
+    hMCPrimaryProjX0->Fill( fG4PrimaryProjPos0[iPrim].X() );
+    hMCPrimaryProjY0->Fill( fG4PrimaryProjPos0[iPrim].Y() );
+    hMCPrimaryProjZ0->Fill( fG4PrimaryProjPos0[iPrim].Z() );
 
     // ### Store the trajectory points and momentum
     std::vector<TVector3> temp;
@@ -589,7 +745,19 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
     }
     iPrim++;
   } 
+
+  // ### Set the interacting variables
+  if (fG4PrimaryProcesses[0].size() > 0) fIsTrackInteracting = 1;
+  for (const auto& p : fG4PrimaryProcesses[0])
+  {
+    if (p.find("pi") != std::string::npos && p.find("Inelastic") != std::string::npos) fIsTrackSignal = 1;
+  }
 }
+
+
+
+
+
 
 //----------------------------------------------------------------------------------------------------
 // Compute angles
@@ -617,6 +785,11 @@ void CalculatePionXS::ComputeAngles(float& phi, float& theta, const TVector3& p0
   }
 }
 
+
+
+
+
+
 //----------------------------------------------------------------------------------------------------
 // In active region
 bool CalculatePionXS::InActiveRegion( const TVector3& thePos  )
@@ -627,6 +800,11 @@ bool CalculatePionXS::InActiveRegion( const TVector3& thePos  )
 
   return false;
 }
+
+
+
+
+
 
 
 //----------------------------------------------------------------------------------------------------
@@ -646,8 +824,6 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
   // ### loop over the reconstructed tracks
   int furtherstInZCaloPointIndex  = -1;
   TVector3 furtherstInZCaloPoint;
-  bool   isInteracting          = false;
-  bool   isInelastic            = false;
   for(size_t iTrk = 0; iTrk < tracklist.size(); iTrk++)
   {
     // only look at the one that passed the WC_TPC match and cuts
@@ -699,13 +875,13 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
   if (furtherstInZCaloPointIndex >= 0)
   {
     // fill histos
-    //hFurtherstInZCaloX->Fill(theXYZ.X());
-    //hFurtherstInZCaloY->Fill(theXYZ.Y());
-    //hFurtherstInZCaloZ->Fill(theXYZ.Z());
-    if (InActiveRegion(furtherstInZCaloPoint)) isInteracting = true;
+    hFurtherstInZCaloX->Fill(furtherstInZCaloPoint.X());
+    hFurtherstInZCaloY->Fill(furtherstInZCaloPoint.Y());
+    hFurtherstInZCaloZ->Fill(furtherstInZCaloPoint.Z());
+    if (InActiveRegion(furtherstInZCaloPoint)) fDidDetermineInteracting = 1;
   }
   // ### Determine if the interaction was inelastic
-  if (isInteracting) isInelastic = DetermineInelasticity(xsRecoTrkId, furtherstInZCaloPoint, tracklist);
+  if (fDidDetermineInteracting) DetermineInelasticity(xsRecoTrkId, furtherstInZCaloPoint, tracklist);
     
   // make sure we have stuff here to work with
   if (pitchVec.size() == 0) return;
@@ -728,18 +904,32 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
     incidentKEVec.push_back(theWCKE - totalEnDep);
   }
   // fill the Incident and interacting histograms
-  //for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
-  if (isInelastic && incidentKEVec.size() != 0) std::cout << std::endl;//hRecoMCInteractingKE->Fill(incidentKEVec.back());
+  for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
+  if (fIsTrackSignal && incidentKEVec.size() != 0) hRecoMCInteractingKE->Fill(incidentKEVec.back());
+
+  // now fill the plots for efficiency/purity
+  // this assumes there is only one interaction in tpc
+  if (G4PrimaryProcess[0].find("pi")        != std::string::npos &&
+      G4PrimaryProcess[0].find("Inelastic") != std::string::npos) 
+  {
+    hSignalMCIncident(fG4PrimaryMom0[iPrim].Mag());
+  }
+
+  if (G4PrimaryProcess[0].find("pi") != std::string::npos &&
+      G4PrimaryProcess[0].find("Inelastic") != std::string::npos &&
+      fIsTrackSignal && incidentKEVe.size != 0) hRecoMCEffiency->Fill(incidenetKEVec.back());
 }
+
+
+
+
 
 //----------------------------------------------------------------------------------------------------
 // Determine inelasticity
-bool CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
+void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
                                             const TVector3& furtherstInZCaloPoint,
                                             const std::vector<art::Ptr<recob::Track> >& tracklist)
 {
-  bool isInelastic = false;
-
  /*
   * Cuts...
   *
@@ -768,9 +958,15 @@ bool CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
     double diff1 = (furtherstInZCaloPoint - dXYZstart).Mag();
     double diff2 = (furtherstInZCaloPoint - dXYZend  ).Mag();
 
-    std::cout << "\nVertex cut " << fVertexCut << std::endl;
     std::cout << "Diffs " << diff1 << "  " << diff2 << std::endl;
-    if ( diff1 < fVertexCut || diff2 < fVertexCut ) theTracksLeaving.push_back(iTrk);
+    hVertices->Fill(diff1);
+    hVertices->Fill(diff2);
+    if ( diff1 < fVertexCut || diff2 < fVertexCut ) 
+    {
+      theTracksLeaving.push_back(iTrk);
+
+      hSecondaryLength->Fill((dXYZstart-dXYZend).Mag());
+    }
 
     std::cout << "Track " << iTrk << " reco info\n";
     std::cout << "Start Point "; dXYZstart.Print();
@@ -783,7 +979,7 @@ bool CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
   std::cout << "Tracks leaving = " << theTracksLeaving.size() << std::endl;
 
   // if there are 2 visible tracks leaving this vertex, we're done
-  if (theTracksLeaving.size() >= 2) isInelastic = true;
+  if (theTracksLeaving.size() >= 2) fDidDetermineSignal = 1;
 
   // if there is just 1, let's try again
   if (theTracksLeaving.size() == 1)
@@ -791,19 +987,22 @@ bool CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
     auto primTrk = tracklist[xsRecoTrkId];
     auto secTrk  = tracklist[theTracksLeaving[0]];
 
+    // we can't use the start and end trajectories in case the starting and ending points
+    // are backwards or the primary has a kink that we missed
+    
     // grab the end points and the nth point from them
-    std::vector<TVector> primPoints, secPoints;
+    std::vector<TVector3> primPoints, secPoints;
     int primNpointsBack = 10;
     int secNpointsBack  = 10;
-    int primNpointsTot = primTrk->NumberOfTrjectoryPoints();
-    int secNpointsTot = secTrk->NumberOfTrjectoryPoints();
+    int primNpointsTot = primTrk->NumberTrajectoryPoints();
+    int secNpointsTot = secTrk->NumberTrajectoryPoints();
 
     primNpointsBack = primNpointsBack < primNpointsTot ? primNpointsBack : primNpointsTot;
     secNpointsBack  = secNpointsBack  < secNpointsTot  ? secNpointsBack  : secNpointsTot;
 
     std::cout << primNpointsBack << " " << primNpointsTot << " " << secNpointsBack << " " << secNpointsTot << std::endl;
 
-    // just in case, grab the most downstream
+    // for primary, just in case, grab the most downstream
     if (primTrk->Start().Z() > primTrk->End().Z())
     {
       primPoints.push_back( TVector3(primTrk->LocationAtPoint(primNpointsBack).X(), 
@@ -820,60 +1019,55 @@ bool CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
                                      primTrk->LocationAtPoint(primNpointsTot-1-primNpointsBack).Z()) );
       primPoints.push_back( TVector3(primTrk->LocationAtPoint(primNpointsTot-1).X(), 
                                      primTrk->LocationAtPoint(primNpointsTot-1).Y(), 
-                                     primTrk->LocationAtPoint(primNpointsTot-1).Z() );                                     
+                                     primTrk->LocationAtPoint(primNpointsTot-1).Z()) );                                     
     }
-    /*std::vector<std::pair<TVector3, TVector3>> primMap, secMap;
-
-    TVector3 primPos0(primTrk->Start().X(), primTrk->Start().Y(), primTrk->Start().Z());
-    TVector3 primPos1(primTrk->End().X(),   primTrk->End().Y(),   primTrk->End().Z());
-    TVector3 secPos0 (secTrk->Start().X(),  secTrk->Start().Y(),  secTrk->Start().Z());
-    TVector3 secPos1 (secTrk->End().X(),    secTrk->End().Y(),    secTrk->End().Z());
-
-    TVector3 primDir0(primTrk->StartDirection().X(), primTrk->StartDirection().Y(), primTrk->StartDirection().Z());
-    TVector3 primDir1(primTrk->EndDirection().X(),   primTrk->EndDirection().Y(),   primTrk->EndDirection().Z());
-    TVector3 primDir0(secTrk->StartDirection().X(),  secTrk->StartDirection().Y(),  secTrk->StartDirection().Z());
-    TVector3 primDir1(secTrk->EndDirection().X(),    secTrk->EndDirection().Y(),    secTrk->EndDirection().Z());
-
-    primMap.emplace_back(primPos0, primDir0);
-    primMap.emplace_back(primPos1, primDir1);
-    secMap. emplace_back(secPos0, secDir0);
-    secMap. emplace_back(secPos1, secDir1);
-
-    // reorder if necessary
-    std::sort(primMap.begin(), primMap.end(), [](const auto& l, const auto& r){return l[0].Z() < r[0].Z();});
-    double diff1 = (primMap[0][0] - secMap[0][0]).Mag();
-    double diff2 = (primMap[1][0] - secMap[1][0]).Mag();
-    if (diff2 < diff1) std::reverse(secMap.begin(), secMap.end());*/
 
     // now handle secondary
-    std::vector<TVector3> secPoints;
-    secPoints.push_back( TVector3(secTrk->Start().X(),  secTrk->Start().Y(),  secTrk->Start().Z()));
-    secPoints.push_back( TVector3(secTrk->End().X(),    secTrk->End().Y(),    secTrk->End().Z()));
-
-    // check if we need to reorder the secondary endpoints
-    std::sort(primExtent.begin(), primExtent.end(), [](const auto& l, const auto& r) {return l.Z() < r.Z();});
+    // find the one closest to vertex
+    std::vector<TVector3> secTemp;
+    secTemp.push_back( TVector3(secTrk->Start().X(),  secTrk->Start().Y(),  secTrk->Start().Z()));
+    secTemp.push_back( TVector3(secTrk->End().X(),    secTrk->End().Y(),    secTrk->End().Z()));
     
-    double diff1 = (primExtent[1] - secExtent[0]).Mag();
-    double diff2 = (primExtent[1] - secExtent[1]).Mag();
-    if (diff2 < diff1) std::reverse(secExtent.begin(), secExtent.end());
+    double diff1 = (primPoints[1] - secTemp[0]).Mag();
+    double diff2 = (primPoints[1] - secTemp[1]).Mag();
+
+    if (diff1 < diff2) 
+    {
+      // it's the start point
+      secPoints.push_back( TVector3(secTrk->LocationAtPoint(0).X(), 
+                                    secTrk->LocationAtPoint(0).Y(), 
+                                    secTrk->LocationAtPoint(0).Z()) );
+      secPoints.push_back( TVector3(secTrk->LocationAtPoint(secNpointsBack).X(), 
+                                    secTrk->LocationAtPoint(secNpointsBack).Y(), 
+                                    secTrk->LocationAtPoint(secNpointsBack).Z()) );      
+    }
+    else 
+    {
+      // it's the end point
+      secPoints.push_back( TVector3(secTrk->LocationAtPoint(secNpointsTot-1).X(), 
+                                    secTrk->LocationAtPoint(secNpointsTot-1).Y(), 
+                                    secTrk->LocationAtPoint(secNpointsTot-1).Z()) );
+      secPoints.push_back( TVector3(secTrk->LocationAtPoint(secNpointsTot-1-secNpointsBack).X(), 
+                                    secTrk->LocationAtPoint(secNpointsTot-1-secNpointsBack).Y(), 
+                                    secTrk->LocationAtPoint(secNpointsTot-1-secNpointsBack).Z()) );
+    }
 
     // now form our direction vectors
-    TVector3 primDir(primExtent[1] - primExtent[0]);
-    TVector3 secDir (secExtent[1]  - secExtent[0]);
+    TVector3 primDir(primPoints[1] - primPoints[0]);
+    TVector3 secDir (secPoints[1]  - secPoints[0]);
 
     double theta = (180/TMath::Pi())*std::acos(primDir.Dot(secDir)/(primDir.Mag()*secDir.Mag()));
+    if (theta > fSecondaryAngleCut) fDidDetermineSignal = 1;
 
-    std::cout << "Primary Start Point "; primExtent[0].Print();
-    std::cout << "Primary End Point   "; primExtent[1].Print();
-    std::cout << "Second. Start Point "; secExtent[0].Print();
-    std::cout << "Second. End Point   "; secExtent[1].Print();
+    std::cout << "Primary Start Point "; primPoints[0].Print();
+    std::cout << "Primary End Point   "; primPoints[1].Print();
+    std::cout << "Second. Start Point "; secPoints[0].Print();
+    std::cout << "Second. End Point   "; secPoints[1].Print();
     std::cout << "THETA " << theta << std::endl;
   }
 
-  if (isInelastic) std::cout << "Determined as inelastic!" << std::endl;
+  if (fDidDetermineSignal) std::cout << "Determined as inelastic!" << std::endl;
   else std::cout << "Determined NOT inelastic!\n";
-
-  return isInelastic;
 }
 
 
