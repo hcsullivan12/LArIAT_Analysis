@@ -7,7 +7,7 @@ void comb()
   TH1D *hG4Pred = nullptr;
   TCanvas *temp = nullptr;
   
-  f1->GetObject("hXsG4", hInelXs);
+  f1->GetObject("hXS", hInelXs);
   f2->GetObject("piMinInel", temp);
 
   TGraph *g = (TGraph*)temp->GetListOfPrimitives()->FindObject("Graph");
