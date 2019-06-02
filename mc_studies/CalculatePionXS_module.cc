@@ -64,7 +64,7 @@ private:
                          const std::vector<art::Ptr<recob::Track> >& tracklist,
                          art::FindManyP<anab::Calorimetry>& fmcal);
   void DetermineInelasticity(const size_t& xsRecoTrkId,
-                             const TVector3& furtherstInZCaloPoint,
+                             const TVector3& furthestInZCaloPoint,
                              const std::vector<art::Ptr<recob::Track> >& tracklist);
 
   // labels
@@ -135,8 +135,8 @@ private:
   
   // fiducial volume definition
   const float FV_X_BOUND[2] = {   2.0, 45.0 };
-  const float FV_Y_BOUND[2] = { -18.0, 18.0 };
-  const float FV_Z_BOUND[2] = {   0.0, 88.0 };
+  const float FV_Y_BOUND[2] = { -15.0, 15.0 };
+  const float FV_Z_BOUND[2] = {   0.0, 86.0 };
    
   // mass of pion in MeV
   const float PARTICLE_MASS = 139.57; 
@@ -214,9 +214,9 @@ private:
   TH1D* hMCPrimaryProjY0;
   TH1D* hMCPrimaryProjZ0;
   TH1D* hTrueLength;
-  TH1D* hFurtherstInZCaloX;
-  TH1D* hFurtherstInZCaloY;
-  TH1D* hFurtherstInZCaloZ;
+  TH1D* hFurthestInZCaloX;
+  TH1D* hFurthestInZCaloY;
+  TH1D* hFurthestInZCaloZ;
   TH1D* hRecoMCIncidentKE;
   TH1D* hRecoMCInteractingKE;
   TH1D* hVertexDiff;
@@ -376,9 +376,9 @@ void CalculatePionXS::beginJob()
   hMCPrimaryProjY0     = tfs->make<TH1D>("hMCPrimaryProjY0",     "Projected Y Position on Front Face", 1000, -20, 40);
   hMCPrimaryProjZ0     = tfs->make<TH1D>("hMCPrimaryProjZ0",     "Projected Z Position on Front Face", 1000, 0, 100);
   hTrueLength          = tfs->make<TH1D>("hTrueLength",          "Primary True Length", 1000, 0, 100);
-  hFurtherstInZCaloX   = tfs->make<TH1D>("hFurtherstInZCaloX",   "Furtherst Calorimetry X Position", 1000, 0, 47);
-  hFurtherstInZCaloY   = tfs->make<TH1D>("hFurtherstInZCaloY",   "Furtherst Calorimetry Y Position", 1000, -20, 20);
-  hFurtherstInZCaloZ   = tfs->make<TH1D>("hFurtherstInZCaloZ",   "Furtherst Calorimetry Z Position", 1000, 0, 100);
+  hFurthestInZCaloX   = tfs->make<TH1D>("hFurthestInZCaloX",   "Furthest Calorimetry X Position", 1000, 0, 47);
+  hFurthestInZCaloY   = tfs->make<TH1D>("hFurthestInZCaloY",   "Furthest Calorimetry Y Position", 1000, -20, 20);
+  hFurthestInZCaloZ   = tfs->make<TH1D>("hFurthestInZCaloZ",   "Furthest Calorimetry Z Position", 1000, 0, 100);
   hRecoMCIncidentKE    = tfs->make<TH1D>("hRecoMCIncidentKE",    "Incident",    23, -50, 1100);
   hRecoMCInteractingKE = tfs->make<TH1D>("hRecoMCInteractingKE", "Interacting", 23, -50, 1100);
   hVertexDiff          = tfs->make<TH1D>("hVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
@@ -421,6 +421,7 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
      
     // ### Store the track id 
     fG4PrimaryTrkId.push_back(mcParticle->TrackId());
+
     // ### Store the processes for this primary, only those that occur in TPC
     simb::MCTrajectory truetraj = mcParticle->Trajectory();
     auto thisTrjProcessMap = truetraj.TrajectoryProcesses();
@@ -431,7 +432,11 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
     if (thisTrjProcessMap.size() == 0)
     {
       // ### Get the vertex
+      if (!InActiveRegion(mcParticle->EndPosition().Vect())) continue;
       vtx.push_back( mcParticle->EndPosition().Vect() );
+
+      auto tempMom = mcParticle->Momentum(mcParticle->NumberTrajectoryPoints()-2).Vect();
+      fTrueInteractingKE = std::sqrt( tempMom*tempMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
  
       // ### If it doesn't have daughters, it's through going
       if (mcParticle->NumberDaughters())
@@ -448,10 +453,14 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
     {
       for (const auto& couple : thisTrjProcessMap)
       {
-        // ### Get the vertex
+        // ### Get the vertex, only if it's in the TPC
         int interestingPoint = (int) couple.first;
+        if (!InActiveRegion( truetraj.Position(interestingPoint).Vect()) ) continue;
         vtx.push_back( truetraj.Position(interestingPoint).Vect() );
         proc.push_back( truetraj.KeyToProcess(couple.second) );
+
+        auto tempMom = mcParticle->Momentum(interestingPoint-1).Vect();
+        fTrueInteractingKE = std::sqrt( tempMom*tempMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
       }
     }//<-- End if map is not zero
 
@@ -502,11 +511,21 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
     std::vector<TVector3> temp;
     fG4PrimaryTrTrjPos.push_back(temp);
     fG4PrimaryTrTrjMom.push_back(temp);
+    std::map<float, float> keMap;
     for (size_t iPoint = 0; iPoint < mcParticle->NumberTrajectoryPoints(); iPoint++)
     {
       fG4PrimaryTrTrjPos[iPrim].push_back( mcParticle->Position(iPoint).Vect() );
       fG4PrimaryTrTrjMom[iPrim].push_back( mcParticle->Momentum(iPoint).Vect()*1000 ); // convert to MeV
+      if (mcParticle->Position(iPoint).Vect().Z() < 0)
+      {
+        float ke = std::sqrt( fG4PrimaryTrTrjMom[iPrim].back()*fG4PrimaryTrTrjMom[iPrim].back() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; 
+        keMap.emplace(cParticle->Position(iPoint).Vect().Z(), ke);
+      }
     }
+
+    // ### Set the KE at z = 0
+    if(!keMap.empty()) fTrueKEFF = (--keMap.end())->second;
+
     iPrim++;
   } 
 
@@ -814,75 +833,71 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
                                         const std::vector<art::Ptr<recob::Track> >& tracklist,
                                         art::FindManyP<anab::Calorimetry>& fmcal)
 {
-  // define the containers of the important information about the track for the XS
+  // ### Define some containers important for XS
   std::vector<double> pitchVec;
   std::vector<double> dEdXVec;
-  std::vector<double> eDepVec; // Energy deposition at each slice. Simply dEdX*Pitch
+  std::vector<double> eDepVec; 
   std::vector<double> resRanVec;
   std::vector<double> zPosVec;
   std::vector<double> incidentKEVec;
 
-  // ### loop over the reconstructed tracks
-  int furtherstInZCaloPointIndex  = -1;
-  TVector3 furtherstInZCaloPoint;
-  for(size_t iTrk = 0; iTrk < tracklist.size(); iTrk++)
-  {
-    // only look at the one that passed the WC_TPC match and cuts
-    if(iTrk != xsRecoTrkId) continue;
+  int furthestInZCaloPointIndex  = -1;
+  TVector3 furthestInZCaloPoint(0,0,0);
 
-    // we need the calorimetry information for this track
-    art::Ptr<recob::Track> theRecoTrk = tracklist[iTrk];
-    if (!fmcal.isValid()) continue;
-
-    std::vector<art::Ptr<anab::Calorimetry> > calos = fmcal.at(theRecoTrk.key());
-    
-    // ### Loop over calos
-    for (size_t j = 0; j < calos.size(); j++)
-    {
-      // ### Skip Induction Plane
-      if (!calos[j]->PlaneID().isValid)    continue;
-      if  (calos[j]->PlaneID().Plane == 0) continue;
-
-      size_t nTrkHits = calos[j]->dEdx().size();
-      for (size_t k = 0; k < nTrkHits; k++)
-      {
-        // make sure we can actually see this
-        TVector3 theXYZ( calos[j]->XYZ()[k].X(),
-                         calos[j]->XYZ()[k].Y(), 
-                         calos[j]->XYZ()[k].Z() );
-        if ( !InActiveRegion(theXYZ) ) continue;
+  // ### We need the calorimetry information for the track
+  art::Ptr<recob::Track> theRecoTrk = tracklist[xsRecoTrkId];
+  if (!fmcal.isValid()) continue;
+  std::vector<art::Ptr<anab::Calorimetry> > calos = fmcal.at(theRecoTrk.key());
   
-        // we're determining the most downstream point
-        if (theXYZ.Z() > furtherstInZCaloPoint.Z()) 
-        {
-          furtherstInZCaloPointIndex = k;
-          furtherstInZCaloPoint = theXYZ;
-        }
-        pitchVec. push_back( calos[j]->TrkPitchVec()[k] );
-        dEdXVec.  push_back( calos[j]->dEdx()[k] );
-        eDepVec.  push_back( calos[j]->dEdx()[k] * calos[j]->TrkPitchVec()[k] );
-        resRanVec.push_back( calos[j]->ResidualRange()[k] );
-        zPosVec.  push_back( calos[j]->XYZ()[k].Z() );
-      }//<-- End loop over track points 
-    }//<-- End loop over calos
-  }//<-- End loop over tracks
+  // ### Loop over calos
+  for (size_t j = 0; j < calos.size(); j++)
+  {
+    // ### Skip Induction Plane
+    if (!calos[j]->PlaneID().isValid)    continue;
+    if (calos[j]->PlaneID().Plane == 0)  continue;
+
+    // ### Loop over entries
+    size_t nTrkHits = calos[j]->dEdx().size();
+    for (size_t k = 0; k < nTrkHits; k++)
+    {
+      // make sure we can actually see this
+      TVector3 theXYZ( calos[j]->XYZ()[k].X(),
+                       calos[j]->XYZ()[k].Y(), 
+                       calos[j]->XYZ()[k].Z() );
+      if ( !InActiveRegion(theXYZ) ) continue;
+
+      // we're determining the most downstream point
+      if (theXYZ.Z() > furthestInZCaloPoint.Z()) 
+      {
+        furthestInZCaloPointIndex = k;
+        furthestInZCaloPoint = theXYZ;
+      }
+      pitchVec. push_back( calos[j]->TrkPitchVec()[k] );
+      dEdXVec.  push_back( calos[j]->dEdx()[k] );
+      eDepVec.  push_back( calos[j]->dEdx()[k] * calos[j]->TrkPitchVec()[k] );
+      resRanVec.push_back( calos[j]->ResidualRange()[k] );
+      zPosVec.  push_back( calos[j]->XYZ()[k].Z() );
+    }//<-- End loop over entries 
+  }//<-- End loop over calos
 
   std::cout << "Most downstream point from calorimetry is (" 
-            << furtherstInZCaloPoint.X() << ", "
-            << furtherstInZCaloPoint.Y() << ", "
-            << furtherstInZCaloPoint.Z() << ")\n\n";
+            << furthestInZCaloPoint.X() << ", "
+            << furthestInZCaloPoint.Y() << ", "
+            << furthestInZCaloPoint.Z() << ")\n\n";
 
   // ### Determine if the particle interacted 
-  if (furtherstInZCaloPointIndex >= 0)
+  // ### This is simply if the furthest Z calo point is within active volume
+  if (furthestInZCaloPointIndex >= 0)
   {
     // fill histos
-    hFurtherstInZCaloX->Fill(furtherstInZCaloPoint.X());
-    hFurtherstInZCaloY->Fill(furtherstInZCaloPoint.Y());
-    hFurtherstInZCaloZ->Fill(furtherstInZCaloPoint.Z());
-    if (InActiveRegion(furtherstInZCaloPoint)) fDidDetermineInteracting = 1;
+    hFurthestInZCaloX->Fill(furthestInZCaloPoint.X());
+    hFurthestInZCaloY->Fill(furthestInZCaloPoint.Y());
+    hFurthestInZCaloZ->Fill(furthestInZCaloPoint.Z());
+    if (InActiveRegion(furthestInZCaloPoint)) fDidDetermineInteracting = 1;
   }
+
   // ### Determine if the interaction was inelastic
-  if (fDidDetermineInteracting) DetermineInelasticity(xsRecoTrkId, furtherstInZCaloPoint, tracklist);
+  if (fDidDetermineInteracting) DetermineInelasticity(xsRecoTrkId, furthestInZCaloPoint, tracklist);
     
   // make sure we have stuff here to work with
   if (pitchVec.size() == 0) return;
@@ -904,9 +919,11 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
     totalEnDep = totalEnDep + eDepVec[iDep];
     incidentKEVec.push_back(theWCKE - totalEnDep);
   }
+
   // fill the Incident and interacting histograms
   for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
-  if (fIsTrackSignal && incidentKEVec.size() != 0) hRecoMCInteractingKE->Fill(incidentKEVec.back());
+  fRecoInteractingKE = incidentKEVec.back();
+  if (fDidDetermineSignal && incidentKEVec.size() != 0) hRecoMCInteractingKE->Fill(incidentKEVec.back());
 }
 
 
@@ -916,7 +933,7 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
 //----------------------------------------------------------------------------------------------------
 // Determine inelasticity
 void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
-                                            const TVector3& furtherstInZCaloPoint,
+                                            const TVector3& furthestInZCaloPoint,
                                             const std::vector<art::Ptr<recob::Track> >& tracklist)
 {
  /*
@@ -944,8 +961,8 @@ void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
     TVector3 dXYZstart( theTrkExtent.first.X(),  theTrkExtent.first.Y(), theTrkExtent.first.Z() );
     TVector3 dXYZend  ( theTrkExtent.second.X(), theTrkExtent.second.Y(), theTrkExtent.second.Z() );
     
-    double diff1 = (furtherstInZCaloPoint - dXYZstart).Mag();
-    double diff2 = (furtherstInZCaloPoint - dXYZend  ).Mag();
+    double diff1 = (furthestInZCaloPoint - dXYZstart).Mag();
+    double diff2 = (furthestInZCaloPoint - dXYZend  ).Mag();
 
     std::cout << "Diffs " << diff1 << "  " << diff2 << std::endl;
     hVertexDiff->Fill(diff1);
@@ -987,8 +1004,6 @@ void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
 
     primNpointsBack = primNpointsBack < primNpointsTot ? primNpointsBack : primNpointsTot;
     secNpointsBack  = secNpointsBack  < secNpointsTot  ? secNpointsBack  : secNpointsTot;
-
-    std::cout << primNpointsBack << " " << primNpointsTot << " " << secNpointsBack << " " << secNpointsTot << std::endl;
 
     // for primary, just in case, grab the most downstream
     if (primTrk->Start().Z() > primTrk->End().Z())
@@ -1053,6 +1068,13 @@ void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
     std::cout << "Second. End Point   "; secPoints[1].Print();
     std::cout << "THETA " << theta << std::endl;
   }
+
+  // if there were no tracks found to be leaving, check the end point
+  if (theTracksLeaving.size() == 1)
+  {
+    if (furthestInZCaloPoint < fNoSecZCut) fDidDetermineSignal = 1;
+  }
+
   std::cout << fDidDetermineSignal << std::endl;
   if (fDidDetermineSignal) std::cout << "Determined as inelastic!" << std::endl;
   else std::cout << "Determined NOT inelastic!\n";
