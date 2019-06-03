@@ -232,6 +232,7 @@ void AngularRes::HandleElastic(const sim::ParticleList& plist, const std::vector
   }
   std::cout << std::endl;
 
+  //////////////////////////////////////////////
   // ### Loop over interesting points
   for (const auto& p : points)
   {
@@ -272,6 +273,12 @@ void AngularRes::HandleInelastic(const sim::ParticleList& plist, const std::vect
   }
   std::cout << std::endl;
 
+  //////////////////////////////////////////////
+  // ### Loop over the interesting points
+  for (const auto& p : points)
+  {
+
+  }
 }
 
 DEFINE_ART_MODULE(AngularRes)

@@ -849,6 +849,12 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
   if (!fmcal.isValid()) continue;
   std::vector<art::Ptr<anab::Calorimetry> > calos = fmcal.at(theRecoTrk.key());
   
+  // ### Just in case tracking is backwards
+  bool isInvertedTracking = false;
+  auto realFirstValidPt = (theRecoTrk->TrajectoryPoint(theRecoTrk->FirstValidPoint())).position;
+  auto realLastValidPt  = (theRecoTrk->TrajectoryPoint(theRecoTrk->LastValidPoint( ))).position;
+  if ( realFirstValidPt.Z() - realLastValidPt.Z() > 0) isInvertedTracking = true;
+
   // ### Loop over calos
   for (size_t j = 0; j < calos.size(); j++)
   {
@@ -880,6 +886,12 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
     }//<-- End loop over entries 
   }//<-- End loop over calos
 
+  // ### Sanity check
+  auto sc = pitchVec.size();
+  if (pitchVec.size() != sc && dEdXVec.size()  != sc && 
+      eDepVec.size()  != sc && reRanVec.size() != sc && 
+      zPosVec.size()  != sc) throw cet::exception("CalculatePionXS") << "Calorimetry sizes are not the same!\n";
+
   std::cout << "Most downstream point from calorimetry is (" 
             << furthestInZCaloPoint.X() << ", "
             << furthestInZCaloPoint.Y() << ", "
@@ -898,11 +910,21 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
 
   // ### Determine if the interaction was inelastic
   if (fDidDetermineInteracting) DetermineInelasticity(xsRecoTrkId, furthestInZCaloPoint, tracklist);
-    
-  // make sure we have stuff here to work with
+
+  // ### Make sure we have stuff here to work with
   if (pitchVec.size() == 0) return;
 
-  // get the kinetic energy at "WC 4" 
+  // ### Check track inversion
+  if (isInvertedTracking)
+  {
+    std::reverse(pitchVec.begin(),  pitchVec.end());
+    std::reverse(dEdXVec.begin(),   dEdXVec.end());
+    std::reverse(eDepVec.begin(),   eDepVec.end());
+    std::reverse(resRanVec.begin(), resRanVec.end());
+    std::reverse(zPosVec.begin(),   zPosVec.end());
+  }
+
+  // ### Get the kinetic energy at "WC 4" 
   // (for single particle gun just use KE at z=0)
   TVector3 theWCMom(0,0,0);
   for (size_t iPt = 0; iPt < fG4PrimaryTrTrjMom[0].size(); iPt++)
@@ -910,9 +932,12 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
     if (fG4PrimaryTrTrjPos[0][iPt].Z() > 0) break;
     theWCMom = fG4PrimaryTrTrjMom[0][iPt];
   }
+
+  // ### This is the first incident KE
   double theWCKE = std::sqrt( theWCMom.Mag()*theWCMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
   incidentKEVec.push_back(theWCKE);
-  // fill the energy depositions
+
+  // ### Fill the energy depositions
   double totalEnDep(0);
   for (size_t iDep = 0; iDep < eDepVec.size(); iDep++)
   {
@@ -920,7 +945,7 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
     incidentKEVec.push_back(theWCKE - totalEnDep);
   }
 
-  // fill the Incident and interacting histograms
+  // ### Fill the Incident and interacting histograms
   for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
   fRecoInteractingKE = incidentKEVec.back();
   if (fDidDetermineSignal && incidentKEVec.size() != 0) hRecoMCInteractingKE->Fill(incidentKEVec.back());
