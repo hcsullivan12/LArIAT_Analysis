@@ -275,7 +275,7 @@ void AngularRes::HandleInelastic(const sim::ParticleList& plist, const std::vect
 
   //////////////////////////////////////////////
   // ### Loop over the interesting points
-  for (const auto& p : points)
+  //for (const auto& p : points)
   {
 
   }

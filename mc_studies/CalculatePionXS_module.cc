@@ -56,14 +56,14 @@ public:
 private:
 
   void ResetVars();
-  void Filter(size_t& xsRecoTrkId, const std::vector<art::Ptr<recob::Track> >& tracklist);
+  void Filter(int& xsRecoTrkId, const std::vector<art::Ptr<recob::Track> >& tracklist);
   void FillTruthInfo(const sim::ParticleList& plist);
   bool InActiveRegion(const TVector3& thePos);
   void ComputeAngles(float& phi, float& theta, const TVector3& p0Hat);
-  void TrackMatchedTrack(const size_t& xsRecoTrkId, 
+  void TrackMatchedTrack(const int& xsRecoTrkId, 
                          const std::vector<art::Ptr<recob::Track> >& tracklist,
                          art::FindManyP<anab::Calorimetry>& fmcal);
-  void DetermineInelasticity(const size_t& xsRecoTrkId,
+  void DetermineInelasticity(const int& xsRecoTrkId,
                              const TVector3& furthestInZCaloPoint,
                              const std::vector<art::Ptr<recob::Track> >& tracklist);
 
@@ -121,7 +121,7 @@ private:
   std::vector<TVector3>                 fG4PrimaryProjPos0;  // projected position
   std::vector<std::vector<TVector3>>    fG4PrimaryTrTrjPos;  // trajectory sp
   std::vector<std::vector<TVector3>>    fG4PrimaryTrTrjMom;  // trajectory momentum 
-  std::vector<std::vector<TVector3>>    fG4PrimaryVtx;       // primary interaction points
+  std::vector<TVector3>                 fG4PrimaryVtx;       // primary interaction points
 
   
   
@@ -291,10 +291,9 @@ void CalculatePionXS::analyze(art::Event const & e)
   // ============================================
   // =================  FILTER  =================
   // ============================================
-  size_t xsRecoTrkId;
+  int xsRecoTrkId(-1);
   Filter(xsRecoTrkId, tracklist);
-  
-
+  if (xsRecoTrkId < 0) return;
 
   // ############################################################
   // ### We are know tracking a uniquely WC/TPC matched track ###
@@ -425,15 +424,13 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
     // ### Store the processes for this primary, only those that occur in TPC
     simb::MCTrajectory truetraj = mcParticle->Trajectory();
     auto thisTrjProcessMap = truetraj.TrajectoryProcesses();
-    std::vector<std::string> proc;
-    std::vector<TVector3>    vtx;
   
     // ### If there's nothing, check the end of the track
     if (thisTrjProcessMap.size() == 0)
     {
       // ### Get the vertex
       if (!InActiveRegion(mcParticle->EndPosition().Vect())) continue;
-      vtx.push_back( mcParticle->EndPosition().Vect() );
+      fG4PrimaryVtx.push_back( mcParticle->EndPosition().Vect() );
 
       auto tempMom = mcParticle->Momentum(mcParticle->NumberTrajectoryPoints()-2).Vect();
       fTrueInteractingKE = std::sqrt( tempMom*tempMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
@@ -444,10 +441,10 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
         auto theDauId = mcParticle->Daughter(0);
         for (size_t iD = 0; iD < plist.size(); iD++) 
         {
-          if (plist.Particle(iD)->TrackId() == theDauId) proc.push_back(plist.Particle(iD)->Process());
+          if (plist.Particle(iD)->TrackId() == theDauId) fG4PrimaryProcesses.push_back(plist.Particle(iD)->Process());
         }
       }//<-- End if has daughters
-      else proc.push_back("throughgoing");
+      else fG4PrimaryProcesses.push_back("throughgoing");
     }//<-- End if map is zero
     else 
     {
@@ -456,17 +453,14 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
         // ### Get the vertex, only if it's in the TPC
         int interestingPoint = (int) couple.first;
         if (!InActiveRegion( truetraj.Position(interestingPoint).Vect()) ) continue;
-        vtx.push_back( truetraj.Position(interestingPoint).Vect() );
-        proc.push_back( truetraj.KeyToProcess(couple.second) );
+        fG4PrimaryVtx.push_back( truetraj.Position(interestingPoint).Vect() );
+        fG4PrimaryProcesses.push_back( truetraj.KeyToProcess(couple.second) );
 
         auto tempMom = mcParticle->Momentum(interestingPoint-1).Vect();
         fTrueInteractingKE = std::sqrt( tempMom*tempMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
       }
     }//<-- End if map is not zero
 
-    fG4PrimaryProcesses = proc;
-    fG4PrimaryVtx.push_back(vtx); 
-    
     // ### Store the positions and momentum 
     fG4PrimaryPos0.push_back( mcParticle->Position().Vect() );
     fG4PrimaryPosf.push_back( mcParticle->EndPosition().Vect() );
@@ -519,7 +513,7 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
       if (mcParticle->Position(iPoint).Vect().Z() < 0)
       {
         float ke = std::sqrt( fG4PrimaryTrTrjMom[iPrim].back()*fG4PrimaryTrTrjMom[iPrim].back() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; 
-        keMap.emplace(cParticle->Position(iPoint).Vect().Z(), ke);
+        keMap.emplace(mcParticle->Position(iPoint).Vect().Z(), ke);
       }
     }
 
@@ -543,7 +537,7 @@ void CalculatePionXS::FillTruthInfo(const sim::ParticleList& plist)
 
 //----------------------------------------------------------------------------------------------------
 // Fill truth info
-void CalculatePionXS::Filter(size_t& xsRecoTrkId, const std::vector<art::Ptr<recob::Track> >& tracklist)
+void CalculatePionXS::Filter(int& xsRecoTrkId, const std::vector<art::Ptr<recob::Track> >& tracklist)
 {
   // ==========================================================================
   // =================  LOOKING AT EVENTS THAT ENTER THE TPC  =================
@@ -739,6 +733,7 @@ void CalculatePionXS::Filter(size_t& xsRecoTrkId, const std::vector<art::Ptr<rec
   // =================  APPLY ANGLE CUTS  =================
   // ======================================================
   bool isAlphaMatch(false);
+  int tempId(-1);
   for(size_t iFrFaTrk = 0; iFrFaTrk < frontFaceTrksId.size(); iFrFaTrk++)
   {
     // compute the g4 primary momentum unit vector
@@ -760,7 +755,7 @@ void CalculatePionXS::Filter(size_t& xsRecoTrkId, const std::vector<art::Ptr<rec
     if (alpha < ALPHA_CUT)
     {
       isAlphaMatch = true;
-      xsRecoTrkId = frontFaceTrksId[iFrFaTrk];
+      tempId = frontFaceTrksId[iFrFaTrk];
     }
   }
   // did we get a match?
@@ -773,6 +768,9 @@ void CalculatePionXS::Filter(size_t& xsRecoTrkId, const std::vector<art::Ptr<rec
   if (!isAlphaMatch) return;
   std::cout << "[ x ] Alpha cut" << std::endl;
   fEventsWcTpcUniqueMatchAlpha++;
+
+  // ### We passed all cuts :)
+  xsRecoTrkId = tempId;
 }
 
 
@@ -829,7 +827,7 @@ bool CalculatePionXS::InActiveRegion( const TVector3& thePos  )
 
 //----------------------------------------------------------------------------------------------------
 // Track matched track
-void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId, 
+void CalculatePionXS::TrackMatchedTrack(const int& xsRecoTrkId, 
                                         const std::vector<art::Ptr<recob::Track> >& tracklist,
                                         art::FindManyP<anab::Calorimetry>& fmcal)
 {
@@ -846,7 +844,7 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
 
   // ### We need the calorimetry information for the track
   art::Ptr<recob::Track> theRecoTrk = tracklist[xsRecoTrkId];
-  if (!fmcal.isValid()) continue;
+  if (!fmcal.isValid()) return;
   std::vector<art::Ptr<anab::Calorimetry> > calos = fmcal.at(theRecoTrk.key());
   
   // ### Just in case tracking is backwards
@@ -889,7 +887,7 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
   // ### Sanity check
   auto sc = pitchVec.size();
   if (pitchVec.size() != sc && dEdXVec.size()  != sc && 
-      eDepVec.size()  != sc && reRanVec.size() != sc && 
+      eDepVec.size()  != sc && resRanVec.size() != sc && 
       zPosVec.size()  != sc) throw cet::exception("CalculatePionXS") << "Calorimetry sizes are not the same!\n";
 
   std::cout << "Most downstream point from calorimetry is (" 
@@ -957,7 +955,7 @@ void CalculatePionXS::TrackMatchedTrack(const size_t& xsRecoTrkId,
 
 //----------------------------------------------------------------------------------------------------
 // Determine inelasticity
-void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
+void CalculatePionXS::DetermineInelasticity(const int& xsRecoTrkId,
                                             const TVector3& furthestInZCaloPoint,
                                             const std::vector<art::Ptr<recob::Track> >& tracklist)
 {
@@ -980,7 +978,7 @@ void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
   for(size_t iTrk = 0; iTrk < tracklist.size(); iTrk++)
   {
     // skip our primary track
-    if (iTrk == xsRecoTrkId) continue;
+    if (static_cast<int>(iTrk) == xsRecoTrkId) continue;
     // what determines the start and ending point here??
     auto theTrkExtent = tracklist[iTrk]->Extent();
     TVector3 dXYZstart( theTrkExtent.first.X(),  theTrkExtent.first.Y(), theTrkExtent.first.Z() );
@@ -1002,7 +1000,7 @@ void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
     std::cout << "Start Point "; dXYZstart.Print();
     std::cout << "End Point   "; dXYZend.Print();
     std::cout << "True info\n";
-    for (const auto& v : fG4PrimaryVtx[0]) v.Print();
+    for (const auto& v : fG4PrimaryVtx) v.Print();
     std::cout << std::endl;
   }
 
@@ -1097,7 +1095,7 @@ void CalculatePionXS::DetermineInelasticity(const size_t& xsRecoTrkId,
   // if there were no tracks found to be leaving, check the end point
   if (theTracksLeaving.size() == 1)
   {
-    if (furthestInZCaloPoint < fNoSecZCut) fDidDetermineSignal = 1;
+    //if (furthestInZCaloPoint < fNoSecZCut) fDidDetermineSignal = 1;
   }
 
   std::cout << fDidDetermineSignal << std::endl;
