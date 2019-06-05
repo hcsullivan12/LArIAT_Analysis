@@ -771,6 +771,7 @@ bool CalculatePionXS::Filter(size_t& xsRecoTrkId, const std::vector<art::Ptr<rec
   fEventsWcTpcUniqueMatchAlpha++;
 
   // ### We passed all cuts :)
+  return true;
 }
 
 

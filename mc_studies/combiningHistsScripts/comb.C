@@ -7,7 +7,7 @@ void comb()
   TH1D *hG4Pred = nullptr;
   TCanvas *temp = nullptr;
   
-  f1->GetObject("hXS", hInelXs);
+  f1->GetObject("hXSEffCorrected", hInelXs);
   f2->GetObject("piMinInel", temp);
 
   TGraph *g = (TGraph*)temp->GetListOfPrimitives()->FindObject("Graph");
@@ -34,6 +34,6 @@ void comb()
 
   auto legend = new TLegend(0.1,0.7,0.48,0.9);
   legend->AddEntry(g,"G4Prediction Inelastic XS","l");
-  legend->AddEntry(hInelXs,"True Inelastic XS","lp");
+  legend->AddEntry(hInelXs,"Reco. XS","lp");
   legend->Draw("same");
 }
