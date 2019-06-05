@@ -174,67 +174,59 @@ void myana::Loop(int inDebug)
     // =====================================================================================
     // ==============================  VARIABLES FOR G4 INFO  ==============================
     // =====================================================================================
-    // count the number of primaries
-    // this is to save us from a memory crash
-    // which is not an easy bug to hunt down
-    int nPrimary(0);                                       // number of primaries
-    int maxTrTrjPoints(0);                                 // max number of truth traj points
-    for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
-    {
-      if (process_primary[iG4] == 1) nPrimary++;
-      if (process_primary[iG4] == 1 && maxTrTrjPoints < NTrTrajPts[iG4]) maxTrTrjPoints = NTrTrajPts[iG4];
-    }
-    std::vector<int> g4PrimaryTrkId;                       // track id 
+    std::vector<size_t> g4PrimaryTrkId;                       // track id 
     std::vector<std::vector<std::string>> g4PrimaryProcesses; // processes
     std::vector<TVector3> g4PrimaryPos0;                   // start pos
     std::vector<TVector3> g4PrimaryPosf;                   // final pos 
     std::vector<TVector3> g4PrimaryMom0;                   // momentum
+    std::vector<TVector3> g4PrimaryMomf;                   // final momentum
     std::vector<TVector3> g4PrimaryProjPos0;               // projected position
     std::vector<std::vector<TVector3>> g4PrimaryTrTrjPos;  // trajectory sp
     std::vector<std::vector<TVector3>> g4PrimaryTrTrjMom;  // trajectory momentum 
-    std::vector<std::vector<TVector3>> g4PrimaryVtx;       // primary interaction points
+    std::vector<std::vector<size_t>> g4PrimaryVtx;       // primary interaction points
+    std::vector<size_t> g4IsTrackInteracting, g4IsTrackSignal; 
+    std::vector<double> g4PrimaryKEFF;
     
     // ##############################
     // ### Loop over g4 particles ###
     // ##############################
     {
-    // counter for the primary
+    // ### Counter for the primary
     size_t iPrim(0);
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
-      // #########################################
-      // ### If this is not a primary, skip it ###
-      // #########################################
+      // ### If this is not a primary, skip it
       if (process_primary[iG4] == 0) continue;
-       
-      // store the track id 
-      g4PrimaryTrkId.push_back(TrackId[iG4]);
 
-      // store the processes for this primary, only those that occur in TPC
-      std::vector<std::string> proc;
-      std::vector<TVector3>    vtx;
+      // ### We've got a new primary
+      g4PrimaryProcesses.push_back(std::vector<std::string>());
+      g4PrimaryTrTrjPos. push_back(std::vector<TVector3>());
+      g4PrimaryTrTrjMom. push_back(std::vector<TVector3>());
+      g4PrimaryVtx.      push_back(std::vector<size_t>());
+
+      // ### Store the track id 
+      g4PrimaryTrkId.push_back(TrackId[iG4]); 
+
+      // ### Store the interaction points, only if it's in the TPC
       for (size_t iPt = 0; iPt < (*InteractionPoint).size(); iPt++)
       {
-        // get the position of this interation point
-        TVector3 thePos( MidPosX[iG4][(*InteractionPoint)[iPt]], 
-                         MidPosY[iG4][(*InteractionPoint)[iPt]],
-                         MidPosZ[iG4][(*InteractionPoint)[iPt]] );
+        auto p     = (*InteractionPoint)[iPt];
+        auto ptype = (*InteractionPointType)[iPt]; 
+        TVector3 pos(MidPosX[iPrim][p], MidPosY[iPrim][p], MidPosZ[iPrim][p]);
+        if (!InActiveRegion(pos))
 
-        if (!InActiveRegion(thePos)) continue;
-      
-        proc.push_back( (*InteractionPointType)[iPt] );
-        vtx.push_back(thePos); 
+        g4PrimaryVtx[iPrim].push_back(p);
+        g4PrimaryProcesses[iPrim].push_back(ConvertProcessToString(ptype));
       }
-      g4PrimaryProcesses.push_back(proc);
-      g4PrimaryVtx.push_back(vtx);
 
-      // store the positions and momentum 
+      // ### Store the positions and momentum 
       g4PrimaryPos0.push_back( TVector3(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]) );
       g4PrimaryPosf.push_back( TVector3(EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]) );
-      g4PrimaryMom0.push_back( TVector3(Px[iG4]*1000,     Py[iG4]*1000,     Pz[iG4]*1000) ); // convert to MeV
+      g4PrimaryMom0.push_back( TVector3(Px[iG4], Py[iG4], Pz[iG4]) );
+      g4PrimaryMomf.push_back( TVector3(EndPx[iG4], EndPy[iG4], EndPz[iG4]) );
 
-      // setting a global event weight 
-      // setting Event weight 
+      // ### Setting a global event weight 
+      // ### Setting Event weight 
       if(USE_EVENT_WEIGHT)
       {
         if(g4PrimaryMom0[iPrim].Z() > 0   && g4PrimaryMom0[iPrim].Z() < 100) EVENT_WEIGHT = 0.010;
@@ -251,94 +243,78 @@ void myana::Loop(int inDebug)
         if(g4PrimaryMom0[iPrim].Z() >1100)                             EVENT_WEIGHT = 0.010;
       }
 
-      // fill momentum histos
+      // ### Fill momentum histos
       hMCPrimaryPx->Fill(g4PrimaryMom0[iPrim].X(),   EVENT_WEIGHT);
       hMCPrimaryPy->Fill(g4PrimaryMom0[iPrim].Y(),   EVENT_WEIGHT);
       hMCPrimaryPz->Fill(g4PrimaryMom0[iPrim].Z(),   EVENT_WEIGHT);
       hMCPrimaryP ->Fill(g4PrimaryMom0[iPrim].Mag(), EVENT_WEIGHT);
-
-      // fill true length histo;
+      
+      // ### Fill true length histo;
       hTrueLength->Fill( (g4PrimaryPosf[iPrim] - g4PrimaryPos0[iPrim]).Mag() );
-
-      // project onto tpc 
+      
+      // ### Project onto tpc 
       TVector3 thisPosProjVec = g4PrimaryPos0[iPrim] - ( g4PrimaryPos0[iPrim].Z()/g4PrimaryMom0[iPrim].Z() )*g4PrimaryMom0[iPrim];
       g4PrimaryProjPos0.push_back(thisPosProjVec);
 
-      // fill the proj histos
+      // ### Fill the proj histos
       hMCPrimaryProjX0->Fill( g4PrimaryProjPos0[iPrim].X() );
       hMCPrimaryProjY0->Fill( g4PrimaryProjPos0[iPrim].Y() );
       hMCPrimaryProjZ0->Fill( g4PrimaryProjPos0[iPrim].Z() );
-
-      // store the trajectory points and momentum
-      std::vector<TVector3> temp;
-      g4PrimaryTrTrjPos.push_back(temp);
-      g4PrimaryTrTrjMom.push_back(temp);
-
+  
+      // ### Store the trajectory points and momentum
+      std::map<float, float> keMap;
       for (size_t iPoint = 0; iPoint < NTrTrajPts[iG4]; iPoint++)
       {
-        g4PrimaryTrTrjPos[iPrim].push_back( TVector3(MidPosX[iG4][iPoint],    MidPosY[iG4][iPoint],    MidPosZ[iG4][iPoint]) );
-        g4PrimaryTrTrjMom[iPrim].push_back( TVector3(MidPx[iG4][iPoint]*1000, MidPy[iG4][iPoint]*1000, MidPz[iG4][iPoint]*1000)   ); // convert to MeV
+        g4PrimaryTrTrjPos[iPrim].push_back( TVector3(MidPosX[iPrim][iPoint], MidPosY[iPrim][iPoint], MidPosZ[iPrim][iPoint]) );
+        g4PrimaryTrTrjMom[iPrim].push_back( TVector3(MidPx[iPrim][iPoint],   MidPy[iPrim][iPoint],   MidPz[iPrim][iPoint]) ); 
+        //std::cout << "HH " << iPoint << " " << iPrim << " " << NTrTrajPts[iG4] << std::endl;
+        if (g4PrimaryTrTrjPos[iPrim].back().Z() < 0)
+        {
+          float ke = std::sqrt( g4PrimaryTrTrjMom[iPrim].back()*g4PrimaryTrTrjMom[iPrim].back() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; 
+          keMap.emplace(g4PrimaryTrTrjMom[iPrim].back().Z(), ke);
+        }
       }
+
+      // ### Set the KE at z = 0
+      if(!keMap.empty()) g4PrimaryKEFF.push_back( (--keMap.end())->second );
+
       iPrim++;
-    } 
+    }//<--- End loop over G4 particles 
     }
-  
 
-
-
-
-    // ==========================================================================
-    // =================  LOOKING AT EVENTS THAT ENTER THE TPC  =================
-    // ==========================================================================
-
-    // ###########################
-    // ### Loop over primaries ###
-    // ###########################
-    bool isGoodEvent(false);
-    for (size_t iPrim = 0; iPrim < nPrimary; iPrim++)
+    // ### Store if interacting/signal
+    for (size_t iPrim = 0; iPrim < g4PrimaryProcesses.size(); iPrim++)
     {
-      // only look if a primary entered the tpc
-      if ( g4PrimaryPosf[iPrim].Z() > 0 ) isGoodEvent = true;
-      if ( !isGoodEvent ) 
+      // ### Set the interacting variables
+      g4IsTrackInteracting.push_back( g4PrimaryProcesses.size() > 0 ? 1 : 0 );
+
+      // ### If signal
+      for (const auto& p : g4PrimaryProcesses[iPrim])
       {
-        hMCPrimaryMissedTpcX->Fill(g4PrimaryPosf[iPrim].X());
-        hMCPrimaryMissedTpcY->Fill(g4PrimaryPosf[iPrim].Y());
-        hMCPrimaryMissedTpcZ->Fill(g4PrimaryPosf[iPrim].Z());
-        continue;
+        bool isTrackSignal = p.find("pi") != std::string::npos && p.find("Inelastic") != std::string::npos; 
+        g4IsTrackSignal.push_back( isTrackSignal ? 1 : 0);
       }
+    }
 
-      // ####################################
-      // ### This primary entered the TPC ###
-      // ####################################
-      nPrimariesEntered++;
+    // ### Sanity check...
+    size_t sc = g4PrimaryTrkId.size();
+    assert(g4PrimaryTrkId.size()       == sc && g4PrimaryProcesses.size() == sc &&
+           g4PrimaryPos0.size()        == sc && g4PrimaryPosf.size()      == sc &&   
+           g4PrimaryMom0.size()        == sc && g4PrimaryProjPos0.size()  == sc &&
+           g4PrimaryTrTrjPos.size()    == sc && g4PrimaryTrTrjMom.size()  == sc &&
+           g4PrimaryVtx.size()         == sc && g4IsTrackSignal.size()    == sc && 
+           g4IsTrackInteracting.size() == sc && g4PrimaryKEFF.size()      == sc &&
+           g4PrimaryMomf.size()        == sc);
 
-      // calculate energy loss
-      float energyLoss(0);
-      // loop over trj points for this primary
-      for (size_t iPoint = 0; iPoint < g4PrimaryTrTrjPos[iPrim].size(); iPoint++)
-      {
-        // only look at the upstream portion
-        if ( g4PrimaryTrTrjPos[iPrim][iPoint].Z() > 0 ) continue;
-        // ignore last point
-        if ( (iPoint+1) >= g4PrimaryTrTrjPos[iPrim].size() ) break;
- 
-        auto mom1Vec = g4PrimaryTrTrjMom[iPrim][iPoint];
-        auto mom2Vec = g4PrimaryTrTrjMom[iPrim][iPoint+1];
-
-        float energy1 = std::sqrt( mom1Vec.Mag()*mom1Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS );
-        float energy2 = std::sqrt( mom2Vec.Mag()*mom2Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS ); 
-
-        energyLoss += (energy1 - energy2);
-      }//<--- End loop over true traj points
-      hMCELossUpstream->Fill(energyLoss);
-    }//<--- End loop over primaries
-    if (!isGoodEvent) continue;
-    nGoodMCEvents++;
     
 // End looking at only MC truth/G4 information
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
 
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Begin apply "WC to TPC" cuts
 
     // =================      APPLY FRONT FACE TPC TRACK CUT      =================
     // =================  APPLY CUT ON NUMBER OF UPSTREAM TRACKS  =================
@@ -349,12 +325,12 @@ void myana::Loop(int inDebug)
     std::vector<double> frontFaceTrksPhi, frontFaceTrksTheta;
     std::vector<size_t> frontFaceTrksId;
     size_t nUpstreamTpcTrks(0);
-
+if (ntracks_reco > -90000) std::cout << ntracks_reco << endl;
     // ##########################################################
     // ### Only keeping events if there is a track within the ###
     // ###            the first x cm of the TPC               ###
     // ##########################################################
-    for (size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
+    /*for (int iTrk = 0; iTrk < ntracks_reco; iTrk++)
     {
       // looking for most upstream point still in FV of TPC
       // most upstream point in FV
@@ -366,7 +342,7 @@ void myana::Loop(int inDebug)
       TVector3 dummyTrkPos(0,0,0);
       TVector3 dummyTrkP0Hat(0,0,0);
       size_t dummyTrkId;
-
+//std::cout << nTrajPoint[iTrk] << std::endl;
       // ###################################
       // ### Loop over trajectory points ###
       // ###################################
@@ -388,7 +364,7 @@ void myana::Loop(int inDebug)
           if (tempMinZ < FIRST_SP_Z_POS)
           {
             isFrontTpcTrk = true;
-            
+std::cout << "here9\n";            
             // Store these points for later
             dummyTrkPos   = theTrjPointVec;
             dummyTrkP0Hat = theTrjP0HatVec; 
@@ -400,7 +376,7 @@ void myana::Loop(int inDebug)
 
         }//<--- End if in FV
       }//<--- End loop over trj points 
-
+//std::cout << "HERE56\n";
       // we should have the observables attached to the most upstream trj point for this track
       // if it is at the front, append to our vectors
       if (isFrontTpcTrk)
@@ -424,10 +400,7 @@ void myana::Loop(int inDebug)
     // skip events that have too many tracks upstream        
     if(nUpstreamTpcTrks > N_UPPER_TPC_TRACKS || nUpstreamTpcTrks == 0) continue;
     nEventsUpperTpcTrkCount++;
-
-
-
-
+*/
 
 
     // ========================================================================
@@ -452,10 +425,6 @@ void myana::Loop(int inDebug)
         nMcTpcMatch++;
       }
     }//<---End bb loop
-
-
-
-
 
 
     // ========================================================
@@ -494,9 +463,6 @@ void myana::Loop(int inDebug)
             frontFaceTrksId.size() );
 
     
-
-
-
 
 
     // ======================================================
@@ -540,8 +506,16 @@ void myana::Loop(int inDebug)
     // force this unique match to pass our alpha cut
     if (!isAlphaMatch) continue;
     nEventsWcTpcUniqueMatchAlpha++;
-    
-    
+
+// End applying "WC to TPC" cuts
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
     // ############################################################
     // ### We are know tracking a uniquely WC/TPC matched track ###
     // ###         The ID is in xsRecoTrkId variable            ###
@@ -551,6 +525,9 @@ void myana::Loop(int inDebug)
 
 
 
+/*
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Begin tracking our matched track
 
     // ==========================================================================
     // =================  BEGIN TRACKING OUR MATCHED TPC TRACK  =================
@@ -672,13 +649,14 @@ void myana::Loop(int inDebug)
     for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
     if (isInelastic && incidentKEVec.size() != 0) hRecoMCInteractingKE->Fill(incidentKEVec.back());
 
+// End tracking our matched track
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 
+*/
 
 
-
-    
   }//<---End loop over entries
 
 
@@ -798,4 +776,36 @@ bool InActiveRegion( const TVector3& thePos  )
        FV_Z_BOUND[0] < thePos.Z() && thePos.Z() < FV_Z_BOUND[1] ) return true;
 
   return false;
+}
+
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Convert process to string
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+std::string ConvertProcessToString(const int& i)
+{
+  std::string theProcess;
+
+  switch(i)
+  {
+    case 0: { theProcess  = "none"; break; }
+    case 1: { theProcess  = "pi-Inelastic"; break; }
+    case 2: { theProcess  = "NeutronInelastic"; break; }
+    case 3: { theProcess  = "hadElastic"; break; }
+    case 4: { theProcess  = "nCapture"; break; }
+    case 5: { theProcess  = "CHIPSNuclearCaptureAtRest"; break; }
+    case 6: { theProcess  = "Decay"; break; }
+    case 7: { theProcess  = "KaonZeroLInelastic"; break; }
+    case 8: { theProcess  = "CoulombScat"; break; }
+    case 9: { theProcess  = "muMinusCaptureAtRest"; break; }
+    case 10: { theProcess = "ProtonInelastic"; break; }
+    case 11: { theProcess = "Kaon+Inelastic"; break; }
+    case 12: { theProcess = "Kaon-Inelastic "; break; }
+    case 13: { theProcess = "protonInelastic"; break; }
+    case 14: { theProcess = "pi+Inelastic "; break; }
+    default: { theProcess = "unknown"; }
+  }
+
+  return theProcess;
 }

@@ -1,6 +1,6 @@
-////////////////////////////////////////////////////////
-// Modified version of AnaTreeT1034UTA
-////////////////////////////////////////////////////////
+// ==========================================
+// === modified version of AnaTreeT1034UC ===
+// ==========================================
 
 // ##########################
 // ### Framework includes ###
@@ -28,6 +28,10 @@
 #include "larcoreobj/SimpleTypesAndConstants/geo_types.h"
 #include "larcoreobj/SimpleTypesAndConstants/RawTypes.h" // raw::ChannelID_t
 #include "larcore/Geometry/Geometry.h"
+//#include "larcorealg/Geometry/CryostatGeo.h"
+//#include "larcorealg/Geometry/TPCGeo.h"
+//#include "larcorealg/Geometry/PlaneGeo.h"
+//#include "larcorealg/Geometry/WireGeo.h"
 #include "lardataobj/RecoBase/Wire.h"
 #include "lardataobj/RecoBase/Hit.h"
 #include "lardataobj/RecoBase/Cluster.h"
@@ -72,6 +76,8 @@
 #include "TTree.h"
 #include "TTimeStamp.h"
 
+#include "LArIATFilterModule/InelasticSubClassifier.h"
+
 const int kMaxTOF        = 100;      // :/
 const int kMaxWCTracks   = 1000;
 const int kMaxTrack      = 1000;     //maximum number of tracks
@@ -91,8 +97,7 @@ namespace lariat
 {
   class AnaTreeT1034UTA;
 }
-//-------------------------------------------------------------------------------
-// Class definition
+
 class lariat::AnaTreeT1034UTA : public art::EDAnalyzer 
 {
 public:
@@ -105,6 +110,14 @@ public:
   // Selected optional functions.
   void beginJob();
   void reconfigure(fhicl::ParameterSet const & p);
+  //void beginJob() override;
+  //void beginRun(art::Run const & r) override;
+  //void beginSubRun(art::SubRun const & sr) override;
+  //void endJob() override;
+  //void endRun(art::Run const & r) override;
+  //void endSubRun(art::SubRun const & sr) override;
+  //void reconfigure(fhicl::ParameterSet const & p) override;
+  //void initializeVariables();
 
 private:
 
@@ -150,6 +163,8 @@ private:
   std::vector< std::vector<std::vector<int>> > track_spt_id;
   std::vector< std::vector<std::vector<double>> > track_spt_e;
 
+
+
   // === Storing the tracks Calorimetry Information
   std::vector<int> ind_track_hits;
   std::vector<double> ind_track_ke;
@@ -169,12 +184,18 @@ private:
   std::vector< std::vector<double> > col_track_rr;
   std::vector< std::vector<double> > col_track_pitch_hit;
 
+
   // === hit info ===
   int nhits;
   std::vector<double> hit_time;
   std::vector<double> hit_wire;
   std::vector<double> hit_view;
   std::vector<double> hit_amp;
+
+  std::vector<int>         InteractionPoint;         //<---Geant 4 Primary Trj Point Corresponding to the Interaction
+  std::vector<std::string> InteractionPointType;     //<---Geant 4 Primary Interaction Type
+  std::vector<std::string> InteractionPointSubType;  //<---Geant 4 Primary Interaction sub process
+
 
   // === Storing Geant4 MC Truth Information ===
   int no_primaries;				//<---Number of primary Geant4 particles in the event
@@ -216,10 +237,23 @@ private:
   std::vector< std::vector<double> > MidPx;
   std::vector< std::vector<double> > MidPy;
   std::vector< std::vector<double> > MidPz;
+  std::vector<double> SlabX;
+  std::vector<double> SlabY;
+  std::vector<double> SlabZ;
+  std::vector<double> SlabE;
+  std::vector<int>    SlabN;
+  std::vector<double> SlapX;
+  std::vector<double> SlapY;
+  std::vector<double> SlapZ;
+  int LastSlabInt;
+  //// === changing how storing geant4 mc truth info for primary track only ===
+  //std::vector<double> PriMidPosX;
+  //std::vector<double> PriMidPosY;
+  //std::vector<double> PriMidPosZ;
+  //std::vector<double> PriMidPx;
+  //std::vector<double> PriMidPy;
+  //std::vector<double> PriMidPz;
 
-  std::vector<int>         InteractionPoint;         //<---Geant 4 Primary Trj Point Corresponding to the Interaction
-  std::vector<std::string> InteractionPointType;     //<---Geant 4 Primary Interaction Type
-  std::vector<std::string> InteractionPointSubType;  //<---Geant 4 Primary Interaction SubType
 
   std::vector<double> NDTrTrajPts;
   int NProtonDaughters = 0;
@@ -231,7 +265,9 @@ private:
   std::vector<double> DStartP;
   std::vector< std::vector<double> > DMidPosX;
   std::vector< std::vector<double> > DMidPosY;
-  std::vector< std::vector<double> > DMidPosZ; 
+  std::vector< std::vector<double> > DMidPosZ;
+  // === Storing additional Geant4 MC Truth Information for the daughter tracks ===  
+   
 
   // === beamline info ===
   int num_tof_objects;
@@ -277,10 +313,10 @@ private:
   std::string fWCQualityProducerLabel;
 
   calo::CalorimetryAlg fCalorimetryAlg;
+
 };
 
-//-------------------------------------------------------------------------------
-// Constructor
+
 lariat::AnaTreeT1034UTA::AnaTreeT1034UTA(fhicl::ParameterSet const & pset) 
   : EDAnalyzer(pset)
   , fCalorimetryAlg(pset.get<fhicl::ParameterSet>("CalorimetryAlg"))
@@ -288,18 +324,14 @@ lariat::AnaTreeT1034UTA::AnaTreeT1034UTA(fhicl::ParameterSet const & pset)
   this->reconfigure(pset);
 }
 
-//-------------------------------------------------------------------------------
-// Destructor
 lariat::AnaTreeT1034UTA::~AnaTreeT1034UTA()
 {
   // Clean up dynamic memory and other resources here.
 }
 
-//-------------------------------------------------------------------------------
-// Reconfigure
 void lariat::AnaTreeT1034UTA::reconfigure(fhicl::ParameterSet const & pset)
 {
-  fTreeName                 = pset.get< std::string >("TreeName", "anatreeuc");
+  fTreeName                 = pset.get< std::string >("TreeName", "anatreeuta");
 
   fHitsModuleLabel          = pset.get< std::string >("HitsModuleLabel");
   fTrackModuleLabel         = pset.get< std::string >("TrackModuleLabel");
@@ -316,14 +348,13 @@ void lariat::AnaTreeT1034UTA::reconfigure(fhicl::ParameterSet const & pset)
   return;
 }
 
-//-------------------------------------------------------------------------------
-// Main analysis method
 void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
 {
   // #############################################
   // ### Reset variables before we get started ###
   // #############################################
   ResetVars();
+  //std::cout<<"Check1"<<std::endl;
 
   // #######################################
   // ### Get potentially useful services ###
@@ -338,6 +369,7 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
   art::ServiceHandle<cheat::BackTrackerService> bt_serv;
   art::ServiceHandle<cheat::ParticleInventoryService> pi_serv;
   const sim::ParticleList& plist = pi_serv->ParticleList();
+   
    
   // === Run Number ===
   run = evt.run();
@@ -406,8 +438,8 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
     {art::fill_ptr_vector(wctrack, wctrackHandle);}
 
   // art::ValidHandle< std::vector< recob::PFParticle > >
-  auto wcquality_handle = evt.getValidHandle< std::vector< recob::PFParticle > >
-      (fWCQualityProducerLabel);
+  //auto wcquality_handle = evt.getValidHandle< std::vector< recob::PFParticle > >
+  //    (fWCQualityProducerLabel);
 
    
   // ##########################################################
@@ -427,6 +459,26 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
   // ==== Association between Tracks and Hits
   art::FindManyP<recob::Hit> fmth(trackListHandle, evt, fTrackModuleLabel);
   art::FindManyP<recob::Hit, recob::TrackHitMeta> fmthm(trackListHandle, evt, fTrackModuleLabel);
+  
+   
+
+    // === not my code... dunno what this is ===
+//  // ### Something to do with SimChannels...need to come back to ###
+//  std::vector<const sim::SimChannel*> fSimChannels;
+//  try
+//    {evt.getView("largeant", fSimChannels);}
+//  catch (art::Exception const&e){ }
+    
+
+
+  // ##################################################################
+  // ### Getting SimChannel Info ??? Want to follow reconstruction! ###
+  // ##################################################################
+//  auto simChannelHandle
+//    = event.getValidHandle<std::vector<sim::SimChannel>>
+//    (fSimulationProducerLabel);
+
+
 
    
   // ###################################################################
@@ -447,7 +499,7 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
   // ----------------------------------------------------------------------------------------------------------------------------
 
   if(!isdata)
-  {
+    {
     // ### Making a vector of MCParticles ###
     std::vector<const simb::MCParticle* > geant_part;
     for(size_t p = 0; p < plist.size(); ++p) 
@@ -455,23 +507,18 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
     
     // ### Setting a string for primary ###
     std::string pri("primary");
-    std::string hadElastic("hadElastic");
-    std::string CoulombScat("CoulombScat");
-    std::string ProtonInelastic("protonInelastic");
-    std::string PiPlusInelastic("pi+Inelastic");
-    std::string PiMinusInelastic("pi-Inelastic");
-    std::string KaonMinusInelastic("kaon-Inelastic");
-    std::string KaonPlusInelastic("kaon+Inelastic");
     
     int primary=0;
     int geant_particle=0;
     int numTrue_inTPC = 0;
+    double slab_size_z = 0.5;
     
     // ### Determine the number of primary particles from geant ###
     for( unsigned int i = 0; i < geant_part.size(); ++i )
     {
-      geant_particle++;
-      if(geant_part[i]->Process()==pri){primary++;}
+    geant_particle++;
+    if(geant_part[i]->Process()==pri)
+      {primary++;}
     }//<---End i loop
   
     // ### Saving the number of primary particles ###
@@ -481,46 +528,39 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
      
     // ### Looping over all the Geant4 particles ###
     int iPrim = 0;
+    //int iDaught = 0;
+    std::cout<<"geant par size: "<<geant_part.size()<<std::endl;
     for(unsigned int i = 0; i < geant_part.size(); ++i)
-    {
-      if(geant_part[i]->Process()==pri){process_primary.push_back(1);}
-      else                             {process_primary.push_back(0);}
+      {
+    if(geant_part[i]->Process()==pri){process_primary.push_back(1);}
+    else                             {process_primary.push_back(0);}
      
-      if(geant_part[i]->Process() == pri)            {Process.push_back(pri);}
-      if(geant_part[i]->Process() == hadElastic)     {Process.push_back(hadElastic);}
-      if(geant_part[i]->Process() == CoulombScat)	   {Process.push_back(CoulombScat);}
-      if(geant_part[i]->Process() == ProtonInelastic){Process.push_back(ProtonInelastic);}
-      if(geant_part[i]->Process() == PiPlusInelastic){Process.push_back(PiPlusInelastic);}
-      if(geant_part[i]->Process() == PiMinusInelastic){Process.push_back(PiMinusInelastic);}
+    Process.push_back(geant_part[i]->Process());
 
-      // ### Saving other info ###
+    // ### Saving other info ###
       PDG.push_back(geant_part[i]->PdgCode());
       Mother.push_back(geant_part[i]->Mother());
       TrackId.push_back(geant_part[i]->TrackId());
       StartEnergy.push_back(geant_part[i]->E());
-      EndEnergy.push_back(geant_part[i]->EndE());
+    EndEnergy.push_back(geant_part[i]->EndE());
       double startp = sqrt( pow(geant_part[i]->Px(),2) + pow(geant_part[i]->Py(),2) + pow(geant_part[i]->Pz(),2));
       double mass = geant_part[i]->Mass(); 
       double startke = sqrt( pow(startp,2) + pow(mass,2) ) - mass;
       StartKE.push_back(startke);
       double lastke = 0;
-      simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
+    simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
       int counter_ii = 0;
-      for(auto itTraj = truetraj.begin(); itTraj != truetraj.end(); ++itTraj) 
-      {
-        if (truetraj.Z(counter_ii) > 0   && truetraj.Z(counter_ii) < 90   &&
-            truetraj.X(counter_ii) > 0   && truetraj.X(counter_ii) < 47.5 &&
-            truetraj.Y(counter_ii) > -20 && truetraj.Y(counter_ii) < 20) 
-        {
+    for(auto itTraj = truetraj.begin(); itTraj != truetraj.end(); ++itTraj) {
+        if(truetraj.Z(counter_ii) > 0   && truetraj.Z(counter_ii) < 90   &&
+          truetraj.X(counter_ii) > 0   && truetraj.X(counter_ii) < 47.5 &&
+          truetraj.Y(counter_ii) > -20 && truetraj.Y(counter_ii) < 20) {
           double thisp;
-          if(counter_ii) 
-          {
+          if(counter_ii) {
             thisp = sqrt( pow(truetraj.Px(counter_ii-1),2) + 
                           pow(truetraj.Py(counter_ii-1),2) + 
                           pow(truetraj.Pz(counter_ii-1),2));
           }
-          else 
-          {
+          else {
             thisp = sqrt( pow(truetraj.Px(counter_ii),2) + 
                           pow(truetraj.Py(counter_ii),2) + 
                           pow(truetraj.Pz(counter_ii),2));
@@ -528,47 +568,56 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
           lastke = sqrt( pow(thisp,2) + pow(mass,2) ) - mass;
         }//<--End if in tpc
         counter_ii++;
-      }//<--End loop on true trajectory points
+    }//<--End loop on true trajectory points
       LastKE.push_back(lastke);
 
-      // ### Saving the start and end Px, Py, Pz info ###
-      StartPx.push_back(geant_part[i]->Px());
-      StartPy.push_back(geant_part[i]->Py());
-      StartPz.push_back(geant_part[i]->Pz());
-      EndPx.push_back(geant_part[i]->EndPx());
-      EndPy.push_back(geant_part[i]->EndPy());
-      EndPz.push_back(geant_part[i]->EndPz());
+
      
-      // ### Saving the Start and End Point for this particle ###
-      StartPointx.push_back(geant_part[i]->Vx());
-      StartPointy.push_back(geant_part[i]->Vx());
-      StartPointz.push_back(geant_part[i]->Vx());
-      EndPointx.push_back(geant_part[i]->EndPosition()[0]);
-      EndPointy.push_back(geant_part[i]->EndPosition()[1]);
-      EndPointz.push_back(geant_part[i]->EndPosition()[2]);
+    // ### Saving the start and end Px, Py, Pz info ###
+    StartPx.push_back(geant_part[i]->Px());
+    StartPy.push_back(geant_part[i]->Py());
+    StartPz.push_back(geant_part[i]->Pz());
+    EndPx.push_back(geant_part[i]->EndPx());
+    EndPy.push_back(geant_part[i]->EndPy());
+    EndPz.push_back(geant_part[i]->EndPz());
+     
+      //std::cout << "    p(x,y,z): (" << geant_part[i]->Px() << ", " << geant_part[i]->Py() << ", " << geant_part[i]->Px() << ")     " 
+      //          << "    start E: " << geant_part[i]->E() << std::endl;
+    // ### Saving the Start and End Point for this particle ###
+    StartPointx.push_back(geant_part[i]->Vx());
+    StartPointy.push_back(geant_part[i]->Vx());
+    StartPointz.push_back(geant_part[i]->Vx());
+    EndPointx.push_back(geant_part[i]->EndPosition()[0]);
+    EndPointy.push_back(geant_part[i]->EndPosition()[1]);
+    EndPointz.push_back(geant_part[i]->EndPosition()[2]);
 
-      // ### Saving the processes for this particle ###
-      G4Process.push_back( geant_part[i]->Process() );
-      G4FinalProcess.push_back( geant_part[i]->EndProcess() );
+    // ### Saving the processes for this particle ###
+    G4Process.push_back( geant_part[i]->Process() );
+    G4FinalProcess.push_back( geant_part[i]->EndProcess() );
       
-      // ### Saving the number of Daughters for this particle ###
-      NumberDaughters.push_back(geant_part[i]->NumberDaughters());
+    // ### Saving the number of Daughters for this particle ###
+    NumberDaughters.push_back(geant_part[i]->NumberDaughters());
 
-      // ### Save intermediary information for the primary track
-      if(geant_part[i]->Process() == pri)
-      {
+    // ### Save intermediary information for the primary track
+    if(geant_part[i]->Process() == pri)
+        {
+        //std::cout << "    p(x,y,z): (" << geant_part[i]->Px() << ", " << geant_part[i]->Py() << ", " << geant_part[i]->Px() << ")" << std::endl; 
+        //std::cout << "    sqrt(p2):  " << sqrt( pow(geant_part[i]->Px(), 2) + pow(geant_part[i]->Py(), 2) + pow(geant_part[i]->Pz(), 2) ) << std::endl;
+        //std::cout << "    p       :  " << geant_part[i]->P() << std::endl;
         primary_p = geant_part[i]->P();
-        NTrTrajPts.push_back(geant_part[i]->NumberTrajectoryPoints());
-        //simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
+      NTrTrajPts.push_back(geant_part[i]->NumberTrajectoryPoints());
+      //simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
         std::vector<double> midx;  std::vector<double> midy;  std::vector<double> midz;
         std::vector<double> midpx; std::vector<double> midpy; std::vector<double> midpz;
-  
-        int iPrimPt = 0;	
+        std::vector<double> slabx; std::vector<double> slaby; std::vector<double> slabz;
+        std::vector<double> slabe; std::vector<int> slabn;
+        std::vector<double> slapx; std::vector<double> slapy; std::vector<double> slapz; 
+      int iPrimPt = 0;	
         double true_total_distance = 0;
         double previous_mid_xpt = geant_part[i]->Vx();    
         double previous_mid_ypt = geant_part[i]->Vy();    
         double previous_mid_zpt = geant_part[i]->Vz();    
-        for(auto itTraj = truetraj.begin(); itTraj != truetraj.end(); ++itTraj)
+      for(auto itTraj = truetraj.begin(); itTraj != truetraj.end(); ++itTraj)
         {
           // ### true pt vars ###
           double mid_xpt = truetraj.X(iPrimPt);
@@ -580,8 +629,33 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
           if(mid_zpt > 0   && mid_zpt < 90   &&
              mid_xpt > 0   && mid_xpt < 47.5 &&
              mid_ypt > -20 && mid_ypt < 20){numTrue_inTPC++;}
-          true_total_distance += true_distance;                      
-                                
+          true_total_distance += true_distance; 
+          std::cout<<"\t\ttrue total distance (highres): "<<true_total_distance<<std::endl;
+          //if(fmod(true_total_distance,1) < 0.03)
+          if(fmod(true_total_distance,slab_size_z) < 0.03)
+            {
+            if(mid_zpt > 0   && mid_zpt < 90   &&
+               mid_xpt > 0   && mid_xpt < 47.5 &&
+               mid_ypt > -20 && mid_ypt < 20)
+              {
+              std::cout<<"totalD: "<<true_total_distance<<std::endl;
+              std::cout<<"dist_mod_slab: "<<fmod(true_total_distance,slab_size_z)<<std::endl;
+              std::cout<<"\tx,y,z: "<<mid_xpt<<", "<<mid_ypt<<", "<<mid_zpt<<std::endl;
+              slabx.push_back(mid_xpt);
+              slaby.push_back(mid_ypt);
+              slabz.push_back(mid_zpt);
+              slabn.push_back((int)(true_total_distance/0.5));
+              slabe.push_back(truetraj.E(iPrimPt));
+              slapx.push_back(truetraj.Px(iPrimPt));
+              slapy.push_back(truetraj.Py(iPrimPt));
+              slapz.push_back(truetraj.Pz(iPrimPt));
+              }
+            }
+                                 
+                                 
+          previous_mid_xpt = mid_xpt;
+          previous_mid_ypt = mid_ypt;
+          previous_mid_zpt = mid_zpt;
           // ### pushing back vars ###
           midx.push_back(truetraj.X(iPrimPt));
           midy.push_back(truetraj.Y(iPrimPt));
@@ -589,121 +663,219 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
           midpx.push_back(truetraj.Px(iPrimPt));
           midpy.push_back(truetraj.Py(iPrimPt));
           midpz.push_back(truetraj.Pz(iPrimPt));
-
-          previous_mid_xpt = mid_xpt;
-          previous_mid_ypt = mid_ypt;
-          previous_mid_zpt = mid_zpt;
-
-          iPrimPt++;
+        iPrimPt++;
+          // ## debug ##
+          //std::cout << "        point: "            << iPrimPt << std::endl;
+          //std::cout << "        mid position px: "  << truetraj.Px(iPrimPt) << std::endl;
+          //std::cout << "        mid position py: "  << truetraj.Py(iPrimPt) << std::endl;
+          //std::cout << "        mid position pz: "  << truetraj.Pz(iPrimPt) << std::endl;
+          //std::cout << "        mid position P : "  << sqrt(   pow(truetraj.Px(iPrimPt), 2) 
+          //                                                  + pow(truetraj.Py(iPrimPt), 2) 
+          //                                                  + pow(truetraj.Pz(iPrimPt), 2) ) << std::endl;
+          //std::cout << "        mid position e : "  << truetraj.E(iPrimPt)  << std::endl;
+          //std::cout << "        (x,y,z): ("         << truetraj.X(iPrimPt) << ", " 
+          //                                          << truetraj.Y(iPrimPt) << ", " 
+          //                                          << truetraj.Z(iPrimPt) << ") " << std::endl;
+          //std::cout << "        distance: "         << true_distance << std::endl;
+          //std::cout << "        total distance: "   << true_total_distance << std::endl;
+          //std::cout << std::endl;
         }//<--End loop on true trajectory points
-
+        std::cout << "      number of trajectory points: " << geant_part[i]->NumberTrajectoryPoints() << std::endl;
+        std::cout << "      prim pt                  : "   << iPrimPt << std::endl;
+        std::cout << "      total distance: "              << true_total_distance << std::endl;
+        std::cout << "\t\tnumslabs: " << slabn.size() << std::endl;
+        for(unsigned int i = 2; i < slabn.size(); i++)
+          {
+          if(i == 2)
+            {
+            std::cout<<"\t\t\tslabz: "<<slabz[i]<<std::endl;
+            SlabN.push_back(slabn[i]);
+            SlabE.push_back(slabe[i]);
+            SlabX.push_back(slabx[i]);
+            SlabY.push_back(slaby[i]);
+            SlabZ.push_back(slabz[i]);
+            SlapX.push_back(slapx[i]);
+            SlapY.push_back(slapy[i]);
+            SlapZ.push_back(slapz[i]);
+            }
+          else
+            {
+            if(slabn[i] == slabn[i-1])
+              {continue;}
+            else
+              {
+              std::cout<<"\t\t\tslabz: "<<slabz[i]<<std::endl;
+              SlabN.push_back(slabn[i]);
+              SlabE.push_back(slabe[i]);
+              SlabX.push_back(slabx[i]);
+              SlabY.push_back(slaby[i]);
+              SlabZ.push_back(slabz[i]);
+              SlapX.push_back(slapx[i]);
+              SlapY.push_back(slapy[i]);
+              SlapZ.push_back(slapz[i]);
+              }
+            }
+          }
+        std::cout<<"SlabN.size() :"<<SlabN.size()<<std::endl;
         MidPosX.push_back(midx); MidPosY.push_back(midy); MidPosZ.push_back(midz);
         MidPx.push_back(midpx);  MidPy.push_back(midpy);  MidPz.push_back(midpz);
         midx.clear(); midy.clear(); midz.clear();
         midpx.clear(); midpy.clear(); midpz.clear();
+        slabx.clear(); slaby.clear(); slabz.clear();
+        slabn.clear(); slabe.clear();
       
-        auto thisTracjectoryProcessMap =  truetraj.TrajectoryProcesses();
-        // Ok, if the size of the map is 0, all the action might happen at the end of the track
-        // So we check the daugthers:
-        //    - Case 1. There are daugthers:
-        //               * The interesting point is the last one
-        //               * The interaction type is the one that created the first daugther (this might be improved)
-        //    - Case 2. There are NO daugthers:
-        //              * We assign the interaction type to be 0: nothing happens, thought going particle
-        //              * The interesting point is the last one (might not be in the TPC)
-        if(!thisTracjectoryProcessMap.size())
+      // ### Saving subprocess type
+      // ### This should be a primary
+      piinelastic::InelasticSubClassifier subclassifier;
+      auto subprocess = subclassifier.Classify(plist, geant_part[i]->TrackId());
+      InteractionPointSubType.push_back(subprocess);
+
+      auto thisTracjectoryProcessMap =  truetraj.TrajectoryProcesses();
+      // Ok, if the size of the map is 0, all the action might happen at the end of the track
+      // So we check the daugthers:
+      //    - Case 1. There are daugthers:
+      //               * The interesting point is the last one
+      //               * The interaction type is the one that created the first daugther (this might be improved)
+      //    - Case 2. There are NO daugthers:
+      //              * We assign the interaction type to be 0: nothing happens, thought going particle
+      //              * The interesting point is the last one (might not be in the TPC)
+      if(!thisTracjectoryProcessMap.size())
         {
-          int interestingPoint = (int) (NTrTrajPts[i] - 1);
-          InteractionPoint.push_back(interestingPoint);
-          if(NumberDaughters[i])
-          {
-            InelasticClassifier myclassifier;
-            myclassifier.Classify();		 
-            InteractionPointSubType.push_back(subprocess);
-            auto thePrimaryDaughterID = geant_part[i]-> Daughter(0); 
-            for(unsigned int iD = 0; iD < geant_part.size(); ++iD )
+        int interestingPoint = (int) (NTrTrajPts[i] - 1);
+        InteractionPoint.push_back(interestingPoint);
+        if(NumberDaughters[i])
+          {		 
+          auto thePrimaryDaughterID = geant_part[i]-> Daughter(0); 
+          for(unsigned int iD = 0; iD < geant_part.size(); ++iD )
             {
-              if(geant_part[iD]->TrackId() == thePrimaryDaughterID) 
-              {		      
-                     if(geant_part[iD]->Process() == hadElastic)	      {InteractionPointType.push_back(hadElastic);}
-                else if(geant_part[iD]->Process() == CoulombScat)	      {InteractionPointType.push_back(CoulombScat);}
-                else if(geant_part[iD]->Process() == ProtonInelastic)   {InteractionPointType.push_back(ProtonInelastic);}
-                else if(geant_part[iD]->Process() == PionPlusInelastic) {InteractionPointType.push_back(PiPlusInelastic);}
-                else if(geant_part[iD]->Process() == PionMinusInelastic){InteractionPointType.push_back(PiMinusInelastic);}
-                else {InteractionPointType.push_back("other");}
-              }//<--- End if is daughter(0)
+            if(geant_part[iD]->TrackId() == thePrimaryDaughterID) 
+             {		      
+              InteractionPointType.push_back(geant_part[iD]->Process());
+             }//<--- End if is daughter(0)
             }//<--- End particle loop
           }//<--- End if there are daughters
-          else {InteractionPointType.push_back("throughgoing"); InteractionPointSubType.push_back("none");}
+          else
+          {InteractionPointType.push_back("none");}
         }
-        else
-        {
-          // The map is not zero: somthing interesting might happen in the middle of the track!!
-          InelasticClassifier myclassifier;
-          myclassifier.Classify();		 
-          InteractionPointSubType.push_back(subprocess);
-          for(auto const& couple: thisTracjectoryProcessMap) 
+          else
           {
+          // The map is not zero: somthing interesting might happen in the middle of the track!!
+          for(auto const& couple: thisTracjectoryProcessMap) 
+            {
             int interestingPoint = (int) couple.first;
-            InteractionPoint.push_back(interestingPoint);         	   
-                 if ((truetraj.KeyToProcess(couple.second)).find("hadElastic")      != std::string::npos) InteractionPointType.push_back(hadElastic);           
-            else if ((truetraj.KeyToProcess(couple.second)).find("pi-Inelastic")    != std::string::npos) InteractionPointType.push_back(PiMinusInelastic);           
-            else if ((truetraj.KeyToProcess(couple.second)).find("pi+Inelastic")    != std::string::npos) InteractionPointType.push_back(PiPlusInelastic);           
-            else if ((truetraj.KeyToProcess(couple.second)).find("kaon-Inelastic")  != std::string::npos) InteractionPointType.push_back(KaonMinusInelastic);           
-            else if ((truetraj.KeyToProcess(couple.second)).find("kaon+Inelastic")  != std::string::npos) InteractionPointType.push_back(KaonPlusInelastic);           
-            else if ((truetraj.KeyToProcess(couple.second)).find("protonInelastic") != std::string::npos) InteractionPointType.push_back(ProtonInelastic);           
-            else if ((truetraj.KeyToProcess(couple.second)).find("neutronInelastic")!= std::string::npos) InteractionPointType.push_back(NeutronInelastic);
-            else {InteractionPointType.push_back("other");}
-          }
-        }	
+            InteractionPoint.push_back(interestingPoint);
+            InteractionPointType.push_back(truetraj.KeyToProcess(couple.second));
+            }
+          }	
    
-        iPrim++;
+      iPrim++;
       }//<--End if primary
 
-      if(geant_part[i]->Process() != pri)
-      {
-        if(geant_part[i]->Mother() == 1) 
+    if(geant_part[i]->Process() != pri)
         {
+        if(geant_part[i]->Mother() == 1) 
+          {
+          //std::cout << "    DPdgCode: " << geant_part[i]->PdgCode() << std::endl;
+          //if(geant_part[i]->PdgCode() < 10000){DPdgCode.push_back(geant_part[i]->PdgCode());}
+          //DPdgCode.push_back(geant_part[i]->PdgCode());
+          //DStartEnergy.push_back(geant_part[i]->E());
+        //NDTrTrajPts.push_back(geant_part[i]->NumberTrajectoryPoints());
           if(geant_part[i]->PdgCode() == 2112)
             {NNeutronDaughters++;}
           if(geant_part[i]->PdgCode() == 2212)
             {NProtonDaughters++;}
           if(geant_part[i]->PdgCode() < 10000)
-          {
-            NDTrTrajPts.push_back(geant_part[i]->NumberTrajectoryPoints());
+            {
+          NDTrTrajPts.push_back(geant_part[i]->NumberTrajectoryPoints());
             DTrackId.push_back(geant_part[i]->TrackId());
             DPdgCode.push_back(geant_part[i]->PdgCode());
             DStartEnergy.push_back(geant_part[i]->E());
             DStartP.push_back(geant_part[i]->P());
 
-            simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
-            int jDaughtPt = 0;	
+            std::cout<<"daughter info: "<<std::endl;
+            std::cout<<"\tpdg: "<<geant_part[i]->PdgCode()<<std::endl;
+            std::cout<<"\tenergy: "<<geant_part[i]->E()<<std::endl;
+            std::cout<<"\tmomentum: "<<geant_part[i]->P()<<std::endl;
+
+          simb::MCTrajectory truetraj = geant_part[i]->Trajectory();
+          int jDaughtPt = 0;	
             std::vector<double> midx; std::vector<double> midy; std::vector<double> midz;
-            for(auto itTraj = truetraj.begin(); itTraj != truetraj.end(); ++itTraj)
+          for(auto itTraj = truetraj.begin(); itTraj != truetraj.end(); ++itTraj)
             {
               midx.push_back(truetraj.X(jDaughtPt));
               midy.push_back(truetraj.Y(jDaughtPt));
               midz.push_back(truetraj.Z(jDaughtPt));
-              jDaughtPt++;
+            jDaughtPt++;
             }//<--End loop on true trajectory points
             DMidPosX.push_back(midx); DMidPosY.push_back(midy); DMidPosZ.push_back(midz);
             midx.clear(); midy.clear(); midz.clear();
+            }//<-- End if proton
+          }//<-- End if primary daughter
+        }//<-- End if not primary
+      }//<--End loop on geant particles
+
+      // ## workspace to add *intersting* slab branch? ##
+      std::cout << "\ninteractions debug" << std::endl;
+
+      /*if(SlabN.size())
+        {
+          try
+          {
+            if(InteractionPointType.at(InteractionPoint.size()-1) == 13)
+              {
+              double int_x = MidPosX[0][InteractionPoint[InteractionPoint.size()-1]];
+              double int_y = MidPosY[0][InteractionPoint[InteractionPoint.size()-1]];
+              double int_z = MidPosZ[0][InteractionPoint[InteractionPoint.size()-1]];
+              std::cout << "inelastic int: " << int_x << ", " << int_y << ", " << int_z << std::endl;
+              std::cout << "slab loop" << std::endl;
+              for(unsigned int slab = 0; slab < SlabN.size(); slab++)
+                {
+                double dist_slab = sqrt( pow(int_x - SlabX[slab], 2) +
+                                         pow(int_y - SlabY[slab], 2) +
+                                         pow(int_z - SlabZ[slab], 2) );
+                std::cout<<"\tslab x,y,z: "<<SlabX[slab]<<", "<<SlabY[slab]<<", "<<SlabZ[slab]<<std::endl;
+                std::cout << "\t\tdist to int: " << dist_slab << std::endl;
+                }
+              }
+            else
+              {
+              double lastx = MidPosX[0][numTrue_inTPC];
+              double lasty = MidPosY[0][numTrue_inTPC];
+              double lastz = MidPosZ[0][numTrue_inTPC];
+              std::cout << "didn't interact..." << std::endl;
+              std::cout << "last pt: " << lastx << ", " << lasty << ", " << lastz << std::endl;
+              std::cout << "slab loop" << std::endl;
+              for(unsigned int slab = 0; slab < SlabN.size(); slab++)
+                {
+                double dist_slab = sqrt( pow(lastx - SlabX[slab], 2) +
+                                         pow(lasty - SlabY[slab], 2) +
+                                         pow(lastz - SlabZ[slab], 2) );
+                std::cout<<"\tslab x,y,z: "<<SlabX[slab]<<", "<<SlabY[slab]<<", "<<SlabZ[slab]<<std::endl;
+                std::cout << "\t\tdist to last: " << dist_slab << std::endl;
+                }
+
+              }
           }
-        }//<-- End if primary daughter
-      }//<-- End if not primary
-    }//<--End loop on geant particles
-  }//<---End checking if this is MC 
+          catch (const std::out_of_range& e)
+          {
+            std::cout << "Size of InteractionPoint and InteractionPointType are not equal.  Skipping..."
+                      << "\nSlabN.size(): "                << SlabN.size()
+                      << "\nInteractionPointType.size(): " << InteractionPointType.size()
+                      << "\nInteractionPoint.size(): "     << InteractionPoint.size()
+                      << std::endl;
+          }
+        }*/
+    std::cout<<std::endl;
+    }//<---End checking if this is MC 
 
 // ------------------------------------------------------   
 //                      tof stuff 
 // ------------------------------------------------------
     num_tof_objects = tof.size();
     size_t tof_counter = 0; // book-keeping
-    for(size_t i = 0; i < tof.size(); i++)
-    {
+    for(size_t i = 0; i < tof.size(); i++){
       size_t number_tof = tof[i]->NTOF();
-      for(size_t tof_idx = 0; tof_idx < number_tof; ++tof_idx)
-      {
+      for(size_t tof_idx = 0; tof_idx < number_tof; ++tof_idx){
         tofObject[tof_counter] =  tof[i]->SingleTOF(tof_idx);
         ++tof_counter;
       } // loop over TOF
@@ -713,8 +885,7 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
 //                      wc track stuff
 // --------------------------------------------------------
     num_wctracks = wctrack.size();
-    for(size_t wct_count = 0; wct_count < wctrack.size(); wct_count++)
-    {
+    for(size_t wct_count = 0; wct_count < wctrack.size(); wct_count++){
       wctrk_momentum[wct_count] = wctrack[wct_count]->Momentum();
       wctrk_XFace[wct_count] = wctrack[wct_count]->XYFace(0);
       wctrk_YFace[wct_count] = wctrack[wct_count]->XYFace(1);
@@ -722,7 +893,7 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
       wctrk_phi[wct_count] = wctrack[wct_count]->Phi();
       wctrk_missed[wct_count] = wctrack[wct_count]->WCMissed();
       wctrk_picky[wct_count] = static_cast< int > (wctrack[wct_count]->IsPicky());
-      wctrk_quality[wct_count] = wcquality_handle->size();
+      //wctrk_quality[wct_count] = wcquality_handle->size();
 
       wctrk_x_proj_3cm[wct_count] = wctrack[wct_count]->ProjectionAtZ(3, false).X();
       wctrk_y_proj_3cm[wct_count] = wctrack[wct_count]->ProjectionAtZ(3, false).Y();
@@ -761,30 +932,40 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
   // === Association between WC Tracks and TPC Tracks ===
   int TempTrackMatchedID = -1;
   if(evt.getByLabel(fWCTrackLabel, wctrackHandle))
-  {
+    {
     std::cout<<"\t\t\tGOT LABEL\n";
     art::FindOneP<recob::Track> fWC2TPC(wctrackHandle, evt, fWC2TPCModuleLabel);
     if(fWC2TPC.isValid())
-    {
+      {
       std::cout<<"\t\t\t\t\tmodule is valid!\n";
       // === Loop on all the Assn WC-TPC tracks === 
       for(unsigned int indexAssn = 0; indexAssn < fWC2TPC.size(); ++indexAssn )
-      {
+        {
         // =========================                                                                                       
         // === Get the TPC track ===
         // =========================                                                                      
         cet::maybe_ref<recob::Track const> trackWC2TPC(*fWC2TPC.at(indexAssn));
+
         if(!trackWC2TPC) continue;
         recob::Track const& aTrack(trackWC2TPC.ref());
         TempTrackMatchedID = aTrack.ID();
         std::cout<<"\t\t\t\t\t\t\tTEMPTRACKID: "<<TempTrackMatchedID<<std::endl;
-      }//<----End indexAssn loop          
-    }//<---End checking that the WC2TPC   
-  }
+
+        }//<----End indexAssn loop          
+      }//<---End checking that the WC2TPC   
+    }
+
+
 
   // ### Looping over tracks ###
+  //double maxtrackenergy = -1;
+
+
+
+  //bool is_primary = false;
+  //std::cout << "Reco info! trying to track down calo info..." << std::endl;
   for(int iTrack = 0; iTrack < ntracks_reco; iTrack++)
-  {
+    {
     bool is_primary = false;
 
     // ### Storing an integer for the match of a WC to TPC track ###
@@ -792,6 +973,8 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
       {track_WC2TPC_match.push_back(1);std::cout<<"\n\n\t\tMATCHED\n";}//<---End match
     else{track_WC2TPC_match.push_back(0);std::cout<<"\t\tNOTMATCHED\n";}
 
+
+    
     // ### Setting the track information into memory ###
     auto trackStartEnd = tracklist[iTrack]->Extent();
     //larStart = tracklist[iTrack]->VertexDirection();
@@ -808,24 +991,37 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
     
     // ### Recording the track length as calculated by the tracking module ###
     track_length.push_back(tracklist[iTrack]->Length());
+    std::cout << "\ttrack length: " << tracklist[iTrack]->Length() << std::endl;
     
     // ### Grabbing the SpacePoints associated with this track ###
     std::vector< art::Ptr<recob::SpacePoint > > spts = fmsp.at(iTrack);
     ntrack_hits.push_back(fmsp.at(iTrack).size());
+    std::cout << "\tntrack hits: " << spts.size() << std::endl;
     if(spts[0]->XYZ()[2] < 1){is_primary = true;}
-    if(is_primary==true){track_primary.push_back(1);}
-    else                {track_primary.push_back(0);}
+    if(is_primary == true)
+      {
+      std::cout<<"\tprimary candidtate"<<std::endl;
+      std::cout<<"\t\tfirst z: "<<spts[0]->XYZ()[2]<<std::endl;
+      }
+  if(is_primary==true){track_primary.push_back(1);}
+  else                {track_primary.push_back(10);}
 
     // ### Looping over all the SpacePoints ###
     std::vector<double> x_spts;
     std::vector<double> y_spts;
     std::vector<double> z_spts;
     for(size_t jSpt = 0; jSpt < spts.size(); jSpt++)
-    {
+      {
       x_spts.push_back(spts[jSpt]->XYZ()[0]);
       y_spts.push_back(spts[jSpt]->XYZ()[1]);
       z_spts.push_back(spts[jSpt]->XYZ()[2]);
-    }//<----End SpacePoint loop (j)
+      //if(is_primary == true)
+      //  {
+      //  std::cout << "\t\treco pt (x,y,z): " << spts[jSpt]->XYZ()[0] << ", "
+      //                                       << spts[jSpt]->XYZ()[1] << ", "
+      //                                       << spts[jSpt]->XYZ()[2] << ") " << std::endl;
+      //  }
+      }//<----End SpacePoint loop (j)
     track_xpos.push_back(x_spts);
     track_ypos.push_back(y_spts);
     track_zpos.push_back(z_spts);
@@ -887,7 +1083,41 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
           for(size_t k = 0; k<calos[j]->dEdx().size(); ++k)
             {
             if(k>=1000){continue;}
-
+            //std::cout << "\t\t\t\tpoint xyz: "<<calos[j]->XYZ()[k][0]<<", "<<calos[j]->XYZ()[k][1]<<", "<<calos[j]->XYZ()[k][0]<<std::endl;
+            //std::cout << "\t\t\t\tpoint xyz: " << calos[j]->xyz().X() << ", " << calos[j]->xyz().Y() << ", " << calos[j]->xyz().Z() << std::endl;
+            //Double_t col_x = calos[j]->XYZ()[0];
+            //auto col_x = calos[j]->XYZ()(0);
+            //auto col_x = calos[j]->XYZ().x();
+            //auto col_x = calos[j]->XYZ()[k][0];
+            //std::cout << "\t\t\t\tcolx: " << col_x << std::endl;
+            //std::cout << "              calo pt wire: " << calos[j]->wire()[k] << std::endl;
+            //col_wire.push_back(calos[j]->wire()[k]);
+            //if(is_primary == true)
+            //  {
+            //  //std::cout << "\t\t\t\tpoint xyz: "<<calos[j]->XYZ()[k][0]<<", "<<calos[j]->XYZ()[k][1]<<", "<<calos[j]->XYZ()[k][2]<<std::endl;
+            //  //double min_dist_to_true = 1.;
+            //  //int closest_g4pt = 999;
+            //  //for(int ng4 = 0; ng4 < geant_list_size; ng4++)
+            //  //  {
+            //  //  if(process_primary[ng4] == 1)
+            //  //    {
+            //  //    for(int trpt = 0; trpt < NTrTrajPts[ng4]; trpt++)
+            //  //      {
+            //  //      double dist_to_true = sqrt(pow(calos[j]->XYZ()[k][0] - MidPosX[ng4][trpt],2) 
+            //  //                               + pow(calos[j]->XYZ()[k][1] - MidPosY[ng4][trpt],2) 
+            //  //                               + pow(calos[j]->XYZ()[k][2] - MidPosZ[ng4][trpt],2)); 
+            //  //      std::cout << "dist to true: " << dist_to_true << std::endl;
+            //  //      if(dist_to_true < min_dist_to_true)
+            //  //        {
+            //  //        std::cout << "\t\t\t\t\tdistance: " << dist_to_true << std::endl;
+            //  //        min_dist_to_true = dist_to_true;
+            //  //        closest_g4pt = trpt;
+            //  //        }//<--- End if close
+            //  //      }//<--- End spt loop
+            //  //    }//<--- End if primary
+            //  //  }//<--- End g4 loop
+            //  //std::cout << "\t\t\t\t\t\tclosest g4 pt: (pt, d): (" << closest_g4pt << ", " << min_dist_to_true << ")" << std::endl;
+            //  }//<---End if primary
             col_x.push_back(calos[j]->XYZ()[k][0]);
             col_y.push_back(calos[j]->XYZ()[k][1]);
             col_z.push_back(calos[j]->XYZ()[k][2]);
@@ -965,7 +1195,27 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
         spt_id.clear();
         spt_e.clear();
       }//<-- End if mc + fmth    
+
+
+
     }//<---End track loop (i)
+
+    //// ### testing trackg4map ###
+    //std::cout<<"\n\n\nTESTING MAP STUFF\n";
+    //for(int ii = 0; ii < ntracks_reco; ++ii) {
+    //  for(int jj = 0; jj < ntrack_hits[ii]; ++jj) {
+    //    std::cout<<"\tspt#: "<<jj<<std::endl;
+    //    std::cout<<"\t\t(x,y,z): "<<track_xpos[ii][jj]<<", "<<track_ypos[ii][jj]<<", "<<track_zpos[ii][jj]<<std::endl;
+    //    std::cout<<"\t\tnum ids: "<<nhit_ids[ii][jj]<<std::endl;
+    //    for(int kk = 0; kk < nhit_ids[ii][jj]; ++kk) {
+    //      std::cout<<"\t\t\t(trackid, e): "<<track_spt_idarr[ii][jj][kk]<<", "<<track_spt_earr[ii][jj][kk]<<std::endl;
+    //    }
+    //    for(unsigned int ll = 0; ll < track_spt_id[ii][jj].size(); ++ll) {
+    //      std::cout<<"\t\t\t(trackid, e): "<<track_spt_id[ii][jj][ll]<<", "<<track_spt_e[ii][jj][ll]<<std::endl;
+    //    }
+    //  }
+    //} 
+
 
     // ### trying to get all the raw hits ? ###
     nhits = hitlist.size();
@@ -982,12 +1232,14 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const & evt)
       hit_view.push_back(hitlist[iHit]->View());
       hit_amp.push_back(hitlist[iHit]->PeakAmplitude());
     }
+    
+
 
   fTree->Fill();
+
 }//<---End analyze()
 
-//-------------------------------------------------------------------------------
-// Begin job
+
 void lariat::AnaTreeT1034UTA::beginJob()
 {
    
@@ -1121,6 +1373,7 @@ void lariat::AnaTreeT1034UTA::beginJob()
   fTree->Branch("DMidPosZ",                   &DMidPosZ);
   fTree->Branch("InteractionPoint",            &InteractionPoint);
   fTree->Branch("InteractionPointType",        &InteractionPointType);
+  fTree->Branch("InteractionPointSubType",     &InteractionPointSubType);
 
   fTree->Branch("num_tof_objects",             &num_tof_objects,"num_tof_objects/I");
   fTree->Branch("tofObject",                   tofObject,"tojObject[num_tof_objects]/D");
@@ -1159,14 +1412,13 @@ void lariat::AnaTreeT1034UTA::beginJob()
 
 }
 
-//-------------------------------------------------------------------------------
-// Reset variables
 void lariat::AnaTreeT1034UTA::ResetVars()
 {
   G4Process.clear();
   G4FinalProcess.clear();
   InteractionPoint.clear();
   InteractionPointType.clear();
+  InteractionPointSubType.clear();
   PDG.clear();
   Mother.clear();
   TrackId.clear();
