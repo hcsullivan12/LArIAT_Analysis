@@ -46,7 +46,7 @@ float FV_Z_BOUND[2] = {   0.0, 88.0 };
 float PARTICLE_MASS(139.57); 
 
 // number of centimeters in Z we require a track to have a spacepoint
-float FIRST_SP_Z_POS(2.0);
+float FIRST_SP_Z_POS(4.0);
 
 // portion of upstream TPC which we will restrict the number of tracks
 float UPPER_PART_OF_TPC(14.0);
@@ -95,6 +95,9 @@ double BARN_PER_M2(1e28);
 // cut on angle between wc and tpc track (degrees)
 float ALPHA_CUT(10.);
 
+// threshold for hadron dEdx
+double HIT_DEDX_THRESHOLD = 40.;
+
 
 // ============================================================================================
 // ====================================  HISTOGRAMS  ==========================================
@@ -133,6 +136,10 @@ TH1D *hFurtherstInZCaloX = new TH1D("hFurtherstInZCaloX", "Most downstream in TP
 TH1D *hFurtherstInZCaloY = new TH1D("hFurtherstInZCaloY", "Most downstream in TPC Calorimetry Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
 
 TH1D *hFurtherstInZCaloZ = new TH1D("hFurtherstInZCaloZ", "Most downstream in TPC Calorimetry Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
+
+TH1D* hFurthestInZCaloX   = new TH1D("hFurthestInZCaloX",   "Furthest Calorimetry X Position", 1000, 0, 47);
+TH1D* hFurthestInZCaloY   = new TH1D("hFurthestInZCaloY",   "Furthest Calorimetry Y Position", 1000, -20, 20);
+TH1D* hFurthestInZCaloZ   = new TH1D("hFurthestInZCaloZ",   "Furthest Calorimetry Z Position", 1000, 0, 100);
 
 // =======================================================================================
 // ====================================  FILES  ==========================================
@@ -186,6 +193,7 @@ void myana::Loop(int inDebug)
     std::vector<std::vector<size_t>> g4PrimaryVtx;       // primary interaction points
     std::vector<size_t> g4IsTrackInteracting, g4IsTrackSignal; 
     std::vector<double> g4PrimaryKEFF;
+    std::vector<std::string> g4PrimarySubProcess;
     
     // ##############################
     // ### Loop over g4 particles ###
@@ -199,10 +207,11 @@ void myana::Loop(int inDebug)
       if (process_primary[iG4] == 0) continue;
 
       // ### We've got a new primary
-      g4PrimaryProcesses.push_back(std::vector<std::string>());
-      g4PrimaryTrTrjPos. push_back(std::vector<TVector3>());
-      g4PrimaryTrTrjMom. push_back(std::vector<TVector3>());
-      g4PrimaryVtx.      push_back(std::vector<size_t>());
+      g4PrimaryProcesses. push_back(std::vector<std::string>());
+      g4PrimaryTrTrjPos.  push_back(std::vector<TVector3>());
+      g4PrimaryTrTrjMom.  push_back(std::vector<TVector3>());
+      g4PrimaryVtx.       push_back(std::vector<size_t>());
+      g4PrimarySubProcess.push_back("none");
 
       // ### Store the track id 
       g4PrimaryTrkId.push_back(TrackId[iG4]); 
@@ -216,14 +225,15 @@ void myana::Loop(int inDebug)
         if (!InActiveRegion(pos))
 
         g4PrimaryVtx[iPrim].push_back(p);
-        g4PrimaryProcesses[iPrim].push_back(ConvertProcessToString(ptype));
+        g4PrimaryProcesses[iPrim].push_back(ptype);
       }
+      if (g4PrimaryVtx.size()) g4PrimarySubProcess[iPrim] = (*InteractionPointSubType)[iPrim];
 
       // ### Store the positions and momentum 
-      g4PrimaryPos0.push_back( TVector3(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]) );
-      g4PrimaryPosf.push_back( TVector3(EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]) );
-      g4PrimaryMom0.push_back( TVector3(Px[iG4], Py[iG4], Pz[iG4]) );
-      g4PrimaryMomf.push_back( TVector3(EndPx[iG4], EndPy[iG4], EndPz[iG4]) );
+      g4PrimaryPos0.push_back( TVector3( StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]) );
+      g4PrimaryPosf.push_back( TVector3( EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]) );
+      g4PrimaryMom0.push_back( TVector3( Px[iG4],          Py[iG4],          Pz[iG4]) );
+      g4PrimaryMomf.push_back( TVector3( EndPx[iG4],       EndPy[iG4],       EndPz[iG4]) );
 
       // ### Setting a global event weight 
       // ### Setting Event weight 
@@ -263,10 +273,10 @@ void myana::Loop(int inDebug)
   
       // ### Store the trajectory points and momentum
       std::map<float, float> keMap;
-      for (size_t iPoint = 0; iPoint < NTrTrajPts[iG4]; iPoint++)
+      for (int iPoint = 0; iPoint < NTrTrajPts[iG4]; iPoint++)
       {
-        g4PrimaryTrTrjPos[iPrim].push_back( TVector3(MidPosX[iPrim][iPoint], MidPosY[iPrim][iPoint], MidPosZ[iPrim][iPoint]) );
-        g4PrimaryTrTrjMom[iPrim].push_back( TVector3(MidPx[iPrim][iPoint],   MidPy[iPrim][iPoint],   MidPz[iPrim][iPoint]) ); 
+        g4PrimaryTrTrjPos[iPrim].push_back( TVector3( MidPosX[iPrim][iPoint], MidPosY[iPrim][iPoint], MidPosZ[iPrim][iPoint]) );
+        g4PrimaryTrTrjMom[iPrim].push_back( TVector3( MidPx[iPrim][iPoint],   MidPy[iPrim][iPoint],   MidPz[iPrim][iPoint]) ); 
         //std::cout << "HH " << iPoint << " " << iPrim << " " << NTrTrajPts[iG4] << std::endl;
         if (g4PrimaryTrTrjPos[iPrim].back().Z() < 0)
         {
@@ -304,7 +314,7 @@ void myana::Loop(int inDebug)
            g4PrimaryTrTrjPos.size()    == sc && g4PrimaryTrTrjMom.size()  == sc &&
            g4PrimaryVtx.size()         == sc && g4IsTrackSignal.size()    == sc && 
            g4IsTrackInteracting.size() == sc && g4PrimaryKEFF.size()      == sc &&
-           g4PrimaryMomf.size()        == sc);
+           g4PrimaryMomf.size()        == sc && g4PrimarySubProcess.size() == sc);
 
     
 // End looking at only MC truth/G4 information
@@ -313,9 +323,52 @@ void myana::Loop(int inDebug)
 
 
 
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin apply "WC to TPC" cuts
 
+    // ==========================================================================
+    // =================  LOOKING AT EVENTS THAT ENTER THE TPC  =================
+    // ==========================================================================
+    // ### Loop over primaries 
+    bool isGoodEvent(false);
+    for (size_t iPrim = 0; iPrim < g4PrimaryTrkId.size(); iPrim++)
+    {
+      // only look if a primary entered the tpc
+      if ( g4PrimaryPosf[iPrim].Z() > 0 ) isGoodEvent = true;
+      if ( !isGoodEvent ) 
+      {
+        hMCPrimaryMissedTpcX->Fill(g4PrimaryPosf[iPrim].X());
+        hMCPrimaryMissedTpcY->Fill(g4PrimaryPosf[iPrim].Y());
+        hMCPrimaryMissedTpcZ->Fill(g4PrimaryPosf[iPrim].Z());
+        continue;
+      }
+      // ####################################
+      // ### This primary entered the TPC ###
+      // ####################################
+      nPrimariesEntered++;
+      // calculate energy loss
+      float energyLoss(0);
+      // loop over trj points for this primary
+      for (size_t iPoint = 0; iPoint < g4PrimaryTrTrjPos[iPrim].size(); iPoint++)
+      {
+        // only look at the upstream portion
+        if ( g4PrimaryTrTrjPos[iPrim][iPoint].Z() > 0 ) continue;
+        // ignore last point
+        if ( (iPoint+1) >= g4PrimaryTrTrjPos[iPrim].size() ) break;
+        auto mom1Vec = g4PrimaryTrTrjMom[iPrim][iPoint];
+        auto mom2Vec = g4PrimaryTrTrjMom[iPrim][iPoint+1];
+        float energy1 = std::sqrt( mom1Vec.Mag()*mom1Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS );
+        float energy2 = std::sqrt( mom2Vec.Mag()*mom2Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS ); 
+        energyLoss += (energy1 - energy2);
+      }//<--- End loop over true traj points
+      hMCELossUpstream->Fill(energyLoss);
+    }//<--- End loop over primaries
+    if (!isGoodEvent) continue;
+    nGoodMCEvents++;
+
+
+    // ============================================================================
     // =================      APPLY FRONT FACE TPC TRACK CUT      =================
     // =================  APPLY CUT ON NUMBER OF UPSTREAM TRACKS  =================
     // =================          (Cuts on EM showers)            =================
@@ -325,12 +378,12 @@ void myana::Loop(int inDebug)
     std::vector<double> frontFaceTrksPhi, frontFaceTrksTheta;
     std::vector<size_t> frontFaceTrksId;
     size_t nUpstreamTpcTrks(0);
-if (ntracks_reco > -90000) std::cout << ntracks_reco << endl;
+
     // ##########################################################
     // ### Only keeping events if there is a track within the ###
     // ###            the first x cm of the TPC               ###
     // ##########################################################
-    /*for (int iTrk = 0; iTrk < ntracks_reco; iTrk++)
+    for (int iTrk = 0; iTrk < ntracks_reco; iTrk++)
     {
       // looking for most upstream point still in FV of TPC
       // most upstream point in FV
@@ -342,16 +395,17 @@ if (ntracks_reco > -90000) std::cout << ntracks_reco << endl;
       TVector3 dummyTrkPos(0,0,0);
       TVector3 dummyTrkP0Hat(0,0,0);
       size_t dummyTrkId;
-//std::cout << nTrajPoint[iTrk] << std::endl;
+
       // ###################################
       // ### Loop over trajectory points ###
       // ###################################
-      for (size_t iTrjPoint = 0; iTrjPoint < nTrajPoint[iTrk]; iTrjPoint++)
+      for (size_t iTrjPoint = 1; iTrjPoint < nTrajPoint[iTrk]; iTrjPoint++)
       {
         // ######################
         // ### Fiducial check ###
         // ######################
         TVector3 theTrjPointVec( trjPt_X[iTrk][iTrjPoint], trjPt_Y[iTrk][iTrjPoint], trjPt_Z[iTrk][iTrjPoint] );
+        TVector3 tempVec       ( trjPt_X[iTrk][iTrjPoint], trjPt_Y[iTrk][iTrjPoint], trjPt_Z[iTrk][iTrjPoint] );
         TVector3 theTrjP0HatVec( pHat0_X[iTrk][iTrjPoint], pHat0_Y[iTrk][iTrjPoint], pHat0_Z[iTrk][iTrjPoint] );
 
         if ( FV_X_BOUND[0] < theTrjPointVec.X() && theTrjPointVec.X() < FV_X_BOUND[1] &&
@@ -364,7 +418,7 @@ if (ntracks_reco > -90000) std::cout << ntracks_reco << endl;
           if (tempMinZ < FIRST_SP_Z_POS)
           {
             isFrontTpcTrk = true;
-std::cout << "here9\n";            
+         
             // Store these points for later
             dummyTrkPos   = theTrjPointVec;
             dummyTrkP0Hat = theTrjP0HatVec; 
@@ -376,7 +430,7 @@ std::cout << "here9\n";
 
         }//<--- End if in FV
       }//<--- End loop over trj points 
-//std::cout << "HERE56\n";
+
       // we should have the observables attached to the most upstream trj point for this track
       // if it is at the front, append to our vectors
       if (isFrontTpcTrk)
@@ -400,7 +454,7 @@ std::cout << "here9\n";
     // skip events that have too many tracks upstream        
     if(nUpstreamTpcTrks > N_UPPER_TPC_TRACKS || nUpstreamTpcTrks == 0) continue;
     nEventsUpperTpcTrkCount++;
-*/
+
 
 
     // ========================================================================
@@ -513,9 +567,6 @@ std::cout << "here9\n";
 
 
 
-
-
-
     // ############################################################
     // ### We are know tracking a uniquely WC/TPC matched track ###
     // ###         The ID is in xsRecoTrkId variable            ###
@@ -525,136 +576,142 @@ std::cout << "here9\n";
 
 
 
-/*
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin tracking our matched track
 
     // ==========================================================================
     // =================  BEGIN TRACKING OUR MATCHED TPC TRACK  =================
     // ==========================================================================
-    // define the containers of the important information about the track for the XS
+    // ### Define some containers important for XS
     std::vector<double> pitchVec;
     std::vector<double> dEdXVec;
-    std::vector<double> eDepVec; // Energy deposition at each slice. Simply dEdX*Pitch
+    std::vector<double> eDepVec; 
     std::vector<double> resRanVec;
     std::vector<double> zPosVec;
-    std::vector<double> incidentKEVec;
+    bool didDetermineInteracting = false;
   
-    // ### loop over the reconstructed tracks
-    size_t furtherstInZCaloPointIndex  = 0;
-    double furtherstInZCaloPointZ      = 0.;
-    bool   isInteracting          = false;
-    bool   isInelastic            = false;
-    for(size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
-    {
-      // only look at the one that passed the WC_TPC match and cuts
-      if(iTrk != xsRecoTrkId) continue;
+    int furthestInZCaloPointIndex  = -1;
+    TVector3 furthestInZCaloPoint(0,0,0);
+  
+    // ### We need the calorimetry information for the track
+    // ### Just in case tracking is backwards
+    bool isInvertedTracking = false;
+    TVector3 realFirstValidPt( trjPt_X[xsRecoTrkId][0],            trjPt_Y[xsRecoTrkId][0],            trjPt_Z[xsRecoTrkId][0] );
+    TVector3 realLastValidPt ( trjPt_X[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1], trjPt_Y[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1], trjPt_Z[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1] );
+    realFirstValidPt.Print(); realLastValidPt.Print();
 
-      // we need the calorimetry information for this track
-      size_t limit = sizeof(trkxyz[xsRecoTrkId][1])/sizeof(*trkxyz[xsRecoTrkId][1]);
-      for (size_t k = 0; k < limit; k++)
+
+    if ( realFirstValidPt.Z() - realLastValidPt.Z() > 0) isInvertedTracking = true;
+  
+    // ### Loop over calos
+    for (size_t j = 0; j < trkhits[xsRecoTrkId][1]; j++)
+    {
+      // ### Here's the calo info
+      auto caloX = trkxyz[xsRecoTrkId][1][j][0];
+      auto caloY = trkxyz[xsRecoTrkId][1][j][1];
+      auto caloZ = trkxyz[xsRecoTrkId][1][j][2];
+      auto calodEdX = trkdedx[xsRecoTrkId][1][j];
+      auto caloResRan = trkrr[xsRecoTrkId][1][j];
+      auto caloPitch  = trkpitchhit[xsRecoTrkId][1][j];
+
+      // ### Make sure we can actually see this
+      TVector3 theXYZ( caloX,
+                       caloY, 
+                       caloZ );
+      if ( !InActiveRegion(theXYZ) ) continue;
+
+      // ### We're determining the most downstream point
+      if (theXYZ.Z() > furthestInZCaloPoint.Z()) 
       {
-        // make sure we can actually see this
-        TVector3 theXYZ(trkxyz[xsRecoTrkId][1][k][0], trkxyz[xsRecoTrkId][1][k][1], trkxyz[xsRecoTrkId][1][k][2]); 
-        if ( !InActiveRegion(theXYZ) ) continue;
-
-        // we're determining the most downstream point
-        if (theXYZ.Z() > furtherstInZCaloPointZ) 
-        {
-          furtherstInZCaloPointIndex = k;
-          furtherstInZCaloPointZ = theXYZ.Z();
-        }
-        pitchVec. push_back( trkpitchhit[xsRecoTrkId][1][k] );
-        dEdXVec.  push_back( trkdedx[xsRecoTrkId][1][k]     );
-        eDepVec.  push_back( trkdedx[xsRecoTrkId][1][k]*trkpitchhit[xsRecoTrkId][1][k] );
-        resRanVec.push_back( trkrr[xsRecoTrkId][1][k] );
-        zPosVec.  push_back( theXYZ.Z() );
-      }//<-- End loop over track points 
-    }//<--- End loop over tracks
-
-    // determine if the particle interacted 
-    if (furtherstInZCaloPointIndex)
-    {
-      TVector3 theXYZ( trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][0], 
-                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][1], 
-                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][2] ); 
-
-      // fill histos
-      hFurtherstInZCaloX->Fill(theXYZ.X());
-      hFurtherstInZCaloY->Fill(theXYZ.Y());
-      hFurtherstInZCaloZ->Fill(theXYZ.Z());
-
-      if (InActiveRegion(theXYZ)) isInteracting = true;
-    }
-
-    // determine if the interaction was inelastic
-    if (isInteracting)
-    {
-      // i think for now, we will just look for any daughters around this 
-      // furthest in Z calo point
-      TVector3 theXYZ( trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][0], 
-                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][1], 
-                       trkxyz[xsRecoTrkId][1][furtherstInZCaloPointIndex][2] );
-
-      // loop over tracks to find a starting point close to this
-      size_t nTracksLeaving(0);
-      for(size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
-      {
-        // skip our primary track
-        //if (iTrk == xsRecoTrkId) continue;
-
-        // what determines the start and ending point here??
-        TVector3 dXYZstart( trkvtxx[iTrk], trkvtxy[iTrk], trkvtxz[iTrk] );
-        TVector3 dXYZend  ( trkendx[iTrk], trkendy[iTrk], trkendz[iTrk] );
-        double diff = (theXYZ - dXYZstart).Mag();
-        if ( diff < 0.01 ) nTracksLeaving++;
-
-        for (const auto p : g4PrimaryProcesses[0]) std::cout << p << std::endl;
-        std::cout << "Reco info\n";
-        std::cout << "Calo Point  "; theXYZ.Print();
-        std::cout << "Start Point "; dXYZstart.Print();
-        std::cout << "End Point   "; dXYZend.Print();
-        std::cout << "True info\n";
-        for (const auto& v : g4PrimaryVtx[0]) v.Print();
-        std::cout << std::endl;
+        furthestInZCaloPointIndex = j;
+        furthestInZCaloPoint = theXYZ;
       }
-      // there must be at least 2 visible tracks leaving this vertex
-      if (nTracksLeaving >= 2) isInelastic = true;
-      std::cout << "\n" << nTracksLeaving << " " << ntracks_reco << std::endl;
+
+      // ### Check the dEdX value
+      if (calodEdX < 0 || calodEdX > HIT_DEDX_THRESHOLD) continue;
+
+      pitchVec. push_back( caloPitch );
+      dEdXVec.  push_back( calodEdX );
+      eDepVec.  push_back( calodEdX * caloPitch );
+      resRanVec.push_back( caloPitch );
+      zPosVec.  push_back( caloZ );
+    }//<-- End loop over trk hits 
+  
+    // ### Sanity check
+    sc = pitchVec.size();
+    assert(pitchVec.size() == sc && dEdXVec.size()   == sc && 
+           eDepVec.size()  == sc && resRanVec.size() == sc && 
+           zPosVec.size()  == sc);
+  
+    std::cout << "Most downstream point from calorimetry is (" 
+              << furthestInZCaloPoint.X() << ", "
+              << furthestInZCaloPoint.Y() << ", "
+              << furthestInZCaloPoint.Z() << ")\n\n";
+  
+    // ### Determine if the particle interacted 
+    // ### This is simply if the furthest Z calo point is within active volume
+    if (furthestInZCaloPointIndex >= 0)
+    {
+      // ### Fill histos
+      hFurthestInZCaloX->Fill(furthestInZCaloPoint.X());
+      hFurthestInZCaloY->Fill(furthestInZCaloPoint.Y());
+      hFurthestInZCaloZ->Fill(furthestInZCaloPoint.Z());
+      if (InActiveRegion(furthestInZCaloPoint)) didDetermineInteracting = true;
     }
 
-    // make sure we have stuff here to work with
-    if (pitchVec.size() == 0) continue;
-
-    // get the kinetic energy at "WC 4" 
+    // ### Make sure we have stuff here to work with
+    if (pitchVec.size() == 0) return;
+  
+    // ### Check track inversion
+    if (isInvertedTracking)
+    {
+      std::reverse(pitchVec.begin(),  pitchVec.end());
+      std::reverse(dEdXVec.begin(),   dEdXVec.end());
+      std::reverse(eDepVec.begin(),   eDepVec.end());
+      std::reverse(resRanVec.begin(), resRanVec.end());
+      std::reverse(zPosVec.begin(),   zPosVec.end());
+    }
+  
+    // ### Determine if the interaction was inelastic
+    if (didDetermineInteracting) DetermineInelasticity(xsRecoTrkId, furthestInZCaloPoint);
+  
+    // ### Get the kinetic energy at "WC 4" 
     // (for single particle gun just use KE at z=0)
     TVector3 theWCMom(0,0,0);
-    for (size_t iPt = 0; iPt < maxTrTrjPoints; iPt++)
+    for (size_t iPt = 0; iPt < g4PrimaryTrTrjMom[0].size(); iPt++)
     {
       if (g4PrimaryTrTrjPos[0][iPt].Z() > 0) break;
       theWCMom = g4PrimaryTrTrjMom[0][iPt];
     }
+  
+    // ### This is the first incident KE
+    std::vector<double> incidentKEVec;
     double theWCKE = std::sqrt( theWCMom.Mag()*theWCMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
     incidentKEVec.push_back(theWCKE);
-
-    // fill the energy depositions
+  
+    // ### Fill the energy depositions
     double totalEnDep(0);
     for (size_t iDep = 0; iDep < eDepVec.size(); iDep++)
     {
+      // ### Exit if we've passed zero
       totalEnDep = totalEnDep + eDepVec[iDep];
+      if ((theWCKE - totalEnDep) < 0) break;
       incidentKEVec.push_back(theWCKE - totalEnDep);
     }
-
-    // fill the Incident and interacting histograms
+  
+    // ### Fill the Incident and interacting histograms
     for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
-    if (isInelastic && incidentKEVec.size() != 0) hRecoMCInteractingKE->Fill(incidentKEVec.back());
+  
+    recoInteractingKE = incidentKEVec.back();
+    if (didDetermineSignal && incidentKEVec.size()) hRecoMCInteractingKE->Fill(incidentKEVec.back());
 
 // End tracking our matched track
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 
-*/
+
 
 
   }//<---End loop over entries
@@ -686,6 +743,159 @@ std::cout << "here9\n";
   gApplication->Terminate(0);
 }//<---- End main loop
 
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Determine Inelasticity
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void myana::DetermineInelasticity(const size_t& xsRecoTrkId,
+                                  const TVector3& furthestInZCaloPoint)
+{
+ /*
+  * Cuts...
+  *
+  *   1) There must be another track eminating from vertex
+  *        * Angle between secondary and primary > primSecAngle
+  *
+  *
+  */ 
+
+
+  // ### Look for any daughters around this furthest in Z calo point
+  // ### Loop over tracks to find a starting point close to this
+  std::cout << "There are " << ntracks_reco << " reconstructed tracks." << std::endl;
+  std::map<size_t, bool> theTracksLeaving; // trk id, is tracking inverted
+
+  for(size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
+  {
+    // ### Skip our primary track
+    if (iTrk == xsRecoTrkId) continue;
+
+    // ### What determines the start and ending point here??
+    TVector3 dXYZstart( trkvtxx[xsRecoTrkId],  trkvtxy[xsRecoTrkId], trkvtxz[xsRecoTrkId] );
+    TVector3 dXYZend  ( trkendx[xsRecoTrkId],  trkendy[xsRecoTrkId], trkendz[xsRecoTrkId] );
+    double length = (dXYZstart-dXYZend).Mag();
+    hSecondaryLength->Fill(length);
+
+    // ### Length cut
+    if (length < SECONDARY_LENGTH_CUT) continue;
+    
+    // ### Which endpoint is connected to vertex
+    double diff1 = (furthestInZCaloPoint - dXYZstart).Mag();
+    double diff2 = (furthestInZCaloPoint - dXYZend  ).Mag();
+
+    std::cout << "Distances from vertex " << diff1 << "  " << diff2 << std::endl;
+    hVertexDiff->Fill(diff1); hVertexDiff->Fill(diff2);
+
+    size_t minId    = diff1 < diff2 ? 0 : 1;
+    std::cout << "MinId is " << minId << std::endl;
+    if (diff1 < VERTEX_CUT || diff2 < VERTEX_CUT)
+    {
+      if (minId == 0) theTracksLeaving.emplace(iTrk, false);
+      if (minId == 1) theTracksLeaving.emplace(iTrk, true);
+    }
+
+    std::cout << "Track " << iTrk << " reco info\n";
+    std::cout << "Start Point "; dXYZstart.Print();
+    std::cout << "End Point   "; dXYZend.Print();
+    std::cout << "True info\n";
+    for (const auto& v : fG4PrimaryVtx) g4PrimaryTrTrjPos[0][v].Print();
+    std::cout << std::endl;
+  }//<-- End loop over trks
+
+  std::cout << "Tracks leaving = " << theTracksLeaving.size() << std::endl;
+
+  // ### If there are zero visible tracks leaving this vertex, 
+  if (theTracksLeaving.size() == 0) 
+  {
+    // ### WHAT TO DO HERE
+  }
+
+  // ### If there is just 1
+  if (theTracksLeaving.size() == 1)
+  {
+    // ### I'm still interested in supplementing this with 
+    // ### small energy deposits around vertex
+    auto primTrkId  = xsRecoTrkId;
+    auto secTrkId   = theTracksLeaving.begin()->first;
+    bool isInverted = theTracksLeaving.begin()->second;
+    
+    // ### To compute the angle between tracks, I'll only use the first n
+    // ### points, in case there's something funky going on in tracking
+
+    // ### Grab the end points and the nth point from them
+    std::vector<TVector3> primPoints, secPoints;
+    int primNpointsBack = 10; int primNpointsTot = nTrajPoint[primTrkId];
+    int secNpointsBack  = 10; int secNpointsTot  = nTrajPoint[secTrkId];
+
+    primNpointsBack = primNpointsBack < primNpointsTot ? primNpointsBack : primNpointsTot;
+    secNpointsBack  = secNpointsBack  < secNpointsTot  ? secNpointsBack  : secNpointsTot;
+
+    // ### For primary, just in case, grab the most downstream
+    if (trkvtxz[primTrkId] > trkendz[primTrkId])
+    {
+      // ### It's inverted, grab the first few points
+      primPoints.push_back( TVector3(trjPt_X[primTrkId][primNpointsBack-1], 
+                                     trjPt_Y[primTrkId][primNpointsBack-1], 
+                                     trjPt_Z[primTrkId][primNpointsBack-1]) );      
+      primPoints.push_back( TVector3(trjPt_X[primTrkId][0], 
+                                     trjPt_Y[primTrkId][0], 
+                                     trjPt_Z[primTrkId][0]) );
+    }
+    else
+    {
+      // ### It's not inverted, grab the last few points
+      primPoints.push_back( TVector3(trjPt_X[primTrkId][primNpointsTot-primNpointsBack], 
+                                     trjPt_Y[primTrkId][primNpointsTot-primNpointsBack], 
+                                     trjPt_Z[primTrkId][primNpointsTot-primNpointsBack]) );
+      primPoints.push_back( TVector3(trjPt_X[primTrkId][primNpointsTot-1], 
+                                     trjPt_Y[primTrkId][primNpointsTot-1], 
+                                     trjPt_Z[primTrkId][primNpointsTot-1]) );                                     
+    }
+
+    // ### Now handle secondary
+    if (!isInverted) 
+    {
+      // ### It's the start point
+      secPoints.push_back( TVector3(trjPt_X[secTrkId][0], 
+                                    trjPt_Y[secTrkId][0], 
+                                    trjPt_Z[secTrkId][0]) );
+      secPoints.push_back( TVector3(trjPt_X[secTrkId][secNpointsBack-1], 
+                                    trjPt_Y[secTrkId][secNpointsBack-1], 
+                                    trjPt_Z[secTrkId][secNpointsBack-1]) );      
+    }
+    else 
+    {
+      // ### It's the end point
+      secPoints.push_back( TVector3(trjPt_X[secTrkId][secNpointsTot-1], 
+                                    trjPt_Y[secTrkId][secNpointsTot-1], 
+                                    trjPt_Z[secTrkId][secNpointsTot-1]) );
+      secPoints.push_back( TVector3(trjPt_X[secTrkId][secNpointsTot-secNpointsBack], 
+                                    trjPt_Y[secTrkId][secNpointsTot-secNpointsBack], 
+                                    trjPt_Z[secTrkId][secNpointsTot-secNpointsBack]) );
+    }
+
+    // ### Now form our direction vectors
+    TVector3 primDir(primPoints[1] - primPoints[0]);
+    TVector3 secDir (secPoints[1]  - secPoints[0]);
+
+    double theta = (180/TMath::Pi())*std::acos( primDir.Unit().Dot(secDir.Unit()) );
+    if (theta > fSecondaryAngleCut) didDetermineSignal = 1;
+
+    std::cout << "Primary Start Point "; primPoints[0].Print();
+    std::cout << "Primary End Point   "; primPoints[1].Print();
+    std::cout << "Second. Start Point "; secPoints[0].Print();
+    std::cout << "Second. End Point   "; secPoints[1].Print();
+    std::cout << "THETA " << theta << std::endl;
+  }//<-- End if 1 visible secondary
+
+  // ### If there are at least 2 visible tracks leaving this vertex, yes
+  if (theTracksLeaving.size() >= 2) didDetermineSignal = 1;
+
+  std::cout << didDetermineSignal << std::endl;
+  if (didDetermineSignal) std::cout << "Determined as inelastic!" << std::endl;
+  else std::cout << "Determined NOT inelastic!\n";
+}
 
 
 
@@ -780,32 +990,3 @@ bool InActiveRegion( const TVector3& thePos  )
 
 
 
-// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// %%% Convert process to string
-// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-std::string ConvertProcessToString(const int& i)
-{
-  std::string theProcess;
-
-  switch(i)
-  {
-    case 0: { theProcess  = "none"; break; }
-    case 1: { theProcess  = "pi-Inelastic"; break; }
-    case 2: { theProcess  = "NeutronInelastic"; break; }
-    case 3: { theProcess  = "hadElastic"; break; }
-    case 4: { theProcess  = "nCapture"; break; }
-    case 5: { theProcess  = "CHIPSNuclearCaptureAtRest"; break; }
-    case 6: { theProcess  = "Decay"; break; }
-    case 7: { theProcess  = "KaonZeroLInelastic"; break; }
-    case 8: { theProcess  = "CoulombScat"; break; }
-    case 9: { theProcess  = "muMinusCaptureAtRest"; break; }
-    case 10: { theProcess = "ProtonInelastic"; break; }
-    case 11: { theProcess = "Kaon+Inelastic"; break; }
-    case 12: { theProcess = "Kaon-Inelastic "; break; }
-    case 13: { theProcess = "protonInelastic"; break; }
-    case 14: { theProcess = "pi+Inelastic "; break; }
-    default: { theProcess = "unknown"; }
-  }
-
-  return theProcess;
-}
