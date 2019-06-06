@@ -96,8 +96,16 @@ double BARN_PER_M2(1e28);
 float ALPHA_CUT(10.);
 
 // threshold for hadron dEdx
-double HIT_DEDX_THRESHOLD = 40.;
+double HIT_DEDX_THRESHOLD(40.);
 
+// cut on length of secondary
+double SECONDARY_LENGTH_CUT(3.0);
+
+// cut on distance from vertex
+double VERTEX_CUT(2.0);
+
+// cut on angle between secondary and primary
+double SECONDARY_ANGLE_CUT(10.);
 
 // ============================================================================================
 // ====================================  HISTOGRAMS  ==========================================
@@ -141,11 +149,32 @@ TH1D* hFurthestInZCaloX   = new TH1D("hFurthestInZCaloX",   "Furthest Calorimetr
 TH1D* hFurthestInZCaloY   = new TH1D("hFurthestInZCaloY",   "Furthest Calorimetry Y Position", 1000, -20, 20);
 TH1D* hFurthestInZCaloZ   = new TH1D("hFurthestInZCaloZ",   "Furthest Calorimetry Z Position", 1000, 0, 100);
 
+TH1D* hSecondaryLength    = new TH1D("hSecondaryLength",     "Length of Secondary Tracks", 100, 0, 100);
+
+TH1D* hVertexDiff         = new TH1D("hVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
+
 // =======================================================================================
 // ====================================  FILES  ==========================================
 // =======================================================================================
 TFile myRootFile("piMinusAna.root", "RECREATE");
 
+
+// =====================================================================================
+// ==============================  VARIABLES FOR G4 INFO  ==============================
+// =====================================================================================
+std::vector<size_t> g4PrimaryTrkId;                       // track id 
+std::vector<std::vector<std::string>> g4PrimaryProcesses; // processes
+std::vector<TVector3> g4PrimaryPos0;                   // start pos
+std::vector<TVector3> g4PrimaryPosf;                   // final pos 
+std::vector<TVector3> g4PrimaryMom0;                   // momentum
+std::vector<TVector3> g4PrimaryMomf;                   // final momentum
+std::vector<TVector3> g4PrimaryProjPos0;               // projected position
+std::vector<std::vector<TVector3>> g4PrimaryTrTrjPos;  // trajectory sp
+std::vector<std::vector<TVector3>> g4PrimaryTrTrjMom;  // trajectory momentum 
+std::vector<std::vector<size_t>> g4PrimaryVtx;       // primary interaction points
+std::vector<size_t> g4IsTrackInteracting, g4IsTrackSignal; 
+std::vector<double> g4PrimaryKEFF;
+std::vector<std::string> g4PrimarySubProcess;
 
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -177,24 +206,26 @@ void myana::Loop(int inDebug)
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Looking at only MC truth/G4 information
- 
+
+    // ### CLEAR G4 CONTAINERS
     // =====================================================================================
     // ==============================  VARIABLES FOR G4 INFO  ==============================
     // =====================================================================================
-    std::vector<size_t> g4PrimaryTrkId;                       // track id 
-    std::vector<std::vector<std::string>> g4PrimaryProcesses; // processes
-    std::vector<TVector3> g4PrimaryPos0;                   // start pos
-    std::vector<TVector3> g4PrimaryPosf;                   // final pos 
-    std::vector<TVector3> g4PrimaryMom0;                   // momentum
-    std::vector<TVector3> g4PrimaryMomf;                   // final momentum
-    std::vector<TVector3> g4PrimaryProjPos0;               // projected position
-    std::vector<std::vector<TVector3>> g4PrimaryTrTrjPos;  // trajectory sp
-    std::vector<std::vector<TVector3>> g4PrimaryTrTrjMom;  // trajectory momentum 
-    std::vector<std::vector<size_t>> g4PrimaryVtx;       // primary interaction points
-    std::vector<size_t> g4IsTrackInteracting, g4IsTrackSignal; 
-    std::vector<double> g4PrimaryKEFF;
-    std::vector<std::string> g4PrimarySubProcess;
-    
+    g4PrimaryTrkId.clear();                     
+    g4PrimaryProcesses.clear(); 
+    g4PrimaryPos0.clear();                   
+    g4PrimaryPosf.clear();                   
+    g4PrimaryMom0.clear();                   
+    g4PrimaryMomf.clear();                   
+    g4PrimaryProjPos0.clear();               
+    g4PrimaryTrTrjPos.clear();  
+    g4PrimaryTrTrjMom.clear();  
+    g4PrimaryVtx.clear();       
+    g4IsTrackInteracting.clear();
+    g4IsTrackSignal.clear();
+    g4PrimaryKEFF.clear();
+    g4PrimarySubProcess.clear();
+
     // ##############################
     // ### Loop over g4 particles ###
     // ##############################
@@ -319,9 +350,6 @@ void myana::Loop(int inDebug)
     
 // End looking at only MC truth/G4 information
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-
-
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -565,16 +593,11 @@ void myana::Loop(int inDebug)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-
-
     // ############################################################
     // ### We are know tracking a uniquely WC/TPC matched track ###
     // ###         The ID is in xsRecoTrkId variable            ###
     // ############################################################
     
-
-
-
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -590,6 +613,7 @@ void myana::Loop(int inDebug)
     std::vector<double> resRanVec;
     std::vector<double> zPosVec;
     bool didDetermineInteracting = false;
+    bool didDetermineSignal      = false;
   
     int furthestInZCaloPointIndex  = -1;
     TVector3 furthestInZCaloPoint(0,0,0);
@@ -674,7 +698,7 @@ void myana::Loop(int inDebug)
     }
   
     // ### Determine if the interaction was inelastic
-    if (didDetermineInteracting) DetermineInelasticity(xsRecoTrkId, furthestInZCaloPoint);
+    if (didDetermineInteracting) didDetermineSignal = DetermineInelasticity(xsRecoTrkId, furthestInZCaloPoint);
   
     // ### Get the kinetic energy at "WC 4" 
     // (for single particle gun just use KE at z=0)
@@ -702,22 +726,13 @@ void myana::Loop(int inDebug)
   
     // ### Fill the Incident and interacting histograms
     for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
-  
-    recoInteractingKE = incidentKEVec.back();
     if (didDetermineSignal && incidentKEVec.size()) hRecoMCInteractingKE->Fill(incidentKEVec.back());
+    if (didDetermineSignal) nEventsInelastic++;
 
 // End tracking our matched track
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
   }//<---End loop over entries
-
-
-
 
 
   // ==========================================================
@@ -748,7 +763,7 @@ void myana::Loop(int inDebug)
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // %%% Determine Inelasticity
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void myana::DetermineInelasticity(const size_t& xsRecoTrkId,
+bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
                                   const TVector3& furthestInZCaloPoint)
 {
  /*
@@ -765,6 +780,7 @@ void myana::DetermineInelasticity(const size_t& xsRecoTrkId,
   // ### Loop over tracks to find a starting point close to this
   std::cout << "There are " << ntracks_reco << " reconstructed tracks." << std::endl;
   std::map<size_t, bool> theTracksLeaving; // trk id, is tracking inverted
+  bool isSignal = false;
 
   for(size_t iTrk = 0; iTrk < ntracks_reco; iTrk++)
   {
@@ -799,7 +815,10 @@ void myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     std::cout << "Start Point "; dXYZstart.Print();
     std::cout << "End Point   "; dXYZend.Print();
     std::cout << "True info\n";
-    for (const auto& v : fG4PrimaryVtx) g4PrimaryTrTrjPos[0][v].Print();
+    for (size_t iPrim = 0; iPrim < g4PrimaryVtx.size(); iPrim++)
+    {
+      for (const auto& v : g4PrimaryVtx[iPrim]) g4PrimaryTrTrjPos[iPrim][v].Print();
+    }
     std::cout << std::endl;
   }//<-- End loop over trks
 
@@ -880,7 +899,7 @@ void myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     TVector3 secDir (secPoints[1]  - secPoints[0]);
 
     double theta = (180/TMath::Pi())*std::acos( primDir.Unit().Dot(secDir.Unit()) );
-    if (theta > fSecondaryAngleCut) didDetermineSignal = 1;
+    if (theta > SECONDARY_ANGLE_CUT) isSignal = 1;
 
     std::cout << "Primary Start Point "; primPoints[0].Print();
     std::cout << "Primary End Point   "; primPoints[1].Print();
@@ -890,11 +909,12 @@ void myana::DetermineInelasticity(const size_t& xsRecoTrkId,
   }//<-- End if 1 visible secondary
 
   // ### If there are at least 2 visible tracks leaving this vertex, yes
-  if (theTracksLeaving.size() >= 2) didDetermineSignal = 1;
+  if (theTracksLeaving.size() >= 2) isSignal = 1;
 
-  std::cout << didDetermineSignal << std::endl;
-  if (didDetermineSignal) std::cout << "Determined as inelastic!" << std::endl;
+  std::cout << isSignal << std::endl;
+  if (isSignal) std::cout << "Determined as inelastic!" << std::endl;
   else std::cout << "Determined NOT inelastic!\n";
+  return isSignal;
 }
 
 
