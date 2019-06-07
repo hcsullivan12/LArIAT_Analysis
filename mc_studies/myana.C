@@ -177,12 +177,12 @@ void myana::Loop(int inDebug)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (Long64_t jentry=0 /*47000*/; jentry<100000/*nentries*/;jentry++) 
+  for (Long64_t jentry=47000; jentry<100000/*nentries*/;jentry++) 
   {
     // ###########################################
     // ### If debug, only look at a sub sample ###
     // ###########################################
-    if (inDebug == 1 && jentry%500 != 0) continue;
+    //if (inDebug == 1 && jentry%500 != 0) continue;
     if (inDebug == 1) cout << "InDubug: " << jentry << endl;
     IN_DEBUG = inDebug;
 
@@ -199,8 +199,8 @@ void myana::Loop(int inDebug)
     // TEMP
     //if (event == 1) cout << jentry << endl;
     if(IN_DEBUG) std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    //std::cout << "Event " << event << "\n\n";
-    //if (nTotalEvents > 10) break;
+    std::cout << "Event " << event << "\n\n";
+    if (nTotalEvents > 10) break;
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -818,7 +818,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     }
 
     // ### Vertex cut and length cut
-    if ((diff1 < VERTEX_CUT || diff2 < VERTEX_CUT) && length < SECONDARY_LENGTH_CUT)
+    if ((diff1 < VERTEX_CUT || diff2 < VERTEX_CUT) && length > SECONDARY_LENGTH_CUT)
     {
       if (minId == 0) theTracksLeaving.emplace(iTrk, false);
       if (minId == 1) theTracksLeaving.emplace(iTrk, true);
