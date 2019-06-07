@@ -144,6 +144,12 @@ TH1D* hElasticAngle       = new TH1D("hElasticAngle", "Angle Between Secondaries
 TH1D* hInelasticAngle     = new TH1D("hInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 1000, 0, 180);
 TH1D* hRecoMCSecondaries  = new TH1D("hRecoMCSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
 TH1D* hMCSecondaries      = new TH1D("hMCSecondaries",     "True number of tracks leaving vertex", 10, 0, 10);
+TH1D* hSignalEff = new TH1D("hSignalEff", "Signal", 23, -50, 1100);
+TH1D* hRecoEff   = new TH1D("hRecoEff", "Reco", 23, -50, 1100);
+TH1D* hSignalPur = new TH1D("hSignalPur", "Signal", 23, -50, 1100);
+TH1D* hRecoPur   = new TH1D("hRecoPur", "Reco", 23, -50, 1100);
+TH1D* hEfficiencyKE = new TH1D("hEfficiencyKE", "Efficiency", 23, -50, 1100);
+TH1D* hPurityKE     = new TH1D("hPurityKE", "Purity", 23, -50, 1100);
 
 // =======================================================================================
 // ====================================  FILES  ==========================================
@@ -155,7 +161,6 @@ TFile myRootFile("piMinusAna.root", "RECREATE");
 // ==============================  VARIABLES FOR G4 INFO  ==============================
 // =====================================================================================
 std::vector<size_t> g4PrimaryTrkId;                       // track id 
-std::vector<std::vector<std::string>> g4PrimaryProcesses; // processes
 std::vector<TVector3> g4PrimaryPos0;                   // start pos
 std::vector<TVector3> g4PrimaryPosf;                   // final pos 
 std::vector<TVector3> g4PrimaryMom0;                   // momentum
@@ -163,8 +168,8 @@ std::vector<TVector3> g4PrimaryMomf;                   // final momentum
 std::vector<TVector3> g4PrimaryProjPos0;               // projected position
 std::vector<std::vector<TVector3>> g4PrimaryTrTrjPos;  // trajectory sp
 std::vector<std::vector<TVector3>> g4PrimaryTrTrjMom;  // trajectory momentum 
-std::vector<std::vector<size_t>> g4PrimaryVtx;       // primary interaction points
-std::vector<size_t> g4IsTrackInteracting, g4IsTrackSignal; 
+std::vector<std::map<size_t, std::string>> g4PrimaryInteractions;
+std::vector<bool> g4IsTrackInteracting, g4IsTrackSignal; 
 std::vector<double> g4PrimaryKEFF;
 std::vector<std::string> g4PrimarySubProcess;
 
@@ -211,15 +216,14 @@ void myana::Loop(int inDebug)
     // ==============================  VARIABLES FOR G4 INFO  ==============================
     // =====================================================================================
     g4PrimaryTrkId.clear();                     
-    g4PrimaryProcesses.clear(); 
+    g4PrimaryInteractions.clear(); 
     g4PrimaryPos0.clear();                   
     g4PrimaryPosf.clear();                   
     g4PrimaryMom0.clear();                   
     g4PrimaryMomf.clear();                   
     g4PrimaryProjPos0.clear();               
     g4PrimaryTrTrjPos.clear();  
-    g4PrimaryTrTrjMom.clear();  
-    g4PrimaryVtx.clear();       
+    g4PrimaryTrTrjMom.clear();      
     g4IsTrackInteracting.clear();
     g4IsTrackSignal.clear();
     g4PrimaryKEFF.clear();
@@ -237,10 +241,9 @@ void myana::Loop(int inDebug)
       if (process_primary[iG4] == 0) continue;
 
       // ### We've got a new primary
-      g4PrimaryProcesses. push_back(std::vector<std::string>());
+      g4PrimaryInteractions.push_back(std::map<size_t,std::string>());
       g4PrimaryTrTrjPos.  push_back(std::vector<TVector3>());
       g4PrimaryTrTrjMom.  push_back(std::vector<TVector3>());
-      g4PrimaryVtx.       push_back(std::vector<size_t>());
       g4PrimarySubProcess.push_back("none");
 
       // ### Store the track id 
@@ -254,10 +257,9 @@ void myana::Loop(int inDebug)
         TVector3 pos(MidPosX[iPrim][p], MidPosY[iPrim][p], MidPosZ[iPrim][p]);
         if (!InActiveRegion(pos)) continue;
 
-        g4PrimaryVtx[iPrim].push_back(p);
-        g4PrimaryProcesses[iPrim].push_back(ptype);
+        g4PrimaryInteractions[iPrim].emplace(p, ptype);
       }
-      if (g4PrimaryVtx.size()) g4PrimarySubProcess[iPrim] = (*InteractionPointSubType)[iPrim];
+      if (g4PrimaryInteractions[iPrim].size()) g4PrimarySubProcess[iPrim] = (*InteractionPointSubType)[iPrim];
 
       // ### Store the positions and momentum 
       g4PrimaryPos0.push_back( TVector3( StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]) );
@@ -325,23 +327,23 @@ void myana::Loop(int inDebug)
     for (size_t iPrim = 0; iPrim < g4PrimaryProcesses.size(); iPrim++)
     {
       // ### Set the interacting variables
-      g4IsTrackInteracting.push_back( g4PrimaryProcesses.size() > 0 ? 1 : 0 );
+      g4IsTrackInteracting.push_back( g4PrimaryInteractions[iPrim].size() > 0 ? true : false );
 
       // ### If signal
-      for (const auto& p : g4PrimaryProcesses[iPrim])
+      for (const auto& p : g4PrimaryInteractions[iPrim])
       {
-        bool isTrackSignal = p.find("pi") != std::string::npos && p.find("Inelastic") != std::string::npos; 
-        g4IsTrackSignal.push_back( isTrackSignal ? 1 : 0);
+        bool isTrackSignal = p.second.find("pi") != std::string::npos && p.second.find("Inelastic") != std::string::npos; 
+        g4IsTrackSignal.push_back( isTrackSignal ? true : false);
       }
     }
 
     // ### Sanity check...
     size_t sc = g4PrimaryTrkId.size();
-    assert(g4PrimaryTrkId.size()       == sc && g4PrimaryProcesses.size() == sc &&
+    assert(g4PrimaryTrkId.size()       == sc && g4PrimaryInteractions.size() == sc &&
            g4PrimaryPos0.size()        == sc && g4PrimaryPosf.size()      == sc &&   
            g4PrimaryMom0.size()        == sc && g4PrimaryProjPos0.size()  == sc &&
            g4PrimaryTrTrjPos.size()    == sc && g4PrimaryTrTrjMom.size()  == sc &&
-           g4PrimaryVtx.size()         == sc && g4IsTrackSignal.size()    == sc && 
+           g4IsTrackSignal.size()      == sc && 
            g4IsTrackInteracting.size() == sc && g4PrimaryKEFF.size()      == sc &&
            g4PrimaryMomf.size()        == sc && g4PrimarySubProcess.size() == sc);
 
@@ -696,10 +698,10 @@ void myana::Loop(int inDebug)
 
     // ### Determine if the interaction was inelastic
     if(IN_DEBUG) std::cout << "Primary processes...\n";
-    if(IN_DEBUG) for (const auto& p : g4PrimaryProcesses[0]) std::cout << p << std::endl;
+    if(IN_DEBUG) for (const auto& p : g4PrimaryInteractions[0]) std::cout << p.second << std::endl;
     if(IN_DEBUG) std::cout << "\nSub process is " << g4PrimarySubProcess[0] << std::endl;
     if (didDetermineInteracting) didDetermineSignal = DetermineInelasticity(xsRecoTrkId, furthestInZCaloPoint);
-  
+
     // ### Get the kinetic energy at "WC 4" 
     // (for single particle gun just use KE at z=0)
     TVector3 theWCMom(0,0,0);
@@ -710,9 +712,9 @@ void myana::Loop(int inDebug)
     }
 
     // ### This is the first incident KE
-    std::vector<double> incidentKEVec;
+    std::vector<double> recoIncidentKEVec;
     double theWCKE = std::sqrt( theWCMom.Mag()*theWCMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-    incidentKEVec.push_back(theWCKE);
+    recoIncidentKEVec.push_back(theWCKE);
   
     // ### Fill the energy depositions
     double totalEnDep(0);
@@ -721,16 +723,64 @@ void myana::Loop(int inDebug)
       // ### Exit if we've passed zero
       totalEnDep = totalEnDep + eDepVec[iDep];
       if ((theWCKE - totalEnDep) < 0) break;
-      incidentKEVec.push_back(theWCKE - totalEnDep);
+      recoIncidentKEVec.push_back(theWCKE - totalEnDep);
     }
 
     // ### Fill the Incident and interacting histograms
-    for (auto iKE : incidentKEVec) hRecoMCIncidentKE->Fill(iKE);
-    if (didDetermineSignal && incidentKEVec.size()) hRecoMCInteractingKE->Fill(incidentKEVec.back());
+    for (auto iKE : recoIncidentKEVec) hRecoMCIncidentKE->Fill(iKE);
+    if (didDetermineSignal && recoIncidentKEVec.size()) hRecoMCInteractingKE->Fill(recoIncidentKEVec.back());
     if (didDetermineSignal) nEventsInelastic++;
 
 // End tracking our matched track
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+/*
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Begin performance evaluation
+  
+    // ### Fill true ke here
+    std::vector<double> trueIncidentKEVec;
+    trueIncidentKEVec.push_back(recoIncidentKEVec[0]); // at WC 4
+    size_t startPt = 0;
+    for (const auto& z : zPosVec)
+    {
+      for (size_t iPt = startPt; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
+      {
+        if (g4PrimaryTrTrjPos[0][iPt].Z() < z) continue;
+        
+        auto pos = g4PrimaryTrTrjPos[0][iPt];
+        auto mom = g4PrimaryTrTrjMom[0][iPt];
+        double ke = std::sqrt(mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS) - PARTICLE_MASS;
+        trueIncidentKEVec.push_back(ke);
+
+        startPt = iPt;
+        break;
+      }  
+    }
+    
+    
+
+    // ########################################
+    // ### Fill plots for efficiency/purity ###
+    // ########################################
+    // ### Efficiency
+    if (g4IsTrackSignal[0])
+    {
+      hSignalEff->Fill(g4PrimaryKEFF[0]);
+      if (didDetermineSignal) hRecoEff->Fill(g4PrimaryKEFF[0]);     
+    }
+    // ### Purity
+    if (didDetermineSignal)
+    {
+      hRecoPur->Fill(g4PrimaryKEFF[0]);
+      if (g4IsTrackSignal[0]) hSignalPur->Fill(g4PrimaryKEFF[0]);
+    }  
+
+// End performance evaluation
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
 
   }//<---End loop over entries
 
@@ -810,9 +860,9 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
       std::cout << "\tDistances from vertex " << diff1 << "  " << diff2 << std::endl;
       std::cout << "\tMinId is " << minId << std::endl;
       std::cout << "True info\n";
-      for (size_t iPrim = 0; iPrim < g4PrimaryVtx.size(); iPrim++)
+      for (size_t iPrim = 0; iPrim < g4PrimaryInteractions.size(); iPrim++)
       {
-        for (const auto& v : g4PrimaryVtx[iPrim]) PrintVec(g4PrimaryTrTrjPos[iPrim][v]);
+        for (const auto& v : g4PrimaryInteractions[iPrim]) PrintVec(g4PrimaryTrTrjPos[iPrim][v.first]);
       }
       std::cout << std::endl;
     }
@@ -989,10 +1039,11 @@ void myana::TruthStudies()
   // ### The elements match to g4Processes
 
   // ### Fill histograms
-  for (size_t iPt = 0; iPt < angles.size(); iPt++)
+  size_t iPt = 0;
+  for (const auto& p : g4PrimaryInteractions[0])
   {
     // ### What process is this 
-    auto thisProcess = g4PrimaryProcesses[0][iPt];
+    auto thisProcess = p.second;
 
     hMCSecondaries->Fill(angles[iPt].size());
     for (size_t iAng = 0; iAng < angles[iPt].size(); iAng++)
@@ -1003,6 +1054,7 @@ void myana::TruthStudies()
       else if (thisProcess.find("pi") != std::string::npos && thisProcess.find("Inelastic") != std::string::npos) hInelasticAngle->Fill(theta);
       else if (IN_DEBUG) std::cout << "::Angles:: Process is " << thisProcess << std::endl; 
     }
+    iPt++
   }
 }
 
@@ -1043,6 +1095,28 @@ void MakePlots()
       hRecoXSKE->SetBinError(iBin,totalError);
     }
   }
+
+  // ### Eff. plot
+  for (int iBin = 1; iBin <= hSignalEff->GetNbinsX(); iBin++)
+  {
+    if (hSignalEff->GetBinContent(iBin) == 0) continue;
+
+    auto n = hRecoEff->GetBinContent(iBin);
+    auto d = hSignalEff->GetBinContent(iBin);
+
+    hEfficiencyKE->SetBinContent(iBin, n/d);
+  }
+
+  // ### Purity 
+  for (int iBin = 1; iBin <= hSignalPur->GetNbinsX(); iBin++)
+  {
+    if (hRecoPur->GetBinContent(iBin) == 0) continue;
+
+    auto n = hSignalPur->GetBinContent(iBin);
+    auto d = hRecoPur->GetBinContent(iBin);
+
+    hPurityKE->SetBinContent(iBin, n/d);
+  } 
 
 
 
