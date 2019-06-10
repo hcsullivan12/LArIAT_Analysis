@@ -15,6 +15,8 @@ void ComputeAngles(float& phi, float& theta, const TVector3& p0Hat);
 std::string ConvertProcessToString(const int& i);
 void CalculateG4Xs();
 bool InActiveRegion(const TVector3& thePos);
+bool InTPCRegion(const TVector3& thePos);
+void BeginJob();
 inline void PrintVec(const TVector3& pos) {std::cout<<"\t("<<pos.X()<<", "<<pos.Y()<<", "<<pos.Z()<<")\n";};
 
 
@@ -140,8 +142,9 @@ TH1D *hFurthestInZCaloY = new TH1D("hFurtherstInZCaloY", "Most downstream in TPC
 TH1D *hFurthestInZCaloZ = new TH1D("hFurtherstInZCaloZ", "Most downstream in TPC Calorimetry Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
 TH1D* hSecondaryLength    = new TH1D("hSecondaryLength",     "Length of Secondary Tracks", 100, 0, 100);
 TH1D* hVertexDiff         = new TH1D("hVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
-TH1D* hElasticAngle       = new TH1D("hElasticAngle", "Angle Between Secondaries and Primary for Elastic", 1000, 0, 180);
-TH1D* hInelasticAngle     = new TH1D("hInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 1000, 0, 180);
+TH1D* hMCElasticAngle       = new TH1D("hMCElasticAngle", "Elastic Scattering Angle of Primary", 180, 0, 180);
+TH1D* hMCInelasticAngle     = new TH1D("hMCInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 180, 0, 180);
+TH1D* hMCInelasticOneVisDAngle = new TH1D("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
 TH1D* hRecoMCSecondaries  = new TH1D("hRecoMCSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
 TH1D* hMCSecondaries      = new TH1D("hMCSecondaries",     "True number of tracks leaving vertex", 10, 0, 10);
 TH1D* hSignalEff = new TH1D("hSignalEff", "Signal", 23, -50, 1100);
@@ -150,6 +153,10 @@ TH1D* hSignalPur = new TH1D("hSignalPur", "Signal", 23, -50, 1100);
 TH1D* hRecoPur   = new TH1D("hRecoPur", "Reco", 23, -50, 1100);
 TH1D* hEfficiencyKE = new TH1D("hEfficiencyKE", "Efficiency", 23, -50, 1100);
 TH1D* hPurityKE     = new TH1D("hPurityKE", "Purity", 23, -50, 1100);
+TH1D* hOneSecondaryTheta = new TH1D("hOneSecondaryTheta", "Angle between primary and single secondary", 180, 0, 180);
+TH2D* hSmearingMatrix = new TH2D("hSmearingMatrix", "Kinetic Energy smearing matrix", 22, 0, 1100, 22, 0, 1100);
+
+
 
 // =======================================================================================
 // ====================================  FILES  ==========================================
@@ -179,10 +186,12 @@ std::vector<std::string> g4PrimarySubProcess;
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void myana::Loop(int inDebug)
 {
+  BeginJob();
+
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (Long64_t jentry=47000; jentry<100000/*nentries*/;jentry++) 
+  for (Long64_t jentry=0/*47000*/; jentry<100000/*nentries*/;jentry++) 
   {
     // ###########################################
     // ### If debug, only look at a sub sample ###
@@ -204,8 +213,8 @@ void myana::Loop(int inDebug)
     // TEMP
     //if (event == 1) cout << jentry << endl;
     if(IN_DEBUG) std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    std::cout << "Event " << event << "\n\n";
-    if (nTotalEvents > 10) break;
+    //std::cout << "Event " << event << "\n\n";
+    //if (nTotalEvents > 100) break;
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -324,7 +333,7 @@ void myana::Loop(int inDebug)
     }
 
     // ### Store if interacting/signal
-    for (size_t iPrim = 0; iPrim < g4PrimaryProcesses.size(); iPrim++)
+    for (size_t iPrim = 0; iPrim < g4PrimaryInteractions.size(); iPrim++)
     {
       // ### Set the interacting variables
       g4IsTrackInteracting.push_back( g4PrimaryInteractions[iPrim].size() > 0 ? true : false );
@@ -600,6 +609,8 @@ void myana::Loop(int inDebug)
     // ###         The ID is in xsRecoTrkId variable            ###
     // ############################################################
     
+    // ### Let's do some recon studies
+    RecoStudies(xsRecoTrkId);
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin tracking our matched track
@@ -613,6 +624,7 @@ void myana::Loop(int inDebug)
     std::vector<double> eDepVec; 
     std::vector<double> resRanVec;
     std::vector<double> zPosVec;
+    std::vector<TVector3> posVec;
     bool didDetermineInteracting = false;
     bool didDetermineSignal      = false;
   
@@ -642,7 +654,7 @@ void myana::Loop(int inDebug)
       TVector3 theXYZ( caloX,
                        caloY, 
                        caloZ );
-      if ( !InActiveRegion(theXYZ) ) continue;
+      if ( !InTPCRegion(theXYZ) ) continue;
 
       // ### We're determining the most downstream point
       if (theXYZ.Z() > furthestInZCaloPoint.Z()) 
@@ -659,13 +671,14 @@ void myana::Loop(int inDebug)
       eDepVec.  push_back( calodEdX * caloPitch );
       resRanVec.push_back( caloPitch );
       zPosVec.  push_back( caloZ );
+      posVec.   push_back( theXYZ );
     }//<-- End loop over trk hits 
  
     // ### Sanity check
     sc = pitchVec.size();
     assert(pitchVec.size() == sc && dEdXVec.size()   == sc && 
            eDepVec.size()  == sc && resRanVec.size() == sc && 
-           zPosVec.size()  == sc);
+           zPosVec.size()  == sc && posVec.size() == sc);
   
     if(IN_DEBUG) {std::cout << "Most downstream point from calorimetry is (" 
               << furthestInZCaloPoint.X() << ", "
@@ -735,32 +748,60 @@ void myana::Loop(int inDebug)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-/*
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin performance evaluation
   
     // ### Fill true ke here
     std::vector<double> trueIncidentKEVec;
     trueIncidentKEVec.push_back(recoIncidentKEVec[0]); // at WC 4
-    size_t startPt = 0;
-    for (const auto& z : zPosVec)
+    
+    /*std::map<double, size_t> zPosMap;
+    std::map<double, TVector3> truePosMap;
+    for (size_t iPt = 0; iPt <= zPosMap.size(); iPt++) zPosMap.emplace(zPosVec[iPt], iPt);
+    for (size_t iPt = 0; iPt <= g4PrimaryTrTrjPos[0].size(); iPt++) truePosMap.emplace(g4PrimaryTrTrjPos[0].Z(), g4PrimaryTrTrjMom[0][iPt]);
+
+    for (const auto& z : zPosMap)
     {
-      for (size_t iPt = startPt; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
+      for (const auto& tz : truePosMap)
       {
-        if (g4PrimaryTrTrjPos[0][iPt].Z() < z) continue;
-        
-        auto pos = g4PrimaryTrTrjPos[0][iPt];
-        auto mom = g4PrimaryTrTrjMom[0][iPt];
+        if (tz.first < z) continue;
+
+      }
+    }*/
+
+    for (const auto& recoPos : posVec)
+    {
+      // ### This is sloppy but sufficient
+      // ### Find the minimum distance to true position
+      // ### We want the momentum if it's close enough
+      float minDist = std::numeric_limits<float>::max();
+      size_t minPt = 0;
+      for (size_t iPt = 0; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
+      {
+        auto truePos = g4PrimaryTrTrjPos[0][iPt];
+        auto distance = (truePos-recoPos).Mag();
+        if (distance < minDist) { minDist = distance; minPt = iPt;}
+      }
+      if (minDist < SLAB_WIDTH) 
+      {
+        auto mom  = g4PrimaryTrTrjMom[0][minPt];
         double ke = std::sqrt(mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS) - PARTICLE_MASS;
         trueIncidentKEVec.push_back(ke);
-
-        startPt = iPt;
         break;
-      }  
+      }
+    }
+
+    // ### Fill smearing matrix
+    for (size_t iPt = 0; iPt < trueIncidentKEVec.size(); iPt++)
+    {
+      if (iPt >= recoIncidentKEVec.size()) break;
+      hSmearingMatrix->Fill(recoIncidentKEVec[iPt], trueIncidentKEVec[iPt]);
     }
     
     
-
+    
+/*
     // ########################################
     // ### Fill plots for efficiency/purity ###
     // ########################################
@@ -775,11 +816,11 @@ void myana::Loop(int inDebug)
     {
       hRecoPur->Fill(g4PrimaryKEFF[0]);
       if (g4IsTrackSignal[0]) hSignalPur->Fill(g4PrimaryKEFF[0]);
-    }  
+    }  */
 
 // End performance evaluation
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
+
 
 
   }//<---End loop over entries
@@ -816,16 +857,6 @@ void myana::Loop(int inDebug)
 bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
                                   const TVector3& furthestInZCaloPoint)
 {
- /*
-  * Cuts...
-  *
-  *   1) There must be another track eminating from vertex
-  *        * Angle between secondary and primary > primSecAngle
-  *
-  *
-  */ 
-
-
   // ### Look for any daughters around this furthest in Z calo point
   // ### Loop over tracks to find a starting point close to this
   if(IN_DEBUG) std::cout << "There are " << ntracks_reco << " reconstructed tracks...\n" << std::endl;
@@ -841,7 +872,6 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     TVector3 dXYZstart( trkvtxx[iTrk],  trkvtxy[iTrk], trkvtxz[iTrk] );
     TVector3 dXYZend  ( trkendx[iTrk],  trkendy[iTrk], trkendz[iTrk] );
     double length = (dXYZstart-dXYZend).Mag();
-    hSecondaryLength->Fill(length);
     
     // ### Which endpoint is connected to vertex
     double diff1 = (furthestInZCaloPoint - dXYZstart).Mag();
@@ -868,7 +898,8 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     }
 
     // ### Vertex cut and length cut
-    if ((diff1 < VERTEX_CUT || diff2 < VERTEX_CUT) && length > SECONDARY_LENGTH_CUT)
+    if (diffArr[minId] < VERTEX_CUT) hSecondaryLength->Fill(length);
+    if (diffArr[minId] < VERTEX_CUT && length > SECONDARY_LENGTH_CUT)
     {
       if (minId == 0) theTracksLeaving.emplace(iTrk, false);
       if (minId == 1) theTracksLeaving.emplace(iTrk, true);
@@ -881,7 +912,9 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
   // ### If there are zero visible tracks leaving this vertex, 
   if (theTracksLeaving.size() == 0) 
   {
-    // ### WHAT TO DO HERE
+    // ### Maybe the primary scattered but tracking didn't break up the track
+    // ### Check the scattering angle
+   
   }
 
   // ### If there is just 1
@@ -953,6 +986,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     TVector3 secDir (secPoints[1]  - secPoints[0]);
 
     double theta = (180/TMath::Pi())*std::acos( primDir.Unit().Dot(secDir.Unit()) );
+    hOneSecondaryTheta->Fill(theta);
     if (theta > SECONDARY_ANGLE_CUT) isSignal = true;
 
     if(IN_DEBUG)
@@ -975,7 +1009,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
   }
   
   return isSignal;
-}
+}//<-- End DertermineInelasticity
 
 
 
@@ -985,28 +1019,58 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void myana::TruthStudies()
 {
+  if (!g4PrimaryInteractions[0].size()) return;
+
   // ### Make the distribution of scattering angles
   // ### We need direction vectors before interaction points
-  if (!g4PrimaryVtx.size()) return;
+  // ### Easier to handle cases seperately
 
-  // ### Handle primary, assuming one primary
-  std::vector<std::vector<double>> angles;
-  for (const auto& p : g4PrimaryVtx[0])
+  // ### Handle elastic type
+  for (const auto& pMap : g4PrimaryInteractions[0])
   {
+    // ### The point and process
+    auto p    = pMap.first;
+    auto proc = pMap.second;
+
+    if (proc.find("hadElastic") == std::string::npos && proc.find("CoulombScat") == std::string::npos) continue;
+
     // ### Get the trj point here and before here
     auto posBefore = g4PrimaryTrTrjPos[0][p-1];
     auto posHere   = g4PrimaryTrTrjPos[0][p];
     auto primIncDir = (posHere-posBefore).Unit();
-    angles.push_back(std::vector<double>());
 
     // ### After
     if ( (p+1) < g4PrimaryTrTrjPos[0].size()) 
     {
       auto primTrailDir = g4PrimaryTrTrjPos[0][p+1]-posHere;
       double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(primTrailDir.Unit()) );
-      angles.back().push_back(theta);
+      hMCElasticAngle->Fill(theta);
+    }
+  }
+
+  // ### Handle inelastic type with all relevant daughters
+  std::vector<size_t> visD;
+  for (const auto& pMap : g4PrimaryInteractions[0])
+  {
+    // ### The point and process
+    auto p    = pMap.first;
+    auto proc = pMap.second;
+    if (proc.find("pi-Inelastic") == std::string::npos) continue;
+
+    // ### Get the trj point here and before here
+    auto posBefore = g4PrimaryTrTrjPos[0][p-1];
+    auto posHere   = g4PrimaryTrTrjPos[0][p];
+    auto primIncDir = (posHere-posBefore).Unit();
+
+    // ### After
+    if ( (p+1) < g4PrimaryTrTrjPos[0].size()) 
+    {
+      auto primTrailDir = g4PrimaryTrTrjPos[0][p+1]-posHere;
+      double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(primTrailDir.Unit()) );
+      hMCInelasticAngle->Fill(theta);
     }
 
+    // ### Now handle daughters 
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
       if (Mother[iG4] != g4PrimaryTrkId[0]) continue;
@@ -1028,35 +1092,76 @@ void myana::TruthStudies()
       if(IN_DEBUG) cout << "::TruthStudies:: Vertex diff " << (posHere-dPos0).Mag() << endl;
       if ((posHere-dPos0).Mag() < 0.01)
       {
+        visD.push_back(iG4);
         // ### Compute angle between daughter and incoming primary
         double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
-        angles.back().push_back(theta);
+        hMCInelasticAngle->Fill(theta);
       }
     }//<-- End loop over G4 particles
   }//<-- End loop over vertices
 
-  // ### We now have a container of angles between primary and secondaries
-  // ### The elements match to g4Processes
-
-  // ### Fill histograms
-  size_t iPt = 0;
-  for (const auto& p : g4PrimaryInteractions[0])
+  // ### Do it again, except for cases in which inelastic but no other visible daughters
+  // If visD.size() == 1 this looks elastic
+  hMCSecondaries->Fill(visD.size());
+  for (const auto& pMap : g4PrimaryInteractions[0])
   {
-    // ### What process is this 
-    auto thisProcess = p.second;
+    // ### The point and process
+    auto p    = pMap.first;
+    auto proc = pMap.second;
+    if (proc.find("pi-Inelastic") == std::string::npos) continue;
 
-    hMCSecondaries->Fill(angles[iPt].size());
-    for (size_t iAng = 0; iAng < angles[iPt].size(); iAng++)
+    // ### Get the trj point here and before here
+    auto posBefore = g4PrimaryTrTrjPos[0][p-1];
+    auto posHere   = g4PrimaryTrTrjPos[0][p];
+    auto primIncDir = (posHere-posBefore).Unit();
+
+    // ### Make sure the primary ended here and has only 1 visible daughter
+    if ( (p+1) < g4PrimaryTrTrjPos[0].size()) continue; // she lives! 
+    if (visD.size() != 1) continue;
+
+    size_t iG4 = visD[0];
+
+    TVector3 dPos0(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
+    TVector3 dPosf(EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]);
+    TVector3 dMom0(Px[iG4], Py[iG4], Pz[iG4]);
+
+    // ### Compute angle between daughter and incoming primary
+    double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
+    hMCInelasticOneVisDAngle->Fill(theta);
+  }//<-- End loop over G4 particles
+
+}//<-- End truth studies
+
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Reco studies
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void myana::RecoStudies(const size_t& xsRecoTrkId)
+{
+  // ### Let's compute the scattering angle of matched track
+  size_t nPointsTot = ntrkhits[xsRecoTrkId];
+  size_t nPointsBack = 0.25*nPointsTot;
+
+  bool isElastic = false;
+  bool isInelastic = false;
+  for (const auto& p : g4PrimaryInteractions[0]) 
+  {
+    if (p.second.find("hadElastic") != std::string::npos || p.second.find("CoulombScat") != std::string::npos) 
     {
-      auto theta       = angles[iPt][iAng];
-  
-           if (thisProcess.find("hadElastic") != std::string::npos || thisProcess.find("CoulombScat") != std::string::npos) hElasticAngle->Fill(theta);
-      else if (thisProcess.find("pi") != std::string::npos && thisProcess.find("Inelastic") != std::string::npos) hInelasticAngle->Fill(theta);
-      else if (IN_DEBUG) std::cout << "::Angles:: Process is " << thisProcess << std::endl; 
+      isElastic=true;
     }
-    iPt++
+    if (p.second.find("pi-Inelastic") != std::string::npos) 
+    {
+      isInelastic=true;
+    }
   }
-}
+
+  //if (isElastic && !isInelastic) cout << event << "  ELASTIC  " << ntracks_reco << endl;
+  
+
+
+}//<-- End reco studies
 
 
 
@@ -1118,7 +1223,20 @@ void MakePlots()
     hPurityKE->SetBinContent(iBin, n/d);
   } 
 
-
+  // ### Normalize smearing matrix
+  for (size_t iBinX = 1; iBinX <= hSmearingMatrix->GetXaxis()->GetNbins(); iBinX++)
+  {
+    double sum = 0;
+    for(size_t iBinY = 1; iBinY <= hSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
+    {
+      sum = sum + hSmearingMatrix->GetBinContent(iBinX, iBinY);
+    }
+    for(size_t iBinY = 1; iBinY <= hSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
+    {
+      auto content = hSmearingMatrix->GetBinContent(iBinX, iBinY);
+      hSmearingMatrix->SetBinContent(iBinX, iBinY, content/sum);
+    }
+  }
 
   myRootFile.cd();
 
@@ -1147,14 +1265,32 @@ void MakePlots()
   hFurthestInZCaloZ->Write();
   hSecondaryLength->Write();
   hVertexDiff     ->Write();
-  hElasticAngle->Write();
-  hInelasticAngle->Write();
+  hMCElasticAngle->Write();
+  hMCInelasticAngle->Write();
+  hMCInelasticOneVisDAngle->Write();
   hMCSecondaries->Write();
   hRecoMCSecondaries->Write();
+  hOneSecondaryTheta->Write();
+  hSmearingMatrix->Write();
 
   myRootFile.Close();
 }
 
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Begin job
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void BeginJob()
+{
+  // ### Initialize smaearing matrix to zero
+  for (size_t iBinX = 1; iBinX <= hSmearingMatrix->GetXaxis()->GetNbins(); iBinX++)
+  {
+    for(size_t iBinY = 1; iBinY <= hSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
+    {
+      hSmearingMatrix->SetBinContent(iBinX, iBinY, 0.001); // to make a nicer plot
+    }
+  }
+}
 
 
 
@@ -1190,13 +1326,27 @@ void ComputeAngles(float& phi, float& theta, const TVector3& p0Hat)
 
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// %%% Convert process to string
+// %%% In active region
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 bool InActiveRegion( const TVector3& thePos  )
 {
   if ( FV_X_BOUND[0] < thePos.X() && thePos.X() < FV_X_BOUND[1] &&
        FV_Y_BOUND[0] < thePos.Y() && thePos.Y() < FV_Y_BOUND[1] &&
        FV_Z_BOUND[0] < thePos.Z() && thePos.Z() < FV_Z_BOUND[1] ) return true;
+
+  return false;
+}
+
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% In tpc
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+bool InTPCRegion( const TVector3& thePos  )
+{
+  if ( TPC_X_BOUND[0] < thePos.X() && thePos.X() < TPC_X_BOUND[1] &&
+       TPC_Y_BOUND[0] < thePos.Y() && thePos.Y() < TPC_Y_BOUND[1] &&
+       TPC_Z_BOUND[0] < thePos.Z() && thePos.Z() < TPC_Z_BOUND[1] ) return true;
 
   return false;
 }
