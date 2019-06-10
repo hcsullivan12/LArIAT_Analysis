@@ -725,9 +725,9 @@ void myana::Loop(int inDebug)
     }
 
     // ### This is the first incident KE
-    std::vector<double> recoIncidentKEVec;
+    std::vector<std::pair<TVector3, double>> recoIncidentKEVec;
     double theWCKE = std::sqrt( theWCMom.Mag()*theWCMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-    recoIncidentKEVec.push_back(theWCKE);
+    recoIncidentKEVec.emplace_back(g4PrimaryProjPos0[0], theWCKE);
   
     // ### Fill the energy depositions
     double totalEnDep(0);
@@ -736,12 +736,12 @@ void myana::Loop(int inDebug)
       // ### Exit if we've passed zero
       totalEnDep = totalEnDep + eDepVec[iDep];
       if ((theWCKE - totalEnDep) < 0) break;
-      recoIncidentKEVec.push_back(theWCKE - totalEnDep);
+      recoIncidentKEVec.emplace_back(posVec[iDep], theWCKE - totalEnDep);
     }
 
     // ### Fill the Incident and interacting histograms
-    for (auto iKE : recoIncidentKEVec) hRecoMCIncidentKE->Fill(iKE);
-    if (didDetermineSignal && recoIncidentKEVec.size()) hRecoMCInteractingKE->Fill(recoIncidentKEVec.back());
+    for (auto iKE : recoIncidentKEVec) hRecoMCIncidentKE->Fill(iKE.second);
+    if (didDetermineSignal && recoIncidentKEVec.size()) hRecoMCInteractingKE->Fill(recoIncidentKEVec.back().second);
     if (didDetermineSignal) nEventsInelastic++;
 
 // End tracking our matched track
@@ -754,7 +754,7 @@ void myana::Loop(int inDebug)
   
     // ### Fill true ke here
     std::vector<double> trueIncidentKEVec;
-    trueIncidentKEVec.push_back(recoIncidentKEVec[0]); // at WC 4
+    trueIncidentKEVec.push_back(recoIncidentKEVec[0].second); // at WC 4
     
     /*std::map<double, size_t> zPosMap;
     std::map<double, TVector3> truePosMap;
@@ -770,8 +770,11 @@ void myana::Loop(int inDebug)
       }
     }*/
 
-    for (const auto& recoPos : posVec)
+    for (const auto& recoPt : recoIncidentKEVec)
     {
+      auto recoPos = recoPt.first;
+      auto recoKE  = recoPt.second;
+
       // ### This is sloppy but sufficient
       // ### Find the minimum distance to true position
       // ### We want the momentum if it's close enough
@@ -783,20 +786,13 @@ void myana::Loop(int inDebug)
         auto distance = (truePos-recoPos).Mag();
         if (distance < minDist) { minDist = distance; minPt = iPt;}
       }
-      if (minDist < SLAB_WIDTH) 
+      if (minDist < 0.5*SLAB_WIDTH) 
       {
         auto mom  = g4PrimaryTrTrjMom[0][minPt];
         double ke = std::sqrt(mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS) - PARTICLE_MASS;
-        trueIncidentKEVec.push_back(ke);
+        hSmearingMatrix->Fill(recoKE, ke);
         break;
       }
-    }
-
-    // ### Fill smearing matrix
-    for (size_t iPt = 0; iPt < trueIncidentKEVec.size(); iPt++)
-    {
-      if (iPt >= recoIncidentKEVec.size()) break;
-      hSmearingMatrix->Fill(recoIncidentKEVec[iPt], trueIncidentKEVec[iPt]);
     }
     
     
