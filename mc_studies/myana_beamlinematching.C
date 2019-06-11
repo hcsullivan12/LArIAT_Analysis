@@ -136,9 +136,10 @@ TH1D *hMCPrimaryP  = new TH1D("hMCPrimaryP", "Primary Particle P", 22, 0, 1100);
 TH1D *hTrueLength = new TH1D("hTrueLength", "#True Length of the Primary Particle inside the TPC", 200, 0 , 100);
 TH1D *hDataUpstreamZPos = new TH1D("hDataUpstreamZPos", "Most upstream spacepoint of all TPC Tracks", 20, 0, 10);
 TH1D *hAlpha = new TH1D("hAlpha", "#alpha between MC Particle and TPC Track", 90, 0, 90);
-TH1D *hRecoMCIncidentKE = new TH1D("hRecoMCIncidentKE", "Incident for Reconstructed MC", 22, 0, 1100);
-TH1D *hRecoMCInteractingKE = new TH1D("hRecoMCInteractingKE", "Interacting for Reconstructed MC", 22, 0, 1100);
+TH1D *hRecoIncidentKE = new TH1D("hRecoIncidentKE", "Incident for Reconstructed MC", 22, 0, 1100);
+TH1D *hRecoInteractingKE = new TH1D("hRecoInteractingKE", "Interacting for Reconstructed MC", 22, 0, 1100);
 TH1D *hRecoXSKE            = new TH1D("hRecoXSKE", "Reconstruced XS", 22, 0, 1100);
+TH1D *hMCXSKE            = new TH1D("hMCXSKE", "True XS", 22, 0, 1100);
 TH1D *hFurthestInZCaloX = new TH1D("hFurtherstInZCaloX", "Most downstream in TPC Calorimetry X", 1000, TPC_X_BOUND[0], TPC_X_BOUND[1]);
 TH1D *hFurthestInZCaloY = new TH1D("hFurtherstInZCaloY", "Most downstream in TPC Calorimetry Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
 TH1D *hFurthestInZCaloZ = new TH1D("hFurtherstInZCaloZ", "Most downstream in TPC Calorimetry Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
@@ -161,6 +162,10 @@ TH2D* hSmearingMatrix = new TH2D("hSmearingMatrix", "Kinetic Energy smearing mat
 TH1D* hIntTypeBkg = new TH1D("hIntTypeBkg", "Interacting Type Background", 22, 0, 1100);
 TH1D* hIntVertexBkg = new TH1D("hIntVertexBkg", "Interacting Vertex Background", 22, 0, 1100);
 TH1D* hIntSignalBkg = new TH1D("hIntSignalBkg", "Interacting Signal", 22, 0, 1100);
+TH1D* hMCIncidentKE = new TH1D("hMCIncidentKE", "True Incident", 22, 0, 1100);
+TH1D* hMCInteractingKE = new TH1D("hMCInteractingKE", "True Interacting", 22, 0, 1100);
+
+
 
 
 
@@ -371,6 +376,9 @@ void myana::Loop(int inDebug)
 
   // ### Let's do some truth studies
   TruthStudies();
+
+  // ### Make MC XS plots
+  TruthXS();
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin apply "WC to TPC" cuts
@@ -740,8 +748,8 @@ void myana::Loop(int inDebug)
     }
 
     // ### Fill the Incident and interacting histograms
-    for (auto iKE : recoIncidentKEVec) hRecoMCIncidentKE->Fill(iKE.second);
-    if (didDetermineSignal && recoIncidentKEVec.size()) hRecoMCInteractingKE->Fill(recoIncidentKEVec.back().second);
+    for (auto iKE : recoIncidentKEVec) hRecoIncidentKE->Fill(iKE.second);
+    if (didDetermineSignal && recoIncidentKEVec.size()) hRecoInteractingKE->Fill(recoIncidentKEVec.back().second);
     if (didDetermineSignal) nEventsInelastic++;
 
 // End tracking our matched track
@@ -766,7 +774,7 @@ void myana::Loop(int inDebug)
       hRecoVertexDiff->Fill(nearestDiff);
       
       // if we've identified the vertex
-      if (nearestDiff < (188*SLAB_WIDTH))
+      if (nearestDiff < (100*SLAB_WIDTH))
       {
         // 1) If we determined signal but it's not
         if (didDetermineSignal && nearestProc.find("pi-Inelastic") == std::string::npos) hIntTypeBkg->Fill(recoIncidentKEVec.back().second);
@@ -1180,23 +1188,54 @@ void myana::RecoStudies(const size_t& xsRecoTrkId)
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void MakePlots()
 {
-  // ### Make the XS plot
-  for (int iBin = 0; iBin <= hRecoMCIncidentKE->GetNbinsX(); iBin++)
+  // ### Make the mc XS plot
+  for (int iBin = 0; iBin <= hMCIncidentKE->GetNbinsX(); iBin++)
   {
-    if (hRecoMCIncidentKE->GetBinContent(iBin) == 0) continue;
+    if (hMCIncidentKE->GetBinContent(iBin) == 0) continue;
 
     // ### our cross section
-    float tempXS = (hRecoMCInteractingKE->GetBinContent(iBin)/hRecoMCIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
+    float tempXS = (hMCInteractingKE->GetBinContent(iBin)/hMCIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
     hRecoXSKE->SetBinContent(iBin, tempXS);
 
     // ### incident taken as poissonian
-    float denomError = std::sqrt(hRecoMCIncidentKE->GetBinContent(iBin));
-    float denom      = hRecoMCIncidentKE->GetBinContent(iBin);
+    float denomError = std::sqrt(hMCIncidentKE->GetBinContent(iBin));
+    float denom      = hMCIncidentKE->GetBinContent(iBin);
     if (denom == 0) continue;
     float term2 = denomError/denom;
 
-    auto intCounts = hRecoMCInteractingKE->GetBinContent(iBin);
-    auto incCounts = hRecoMCIncidentKE->GetBinContent(iBin);
+    auto intCounts = hMCInteractingKE->GetBinContent(iBin);
+    auto incCounts = hMCIncidentKE->GetBinContent(iBin);
+    float var      = intCounts*( 1 - intCounts/incCounts );
+    float numError = std::sqrt(var);
+    float num      = intCounts;
+
+    if (num)
+    {
+      float term1 = numError/num;
+      float xs    = hMCXSKE->GetBinContent(iBin);
+      float totalError = xs * ( term1 + term2 );
+
+      hMCXSKE->SetBinError(iBin,totalError);
+    }
+  }
+
+  // ### Make the reco XS plot
+  for (int iBin = 0; iBin <= hRecoIncidentKE->GetNbinsX(); iBin++)
+  {
+    if (hRecoIncidentKE->GetBinContent(iBin) == 0) continue;
+
+    // ### our cross section
+    float tempXS = (hRecoInteractingKE->GetBinContent(iBin)/hRecoIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
+    hRecoXSKE->SetBinContent(iBin, tempXS);
+
+    // ### incident taken as poissonian
+    float denomError = std::sqrt(hRecoIncidentKE->GetBinContent(iBin));
+    float denom      = hRecoIncidentKE->GetBinContent(iBin);
+    if (denom == 0) continue;
+    float term2 = denomError/denom;
+
+    auto intCounts = hRecoInteractingKE->GetBinContent(iBin);
+    auto incCounts = hRecoIncidentKE->GetBinContent(iBin);
     float var      = intCounts*( 1 - intCounts/incCounts );
     float numError = std::sqrt(var);
     float num      = intCounts;
@@ -1272,8 +1311,8 @@ void MakePlots()
   myRootFile.cd();
   myRootFile.mkdir("reco/");
   myRootFile.cd("reco/");
-  hRecoMCIncidentKE->Write();
-  hRecoMCInteractingKE->Write();
+  hRecoIncidentKE->Write();
+  hRecoInteractingKE->Write();
   hRecoXSKE->Write();
   hFurthestInZCaloX->Write();
   hFurthestInZCaloY->Write();
@@ -1295,6 +1334,9 @@ void MakePlots()
   hMCInelasticAngle->Write();
   hMCInelasticOneVisDAngle->Write();
   hMCSecondaries->Write();
+  hMCIncidentKE->Write();
+  hMCInteractingKE->Write();
+  hMCXSKE->Write();
 
   myRootFile.Close();
 }
@@ -1372,6 +1414,92 @@ bool InTPCRegion( const TVector3& thePos  )
        TPC_Z_BOUND[0] < thePos.Z() && thePos.Z() < TPC_Z_BOUND[1] ) return true;
 
   return false;
+}
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Truth XS
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void myana::TruthXS()
+{
+  // ### We need to chop up the track uniformly between first point and first interaction point
+  std::map<double, TVector3> orderedPoints;
+  
+  // Get the first tpc point
+  auto firstPos = g4PrimaryPos0[0];
+  for(size_t iPt = 0; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
+  {
+    auto thePos = g4PrimaryTrTrjPos[0][iPt];
+    if (thePos.Z() < TPC_Z_BOUND[0]) continue;
+
+    orderedPoints[thePos.Z()] = thePos;
+    firstPos = thePos;
+    break;
+  }
+
+  // Get the last tpc point
+  auto lastPos = g4PrimaryPosf[0];
+  for(size_t iPt = (g4PrimaryTrTrjPos[0].size()-1); iPt > 0; iPt--)
+  {
+    auto thePos = g4PrimaryTrTrjPos[0][iPt];
+    if (thePos.Z() > TPC_Z_BOUND[1]) continue;
+    lastPos = thePos;
+    break;
+  }
+
+  // Get the first interaction point
+  std::string intLabel = "none";
+  if (g4PrimaryInteractions[0].size()) 
+  {
+    auto thePoint = g4PrimaryInteractions[0].begin()->first;
+    auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
+    orderedPoints[thePos.Z()] = thePos;
+    lastPos = thePos;
+    intLabel = g4PrimaryInteractions[0].begin()->second;
+  }
+  else orderedPoints[lastPos.Z()] = lastPos;
+
+  // Create our new points
+  auto totalLength = (lastPos-firstPos).Mag();
+  size_t nPts = (int)(totalLength/(100*SLAB_WIDTH));
+  for (size_t iPt = 1; iPt <= nPts; iPt++)
+  {
+    auto nextPos = firstPos + iPt*((100*SLAB_WIDTH)/totalLength) * (lastPos-firstPos);
+    orderedPoints[nextPos.Z()] = nextPos;
+  }
+
+  // ### Start filling the histograms
+  double kinEn = g4PrimaryKEFF[0];
+
+  auto oldIt = orderedPoints.begin();
+  for (auto it = std::next(orderedPoints.begin()); it != orderedPoints.end(); it++, oldIt++)
+  {
+    auto oldPos  = oldIt->second;
+    auto thisPos = it->second;
+    auto thisLength = (oldPos-thisPos).Mag();
+
+    // Get the energy deposits
+    float currentEnDep = 0;
+    for (size_t iIDE = 0; iIDE < maxTrackIDE; iIDE++)
+    {
+      auto ideEnergy = IDEEnergy[iIDE];
+      auto idePos    = TVector3(IDEPos[iIDE][0], IDEPos[iIDE][1], IDEPos[iIDE][2]);
+
+      if (idePos.Z() < oldPos.Z()) continue;
+      if (idePos.Z() > thisPos.Z()) continue;
+
+      currentEnDep = currentEnDep + ideEnergy;
+    }
+
+    // avoid overfilling super tiny energy depositions
+    if (currentEnDep/thisLength < 0.1) continue;
+
+    kinEn = kinEn - currentEnDep;
+    if (kinEn < 0) continue;
+
+    hMCIncidentKE->Fill(kinEn);
+  }
+  if (intLabel.find("pi-Inelastic") != std::string::npos) hMCInteractingKE->Fill(kinEn);
 }
 
 
