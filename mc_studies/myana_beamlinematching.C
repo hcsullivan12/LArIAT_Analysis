@@ -3,9 +3,8 @@
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
-#include <TVector3.h>
-
-#include <assert.h>
+#include <TApplication.h>
+#include <iostream>
 
 // ============================================================================================
 // ====================================  PROTOTYPES  ==========================================
@@ -95,7 +94,7 @@ double MOLAR_MASS(39.948);          //g/mol
 double G_PER_KG(1000);
 double AVOGADRO(6.022140857e+23);        //number/mol
 double NUMBER_DENSITY( (RHO*G_PER_KG/MOLAR_MASS)*AVOGADRO );
-double SLAB_WIDTH(0.0045);        //in m
+double SLAB_WIDTH(0.0047);        //in m
 double PI(3.141592654);
 double M2_PER_BARN(1e-28);
 
@@ -114,6 +113,9 @@ double VERTEX_CUT(4.0);
 // cut on angle between secondary and primary
 double SECONDARY_ANGLE_CUT(10.);
 
+// cut for tagging throughgoing tracks
+double THROUGHGOING_Z_CUT(86.);
+
 // ============================================================================================
 // ====================================  HISTOGRAMS  ==========================================
 // ============================================================================================
@@ -127,34 +129,38 @@ TH1D *hMCPrimaryProjZ0 = new TH1D("hMCPrimaryProjZ0", "Primary Particle Z_{0}", 
 TH1D *hDeltaX = new TH1D("hDeltaX", "#Delta X_{0} of the most upstream Reco Track and the Projected Primary Particle X_{0}", 200, -50 , 50);
 TH1D *hDeltaY = new TH1D("hDeltaY", "#Delta Y_{0} of the most upstream Reco Track and the Projected Primary Particle Y_{0}", 200, -50 , 50);
 TH1D *hDeltaZ = new TH1D("hDeltaZ", "#Delta Z_{0} of the most upstream Reco Track and the Projected Primary Particle Z_{0}", 200, -50 , 50);
-TH1D *hMCPrimaryPx = new TH1D("hMCPrimaryPx", "Primary Particle P_{x}", 300, -150 , 150);
-TH1D *hMCPrimaryPy = new TH1D("hMCPrimaryPy", "Primary Particle P_{y}", 300, -150 , 150);
-TH1D *hMCPrimaryPz = new TH1D("hMCPrimaryPz", "Primary Particle P_{z}", 1000, -500 , 2000);
-TH1D *hMCPrimaryP  = new TH1D("hMCPrimaryP", "Primary Particle P", 1000, -500 , 2000);
+TH1D *hMCPrimaryPx = new TH1D("hMCPrimaryPx", "Primary Particle P_{x}", 22, 0, 1100);
+TH1D *hMCPrimaryPy = new TH1D("hMCPrimaryPy", "Primary Particle P_{y}", 22, 0, 1100);
+TH1D *hMCPrimaryPz = new TH1D("hMCPrimaryPz", "Primary Particle P_{z}", 22, 0 , 1100);
+TH1D *hMCPrimaryP  = new TH1D("hMCPrimaryP", "Primary Particle P", 22, 0, 1100);
 TH1D *hTrueLength = new TH1D("hTrueLength", "#True Length of the Primary Particle inside the TPC", 200, 0 , 100);
 TH1D *hDataUpstreamZPos = new TH1D("hDataUpstreamZPos", "Most upstream spacepoint of all TPC Tracks", 20, 0, 10);
 TH1D *hAlpha = new TH1D("hAlpha", "#alpha between MC Particle and TPC Track", 90, 0, 90);
-TH1D *hRecoMCIncidentKE = new TH1D("hRecoMCIncidentKE", "Incident for Reconstructed MC", 23, -50, 1100);
-TH1D *hRecoMCInteractingKE = new TH1D("hRecoMCInteractingKE", "Interacting for Reconstructed MC", 23, -50, 1100);
-TH1D *hRecoXSKE            = new TH1D("hRecoXSKE", "Reconstruced XS", 23, -50, 1100);
+TH1D *hRecoMCIncidentKE = new TH1D("hRecoMCIncidentKE", "Incident for Reconstructed MC", 22, 0, 1100);
+TH1D *hRecoMCInteractingKE = new TH1D("hRecoMCInteractingKE", "Interacting for Reconstructed MC", 22, 0, 1100);
+TH1D *hRecoXSKE            = new TH1D("hRecoXSKE", "Reconstruced XS", 22, 0, 1100);
 TH1D *hFurthestInZCaloX = new TH1D("hFurtherstInZCaloX", "Most downstream in TPC Calorimetry X", 1000, TPC_X_BOUND[0], TPC_X_BOUND[1]);
 TH1D *hFurthestInZCaloY = new TH1D("hFurtherstInZCaloY", "Most downstream in TPC Calorimetry Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
 TH1D *hFurthestInZCaloZ = new TH1D("hFurtherstInZCaloZ", "Most downstream in TPC Calorimetry Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
 TH1D* hSecondaryLength    = new TH1D("hSecondaryLength",     "Length of Secondary Tracks", 100, 0, 100);
-TH1D* hVertexDiff         = new TH1D("hVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
+TH1D* hTrackVertexDiff         = new TH1D("hTrackVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
+TH1D* hRecoVertexDiff        = new TH1D("hRecoVertexDiff",         "Vertex Reco - MC", 100, 0, 50); 
 TH1D* hMCElasticAngle       = new TH1D("hMCElasticAngle", "Elastic Scattering Angle of Primary", 180, 0, 180);
 TH1D* hMCInelasticAngle     = new TH1D("hMCInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 180, 0, 180);
 TH1D* hMCInelasticOneVisDAngle = new TH1D("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
-TH1D* hRecoMCSecondaries  = new TH1D("hRecoMCSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
+TH1D* hRecoSecondaries  = new TH1D("hRecoSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
 TH1D* hMCSecondaries      = new TH1D("hMCSecondaries",     "True number of tracks leaving vertex", 10, 0, 10);
-TH1D* hSignalEff = new TH1D("hSignalEff", "Signal", 23, -50, 1100);
-TH1D* hRecoEff   = new TH1D("hRecoEff", "Reco", 23, -50, 1100);
-TH1D* hSignalPur = new TH1D("hSignalPur", "Signal", 23, -50, 1100);
-TH1D* hRecoPur   = new TH1D("hRecoPur", "Reco", 23, -50, 1100);
-TH1D* hEfficiencyKE = new TH1D("hEfficiencyKE", "Efficiency", 23, -50, 1100);
-TH1D* hPurityKE     = new TH1D("hPurityKE", "Purity", 23, -50, 1100);
+TH1D* hSignalEff = new TH1D("hSignalEff", "Signal", 22, 0, 1100);
+TH1D* hRecoEff   = new TH1D("hRecoEff", "Reco", 22, 0, 1100);
+TH1D* hSignalPur = new TH1D("hSignalPur", "Signal", 22, 0, 1100);
+TH1D* hRecoPur   = new TH1D("hRecoPur", "Reco", 22, 0, 1100);
+TH1D* hEfficiencyKE = new TH1D("hEfficiencyKE", "Efficiency", 22, 0, 1100);
+TH1D* hPurityKE     = new TH1D("hPurityKE", "Purity", 22, 0, 1100);
 TH1D* hOneSecondaryTheta = new TH1D("hOneSecondaryTheta", "Angle between primary and single secondary", 180, 0, 180);
 TH2D* hSmearingMatrix = new TH2D("hSmearingMatrix", "Kinetic Energy smearing matrix", 22, 0, 1100, 22, 0, 1100);
+TH1D* hIntTypeBkg = new TH1D("hIntTypeBkg", "Interacting Type Background", 22, 0, 1100);
+TH1D* hIntVertexBkg = new TH1D("hIntVertexBkg", "Interacting Vertex Background", 22, 0, 1100);
+TH1D* hIntSignalBkg = new TH1D("hIntSignalBkg", "Interacting Signal", 22, 0, 1100);
 
 
 
@@ -196,7 +202,7 @@ void myana::Loop(int inDebug)
     // ###########################################
     // ### If debug, only look at a sub sample ###
     // ###########################################
-    //if (inDebug == 1 && jentry%500 != 0) continue;
+    if (inDebug == 1 && jentry%1000 != 0) continue;
     if (inDebug == 1) cout << "InDubug: " << jentry << endl;
     IN_DEBUG = inDebug;
 
@@ -258,13 +264,12 @@ void myana::Loop(int inDebug)
       // ### Store the track id 
       g4PrimaryTrkId.push_back(TrackId[iG4]); 
 
-      // ### Store the interaction points, only if it's in the TPC
+      // ### Store the interaction points
       for (size_t iPt = 0; iPt < (*InteractionPoint).size(); iPt++)
       {
         auto p     = (*InteractionPoint)[iPt];
         auto ptype = (*InteractionPointType)[iPt]; 
         TVector3 pos(MidPosX[iPrim][p], MidPosY[iPrim][p], MidPosZ[iPrim][p]);
-        if (!InActiveRegion(pos)) continue;
 
         g4PrimaryInteractions[iPrim].emplace(p, ptype);
       }
@@ -314,15 +319,18 @@ void myana::Loop(int inDebug)
   
       // ### Store the trajectory points and momentum
       std::map<float, float> keMap;
-      for (int iPoint = 0; iPoint < NTrTrajPts[iG4]; iPoint++)
+      for (size_t iPoint = 0; iPoint < NTrTrajPts[iG4]; iPoint++)
       {
-        g4PrimaryTrTrjPos[iPrim].push_back( TVector3( MidPosX[iPrim][iPoint], MidPosY[iPrim][iPoint], MidPosZ[iPrim][iPoint]) );
-        g4PrimaryTrTrjMom[iPrim].push_back( 1000*TVector3( MidPx[iPrim][iPoint],   MidPy[iPrim][iPoint],   MidPz[iPrim][iPoint]) ); 
-        if (g4PrimaryTrTrjPos[iPrim].back().Z() < 0)
+        TVector3 pos(     MidPosX[iPrim][iPoint],    MidPosY[iPrim][iPoint],    MidPosZ[iPrim][iPoint] );
+        TVector3 mom(1000*MidPx[iPrim][iPoint], 1000*MidPy[iPrim][iPoint], 1000*MidPz[iPrim][iPoint] );
+        if (pos.Z() < 0)
         {
-          float ke = std::sqrt( g4PrimaryTrTrjMom[iPrim].back()*g4PrimaryTrTrjMom[iPrim].back() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; 
-          keMap.emplace(g4PrimaryTrTrjMom[iPrim].back().Z(), ke);
+          float ke = std::sqrt( mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; 
+          keMap.emplace(pos.Z(), ke);
         }
+        
+        g4PrimaryTrTrjPos[iPrim].push_back( pos );
+        g4PrimaryTrTrjMom[iPrim].push_back( mom );   
       }
 
       // ### Set the KE at z = 0
@@ -336,26 +344,27 @@ void myana::Loop(int inDebug)
     for (size_t iPrim = 0; iPrim < g4PrimaryInteractions.size(); iPrim++)
     {
       // ### Set the interacting variables
-      g4IsTrackInteracting.push_back( g4PrimaryInteractions[iPrim].size() > 0 ? true : false );
-
-      // ### If signal
+      bool isInterInTpc = false;
+      bool isSignal     = true;
       for (const auto& p : g4PrimaryInteractions[iPrim])
-      {
-        bool isTrackSignal = p.second.find("pi") != std::string::npos && p.second.find("Inelastic") != std::string::npos; 
-        g4IsTrackSignal.push_back( isTrackSignal ? true : false);
+      { 
+        if (InActiveRegion(g4PrimaryTrTrjPos[iPrim][p.first])) isInterInTpc = true;
+        isSignal = p.second.find("pi") != std::string::npos && p.second.find("Inelastic") != std::string::npos;
       }
+      g4IsTrackInteracting.push_back( isInterInTpc );
+      g4IsTrackSignal.push_back( isSignal );
     }
 
     // ### Sanity check...
+    // ( asserts won't work with the interpreter :( )
     size_t sc = g4PrimaryTrkId.size();
-    assert(g4PrimaryTrkId.size()       == sc && g4PrimaryInteractions.size() == sc &&
-           g4PrimaryPos0.size()        == sc && g4PrimaryPosf.size()      == sc &&   
-           g4PrimaryMom0.size()        == sc && g4PrimaryProjPos0.size()  == sc &&
-           g4PrimaryTrTrjPos.size()    == sc && g4PrimaryTrTrjMom.size()  == sc &&
-           g4IsTrackSignal.size()      == sc && 
-           g4IsTrackInteracting.size() == sc && g4PrimaryKEFF.size()      == sc &&
-           g4PrimaryMomf.size()        == sc && g4PrimarySubProcess.size() == sc);
-
+    if (g4PrimaryTrkId.size()       != sc || g4PrimaryInteractions.size() != sc ||
+        g4PrimaryPos0.size()        != sc || g4PrimaryPosf.size()         != sc ||   
+        g4PrimaryMom0.size()        != sc || g4PrimaryProjPos0.size()     != sc ||
+        g4PrimaryTrTrjPos.size()    != sc || g4PrimaryTrTrjMom.size()     != sc ||
+        g4IsTrackSignal.size()      != sc || 
+        g4IsTrackInteracting.size() != sc || g4PrimaryKEFF.size()         != sc ||
+        g4PrimaryMomf.size()        != sc || g4PrimarySubProcess.size()   != sc) {cout << "CHECK PRIMARY INFO SIZES!\n"; return;};
     
 // End looking at only MC truth/G4 information
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -392,11 +401,12 @@ void myana::Loop(int inDebug)
       for (size_t iPoint = 0; iPoint < g4PrimaryTrTrjPos[iPrim].size(); iPoint++)
       {
         // only look at the upstream portion
-        if ( g4PrimaryTrTrjPos[iPrim][iPoint].Z() > 0 ) continue;
+        if ( g4PrimaryTrTrjPos[iPrim][iPoint].Z() > 0 ) break;
         // ignore last point
         if ( (iPoint+1) >= g4PrimaryTrTrjPos[iPrim].size() ) break;
         auto mom1Vec = g4PrimaryTrTrjMom[iPrim][iPoint];
         auto mom2Vec = g4PrimaryTrTrjMom[iPrim][iPoint+1];
+
         float energy1 = std::sqrt( mom1Vec.Mag()*mom1Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS );
         float energy2 = std::sqrt( mom2Vec.Mag()*mom2Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS ); 
         energyLoss += (energy1 - energy2);
@@ -438,7 +448,7 @@ void myana::Loop(int inDebug)
       // ###################################
       // ### Loop over trajectory points ###
       // ###################################
-      for (size_t iTrjPoint = 1; iTrjPoint < nTrajPoint[iTrk]; iTrjPoint++)
+      for (int iTrjPoint = 1; iTrjPoint < nTrajPoint[iTrk]; iTrjPoint++)
       {
         // ######################
         // ### Fiducial check ###
@@ -551,11 +561,10 @@ void myana::Loop(int inDebug)
     }//<--- End iFrFaTrk loop
 
     // sanity check
-    assert( frontFaceTrkPos.size()  == frontFaceTrkP0Hat.size()   == 
-            frontFaceTrksPhi.size() == frontFaceTrksTheta.size()  == 
-            frontFaceTrksId.size() );
-
-    
+    sc = frontFaceTrksPos.size();
+    if ( frontFaceTrksPos.size() != sc || frontFaceTrksP0Hat.size() != sc || 
+         frontFaceTrksPhi.size() != sc || frontFaceTrksTheta.size() != sc ||
+         frontFaceTrksId.size()  != sc ) {cout << "CHECK FRONT FACE CONTAINER SIZES\n"; return;};
 
 
     // ======================================================
@@ -676,9 +685,9 @@ void myana::Loop(int inDebug)
  
     // ### Sanity check
     sc = pitchVec.size();
-    assert(pitchVec.size() == sc && dEdXVec.size()   == sc && 
-           eDepVec.size()  == sc && resRanVec.size() == sc && 
-           zPosVec.size()  == sc && posVec.size() == sc);
+    if (pitchVec.size() != sc || dEdXVec.size()   != sc || 
+        eDepVec.size()  != sc || resRanVec.size() != sc || 
+        zPosVec.size()  != sc || posVec.size()    != sc) {cout << "CHECK CALORIMETRY SIZES\n"; return;};
   
     if(IN_DEBUG) {std::cout << "Most downstream point from calorimetry is (" 
               << furthestInZCaloPoint.X() << ", "
@@ -693,7 +702,7 @@ void myana::Loop(int inDebug)
       hFurthestInZCaloX->Fill(furthestInZCaloPoint.X());
       hFurthestInZCaloY->Fill(furthestInZCaloPoint.Y());
       hFurthestInZCaloZ->Fill(furthestInZCaloPoint.Z());
-      if (InActiveRegion(furthestInZCaloPoint)) didDetermineInteracting = true;
+      if (InActiveRegion(furthestInZCaloPoint) && furthestInZCaloPoint.Z() < THROUGHGOING_Z_CUT) didDetermineInteracting = true;
     }
    
     // ### Make sure we have stuff here to work with, else next event
@@ -715,18 +724,9 @@ void myana::Loop(int inDebug)
     if(IN_DEBUG) std::cout << "\nSub process is " << g4PrimarySubProcess[0] << std::endl;
     if (didDetermineInteracting) didDetermineSignal = DetermineInelasticity(xsRecoTrkId, furthestInZCaloPoint);
 
-    // ### Get the kinetic energy at "WC 4" 
-    // (for single particle gun just use KE at z=0)
-    TVector3 theWCMom(0,0,0);
-    for (size_t iPt = 0; iPt < g4PrimaryTrTrjMom[0].size(); iPt++)
-    {
-      if (g4PrimaryTrTrjPos[0][iPt].Z() > 0) break;
-      theWCMom = g4PrimaryTrTrjMom[0][iPt];
-    }
-
     // ### This is the first incident KE
     std::vector<std::pair<TVector3, double>> recoIncidentKEVec;
-    double theWCKE = std::sqrt( theWCMom.Mag()*theWCMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+    auto theWCKE = g4PrimaryKEFF[0];
     recoIncidentKEVec.emplace_back(g4PrimaryProjPos0[0], theWCKE);
   
     // ### Fill the energy depositions
@@ -735,7 +735,7 @@ void myana::Loop(int inDebug)
     {
       // ### Exit if we've passed zero
       totalEnDep = totalEnDep + eDepVec[iDep];
-      if ((theWCKE - totalEnDep) < 0) break;
+      if ( (theWCKE - totalEnDep) < 0 ) break;
       recoIncidentKEVec.emplace_back(posVec[iDep], theWCKE - totalEnDep);
     }
 
@@ -752,25 +752,35 @@ void myana::Loop(int inDebug)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin performance evaluation
   
-    // ### Fill true ke here
-    std::vector<double> trueIncidentKEVec;
-    trueIncidentKEVec.push_back(recoIncidentKEVec[0].second); // at WC 4
-    
-    /*std::map<double, size_t> zPosMap;
-    std::map<double, TVector3> truePosMap;
-    for (size_t iPt = 0; iPt <= zPosMap.size(); iPt++) zPosMap.emplace(zPosVec[iPt], iPt);
-    for (size_t iPt = 0; iPt <= g4PrimaryTrTrjPos[0].size(); iPt++) truePosMap.emplace(g4PrimaryTrTrjPos[0].Z(), g4PrimaryTrTrjMom[0][iPt]);
+    // ### Fill interacting background plot
 
-    for (const auto& z : zPosMap)
+    // Get the true process only if the vertices match up
+    // This ensures we've truely identified an interaction
+    std::map<double, std::string> diffs;
+    for (const auto& p : g4PrimaryInteractions[0]) diffs.emplace( (furthestInZCaloPoint-g4PrimaryTrTrjPos[0][p.first]).Mag(), p.second );
+    if (diffs.size())
     {
-      for (const auto& tz : truePosMap)
+      auto nearestDiff = diffs.begin()->first;
+      auto nearestProc = diffs.begin()->second;
+
+      hRecoVertexDiff->Fill(nearestDiff);
+      
+      // if we've identified the vertex
+      if (nearestDiff < (188*SLAB_WIDTH))
       {
-        if (tz.first < z) continue;
-
+        // 1) If we determined signal but it's not
+        if (didDetermineSignal && nearestProc.find("pi-Inelastic") == std::string::npos) hIntTypeBkg->Fill(recoIncidentKEVec.back().second);
+        // we got it right!
+        else if (didDetermineSignal && nearestProc.find("pi-Inelastic") != std::string::npos) hIntSignalBkg->Fill(recoIncidentKEVec.back().second);
       }
-    }*/
+      // 2) Vertex misidentification
+      else hIntVertexBkg->Fill(recoIncidentKEVec.back().second);
+    }
 
-    for (const auto& recoPt : recoIncidentKEVec)
+
+
+    // ### Fill smearing matrix
+    /*for (const auto& recoPt : recoIncidentKEVec)
     {
       auto recoPos = recoPt.first;
       auto recoKE  = recoPt.second;
@@ -786,18 +796,19 @@ void myana::Loop(int inDebug)
         auto distance = (truePos-recoPos).Mag();
         if (distance < minDist) { minDist = distance; minPt = iPt;}
       }
-      if (minDist < 0.5*SLAB_WIDTH) 
+      
+      if (minDist < 0.5*(SLAB_WIDTH*100)) // convert to cm 
       {
         auto mom  = g4PrimaryTrTrjMom[0][minPt];
         double ke = std::sqrt(mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS) - PARTICLE_MASS;
         hSmearingMatrix->Fill(recoKE, ke);
         break;
       }
-    }
+    }*/
     
     
     
-/*
+    /*
     // ########################################
     // ### Fill plots for efficiency/purity ###
     // ########################################
@@ -875,7 +886,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
 
     double diffArr[2] = {diff1, diff2};
     size_t minId    = diffArr[0] < diffArr[1] ? 0 : 1;
-    hVertexDiff->Fill(diffArr[minId]);
+    hTrackVertexDiff->Fill(diffArr[minId]);
 
     if(IN_DEBUG)
     {
@@ -903,7 +914,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
   }//<-- End loop over trks
 
   if(IN_DEBUG) std::cout << "Tracks leaving = " << theTracksLeaving.size() << std::endl;
-  hRecoMCSecondaries->Fill(theTracksLeaving.size());
+  hRecoSecondaries->Fill(theTracksLeaving.size());
 
   // ### If there are zero visible tracks leaving this vertex, 
   if (theTracksLeaving.size() == 0) 
@@ -1034,6 +1045,7 @@ void myana::TruthStudies()
     auto posBefore = g4PrimaryTrTrjPos[0][p-1];
     auto posHere   = g4PrimaryTrTrjPos[0][p];
     auto primIncDir = (posHere-posBefore).Unit();
+    if (!InActiveRegion(posHere)) continue;
 
     // ### After
     if ( (p+1) < g4PrimaryTrTrjPos[0].size()) 
@@ -1057,6 +1069,7 @@ void myana::TruthStudies()
     auto posBefore = g4PrimaryTrTrjPos[0][p-1];
     auto posHere   = g4PrimaryTrTrjPos[0][p];
     auto primIncDir = (posHere-posBefore).Unit();
+    if (!InActiveRegion(posHere)) continue;
 
     // ### After
     if ( (p+1) < g4PrimaryTrTrjPos[0].size()) 
@@ -1110,6 +1123,7 @@ void myana::TruthStudies()
     auto posBefore = g4PrimaryTrTrjPos[0][p-1];
     auto posHere   = g4PrimaryTrTrjPos[0][p];
     auto primIncDir = (posHere-posBefore).Unit();
+    if (!InActiveRegion(posHere)) continue;
 
     // ### Make sure the primary ended here and has only 1 visible daughter
     if ( (p+1) < g4PrimaryTrTrjPos[0].size()) continue; // she lives! 
@@ -1235,7 +1249,8 @@ void MakePlots()
   }
 
   myRootFile.cd();
-
+  myRootFile.mkdir("wcToTpc/");
+  myRootFile.cd("wcToTpc/");
   hMCELossUpstream->Write();
   hMCPrimaryMissedTpcX->Write();  
   hMCPrimaryMissedTpcY->Write();  
@@ -1253,6 +1268,10 @@ void MakePlots()
   hTrueLength->Write();
   hDataUpstreamZPos->Write();
   hAlpha->Write();
+
+  myRootFile.cd();
+  myRootFile.mkdir("reco/");
+  myRootFile.cd("reco/");
   hRecoMCIncidentKE->Write();
   hRecoMCInteractingKE->Write();
   hRecoXSKE->Write();
@@ -1260,14 +1279,22 @@ void MakePlots()
   hFurthestInZCaloY->Write();
   hFurthestInZCaloZ->Write();
   hSecondaryLength->Write();
-  hVertexDiff     ->Write();
+  hTrackVertexDiff->Write();
+  hRecoSecondaries->Write();
+  hOneSecondaryTheta->Write();
+  hSmearingMatrix->Write();
+  hIntTypeBkg  ->Write();
+  hIntVertexBkg->Write();
+  hIntSignalBkg->Write();
+  hRecoVertexDiff->Write();
+
+  myRootFile.cd();
+  myRootFile.mkdir("mc/");
+  myRootFile.cd("mc/");
   hMCElasticAngle->Write();
   hMCInelasticAngle->Write();
   hMCInelasticOneVisDAngle->Write();
   hMCSecondaries->Write();
-  hRecoMCSecondaries->Write();
-  hOneSecondaryTheta->Write();
-  hSmearingMatrix->Write();
 
   myRootFile.Close();
 }

@@ -7,7 +7,7 @@ void makeSmearingPlot()
   f->GetObject("hSmearingMatrix", hS);
   if (!hS) {cout << "Nope\n"; return;}
 
-  gStyle->SetPaintTextFormat("4.1f");
+  gStyle->SetPaintTextFormat("4.3f");
   gStyle->SetPalette(kBlueRedYellow);
   hS->Draw("colz text");
 }
