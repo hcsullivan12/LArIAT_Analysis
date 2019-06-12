@@ -164,6 +164,12 @@ TH1D* hIntVertexBkg = new TH1D("hIntVertexBkg", "Interacting Vertex Background",
 TH1D* hIntSignalBkg = new TH1D("hIntSignalBkg", "Interacting Signal", 22, 0, 1100);
 TH1D* hMCIncidentKE = new TH1D("hMCIncidentKE", "True Incident", 22, 0, 1100);
 TH1D* hMCInteractingKE = new TH1D("hMCInteractingKE", "True Interacting", 22, 0, 1100);
+TH1D* hMCFirstInTpcPointX = new TH1D("hMCFirstInTpcPointX", "MC First Point in TPC X", 1000, TPC_X_BOUND[0], TPC_X_BOUND[1]);
+TH1D* hMCFirstInTpcPointY = new TH1D("hMCFirstInTpcPointY", "MC First Point in TPC Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
+TH1D* hMCFirstInTpcPointZ = new TH1D("hMCFirstInTpcPointZ", "MC First Point in TPC Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
+TH1D* hRecoFirstInTpcPointX = new TH1D("hRecoFirstInTpcPointX", "Reco First Point in TPC X", 1000, TPC_X_BOUND[0], TPC_X_BOUND[1]);
+TH1D* hRecoFirstInTpcPointY = new TH1D("hRecoFirstInTpcPointY", "Reco First Point in TPC Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
+TH1D* hRecoFirstInTpcPointZ = new TH1D("hRecoFirstInTpcPointZ", "Reco First Point in TPC Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
 
 
 
@@ -651,10 +657,13 @@ void myana::Loop(int inDebug)
     // ### We need the calorimetry information for the track
     // ### Just in case tracking is backwards
     bool isInvertedTracking = false;
-    TVector3 realFirstValidPt( trjPt_X[xsRecoTrkId][0],            trjPt_Y[xsRecoTrkId][0],            trjPt_Z[xsRecoTrkId][0] );
+    TVector3 realFirstValidPt( trjPt_X[xsRecoTrkId][0], trjPt_Y[xsRecoTrkId][0], trjPt_Z[xsRecoTrkId][0] );
     TVector3 realLastValidPt ( trjPt_X[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1], trjPt_Y[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1], trjPt_Z[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1] );
 
     if ( realFirstValidPt.Z() - realLastValidPt.Z() > 0) isInvertedTracking = true;
+    hRecoFirstInTpcPointX->Fill(realFirstValidPt.X());
+    hRecoFirstInTpcPointY->Fill(realFirstValidPt.Y());
+    hRecoFirstInTpcPointZ->Fill(realFirstValidPt.Z());
 
     // ### Loop over calos
     for (size_t j = 0; j < trkhits[xsRecoTrkId][1]; j++)
@@ -788,7 +797,7 @@ void myana::Loop(int inDebug)
 
 
     // ### Fill smearing matrix
-    /*for (const auto& recoPt : recoIncidentKEVec)
+    for (const auto& recoPt : recoIncidentKEVec)
     {
       auto recoPos = recoPt.first;
       auto recoKE  = recoPt.second;
@@ -812,7 +821,7 @@ void myana::Loop(int inDebug)
         hSmearingMatrix->Fill(recoKE, ke);
         break;
       }
-    }*/
+    }
     
     
     
@@ -1189,13 +1198,13 @@ void myana::RecoStudies(const size_t& xsRecoTrkId)
 void MakePlots()
 {
   // ### Make the mc XS plot
-  for (int iBin = 0; iBin <= hMCIncidentKE->GetNbinsX(); iBin++)
+  for (int iBin = 1; iBin <= hMCIncidentKE->GetNbinsX(); iBin++)
   {
     if (hMCIncidentKE->GetBinContent(iBin) == 0) continue;
 
     // ### our cross section
     float tempXS = (hMCInteractingKE->GetBinContent(iBin)/hMCIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
-    hRecoXSKE->SetBinContent(iBin, tempXS);
+    hMCXSKE->SetBinContent(iBin, tempXS);
 
     // ### incident taken as poissonian
     float denomError = std::sqrt(hMCIncidentKE->GetBinContent(iBin));
@@ -1220,7 +1229,7 @@ void MakePlots()
   }
 
   // ### Make the reco XS plot
-  for (int iBin = 0; iBin <= hRecoIncidentKE->GetNbinsX(); iBin++)
+  for (int iBin = 1; iBin <= hRecoIncidentKE->GetNbinsX(); iBin++)
   {
     if (hRecoIncidentKE->GetBinContent(iBin) == 0) continue;
 
@@ -1326,6 +1335,9 @@ void MakePlots()
   hIntVertexBkg->Write();
   hIntSignalBkg->Write();
   hRecoVertexDiff->Write();
+  hRecoFirstInTpcPointX->Write();
+  hRecoFirstInTpcPointY->Write();
+  hRecoFirstInTpcPointZ->Write();
 
   myRootFile.cd();
   myRootFile.mkdir("mc/");
@@ -1337,6 +1349,10 @@ void MakePlots()
   hMCIncidentKE->Write();
   hMCInteractingKE->Write();
   hMCXSKE->Write();
+  hMCFirstInTpcPointX->Write();
+  hMCFirstInTpcPointY->Write();
+  hMCFirstInTpcPointZ->Write();
+
 
   myRootFile.Close();
 }
@@ -1430,26 +1446,47 @@ void myana::TruthXS()
   for(size_t iPt = 0; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
   {
     auto thePos = g4PrimaryTrTrjPos[0][iPt];
-    if (thePos.Z() < TPC_Z_BOUND[0]) continue;
+    if (thePos.Z() < FV_Z_BOUND[0]) continue;
 
     orderedPoints[thePos.Z()] = thePos;
     firstPos = thePos;
     break;
   }
+  hMCFirstInTpcPointX->Fill(firstPos.X());
+  hMCFirstInTpcPointY->Fill(firstPos.Y());
+  hMCFirstInTpcPointZ->Fill(firstPos.Z());
 
-  // Get the last tpc point
+  // Get the last interesting tpc point
   auto lastPos = g4PrimaryPosf[0];
-  for(size_t iPt = (g4PrimaryTrTrjPos[0].size()-1); iPt > 0; iPt--)
+  bool keepInteraction = false;
+  for (const auto& p : g4PrimaryInteractions[0])
   {
-    auto thePos = g4PrimaryTrTrjPos[0][iPt];
-    if (thePos.Z() > TPC_Z_BOUND[1]) continue;
-    lastPos = thePos;
+    // These should already be ordered 
+    auto thePoint = p.first;
+    auto theInt   = p.second;
+    auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
+
+    // not interested in coulomb scat or larvoxel or readout
+    if (theInt.find("CoulombScat")  != std::string::npos) continue;
+    if (theInt.find("LArVoxel")     != std::string::npos) continue;
+    if (theInt.find("OpDetReadout") != std::string::npos) continue;
+
+    if (!InActiveRegion(thePos)) continue;
+
+    keepInteraction = true;
     break;
   }
+  /*for(size_t iPt = (g4PrimaryTrTrjPos[0].size()-1); iPt > 0; iPt--)
+  {
+    auto thePos = g4PrimaryTrTrjPos[0][iPt];
+    if (thePos.Z() > FV_Z_BOUND[1]) continue;
+    lastPos = thePos;
+    break;
+  }*/
 
   // Get the first interaction point
   std::string intLabel = "none";
-  if (g4PrimaryInteractions[0].size()) 
+  /*if (g4PrimaryInteractions[0].size()) 
   {
     auto thePoint = g4PrimaryInteractions[0].begin()->first;
     auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
@@ -1457,7 +1494,9 @@ void myana::TruthXS()
     lastPos = thePos;
     intLabel = g4PrimaryInteractions[0].begin()->second;
   }
-  else orderedPoints[lastPos.Z()] = lastPos;
+  else orderedPoints[lastPos.Z()] = lastPos;*/
+
+
 
   // Create our new points
   auto totalLength = (lastPos-firstPos).Mag();
@@ -1495,11 +1534,11 @@ void myana::TruthXS()
     if (currentEnDep/thisLength < 0.1) continue;
 
     kinEn = kinEn - currentEnDep;
-    if (kinEn < 0) continue;
+    if (kinEn <= 1.) continue;
 
     hMCIncidentKE->Fill(kinEn);
   }
-  if (intLabel.find("pi-Inelastic") != std::string::npos) hMCInteractingKE->Fill(kinEn);
+  if (kinEn > 1. && intLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
 }
 
 
