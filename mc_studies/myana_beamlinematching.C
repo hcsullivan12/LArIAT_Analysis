@@ -11,6 +11,7 @@
 // ============================================================================================
 void MakePlots();
 void ComputeAngles(float& phi, float& theta, const TVector3& p0Hat);
+void PreWCtoTPCStudies();
 std::string ConvertProcessToString(const int& i);
 void CalculateG4Xs();
 bool InActiveRegion(const TVector3& thePos);
@@ -380,11 +381,8 @@ void myana::Loop(int inDebug)
 // End looking at only MC truth/G4 information
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  // ### Let's do some truth studies
-  TruthStudies();
-
-  // ### Make MC XS plots
-  TruthXS();
+    // ### Let's do some Pre-Matching studies
+    PreWCtoTPCStudies();
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin apply "WC to TPC" cuts
@@ -634,6 +632,12 @@ void myana::Loop(int inDebug)
     
     // ### Let's do some recon studies
     RecoStudies(xsRecoTrkId);
+
+    // ### Let's do some truth studies
+    TruthStudies();
+
+    // ### Make MC XS plots
+    TruthXS();
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin tracking our matched track
@@ -1442,22 +1446,28 @@ void myana::TruthXS()
   std::map<double, TVector3> orderedPoints;
   
   // Get the first tpc point
-  auto firstPos = g4PrimaryPos0[0];
+  auto firstPos  = g4PrimaryPos0[0];
+  double firstKE = g4PrimaryKEFF[0];
   for(size_t iPt = 0; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
   {
     auto thePos = g4PrimaryTrTrjPos[0][iPt];
+    auto theMom = g4PrimaryTrTrjMom[0][iPt];
     if (thePos.Z() < FV_Z_BOUND[0]) continue;
+    if (!InActiveRegion(thePos)) continue;
 
     orderedPoints[thePos.Z()] = thePos;
     firstPos = thePos;
+    firstKE  = std::sqrt( theMom.Mag()*theMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
     break;
   }
   hMCFirstInTpcPointX->Fill(firstPos.X());
   hMCFirstInTpcPointY->Fill(firstPos.Y());
   hMCFirstInTpcPointZ->Fill(firstPos.Z());
 
-  // Get the last interesting tpc point
+  // Get the first interesting tpc point
+  // This is either an interaction vertex or the last tpc point downstream
   auto lastPos = g4PrimaryPosf[0];
+  std::string theInteractionLabel = "none";
   bool keepInteraction = false;
   for (const auto& p : g4PrimaryInteractions[0])
   {
@@ -1473,33 +1483,28 @@ void myana::TruthXS()
 
     if (!InActiveRegion(thePos)) continue;
 
+    theInteractionLabel = theInt;
     keepInteraction = true;
     break;
   }
-  /*for(size_t iPt = (g4PrimaryTrTrjPos[0].size()-1); iPt > 0; iPt--)
+  if (!keepInteraction)
   {
-    auto thePos = g4PrimaryTrTrjPos[0][iPt];
-    if (thePos.Z() > FV_Z_BOUND[1]) continue;
-    lastPos = thePos;
-    break;
-  }*/
+    for(size_t iPt = (g4PrimaryTrTrjPos[0].size()-1); iPt > 0; iPt--)
+    {
+      auto thePos = g4PrimaryTrTrjPos[0][iPt];
+      if (thePos.Z() > FV_Z_BOUND[1]) continue;
+      if (!InActiveRegion(thePos)) continue;
 
-  // Get the first interaction point
-  std::string intLabel = "none";
-  /*if (g4PrimaryInteractions[0].size()) 
-  {
-    auto thePoint = g4PrimaryInteractions[0].begin()->first;
-    auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
-    orderedPoints[thePos.Z()] = thePos;
-    lastPos = thePos;
-    intLabel = g4PrimaryInteractions[0].begin()->second;
+      lastPos = thePos;
+      break;
+    }
   }
-  else orderedPoints[lastPos.Z()] = lastPos;*/
 
-
+  // leave if we've got no track
+  auto totalLength = (lastPos-firstPos).Mag();
+  if (totalLength <= 100*SLAB_WIDTH) return;
 
   // Create our new points
-  auto totalLength = (lastPos-firstPos).Mag();
   size_t nPts = (int)(totalLength/(100*SLAB_WIDTH));
   for (size_t iPt = 1; iPt <= nPts; iPt++)
   {
@@ -1508,8 +1513,7 @@ void myana::TruthXS()
   }
 
   // ### Start filling the histograms
-  double kinEn = g4PrimaryKEFF[0];
-
+  double kinEn = firstKE;
   auto oldIt = orderedPoints.begin();
   for (auto it = std::next(orderedPoints.begin()); it != orderedPoints.end(); it++, oldIt++)
   {
@@ -1538,8 +1542,44 @@ void myana::TruthXS()
 
     hMCIncidentKE->Fill(kinEn);
   }
-  if (kinEn > 1. && intLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
+  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
 }
+
+
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Pre WC to TPC studies
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void PreWCtoTPCStudies()
+{
+  // ### How many pions entered TPC and first interaction was inelastic
+  // ### Get the first interesting tpc point
+  for (const auto& p : g4PrimaryInteractions[0])
+  {
+    // These should already be ordered 
+    auto thePoint = p.first;
+    auto theInt   = p.second;
+    auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
+    auto theMom   = g4PrimaryTrTrjMom[0][thePoint];
+    auto kinEn    = std::sqrt( theMom.Mag()*theMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+
+    // not interested in coulomb scat or larvoxel or readout
+    if (theInt.find("CoulombScat")  != std::string::npos) continue;
+    if (theInt.find("LArVoxel")     != std::string::npos) continue;
+    if (theInt.find("OpDetReadout") != std::string::npos) continue;
+
+    if (!InActiveRegion(thePos)) continue;
+
+    // first interesting point in tpc
+    // fill histo
+    if (hMCPreWCtoTPCInteractingKE->Fill()
+    break;
+  }
+}
+
+
+
 
 
 

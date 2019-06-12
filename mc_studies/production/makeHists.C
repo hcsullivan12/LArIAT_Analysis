@@ -84,6 +84,25 @@ void makeSmearingPlots()
   gStyle->SetPaintTextFormat("4.3f");
   gStyle->SetPalette(kBlueRedYellow);
   hS->Draw("colz text");
+
+  hS->GetXaxis()->SetTitle("Reconstructed KE (MeV)");
+  hS->GetYaxis()->SetTitle("True KE (MeV)");
+
+  // get avg smearing along diagonal
+  float sum = 0;
+  size_t count = 0;
+  for(size_t iBinX = 0; iBinX < hS->GetXaxis()->GetNbins(); iBinX++)
+  {
+    for(size_t iBinY = 0; iBinY < hS->GetYaxis()->GetNbins(); iBinY++)
+    {
+      if (iBinX != iBinY) continue;
+      auto content = hS->GetBinContent(iBinX, iBinY);
+      sum = sum + content;
+      count++;
+    }
+  }
+  cout << "Average smearing along diagonal = " << sum/count << endl;
+  
 }
 
 void makeEfficiencyPlots()
