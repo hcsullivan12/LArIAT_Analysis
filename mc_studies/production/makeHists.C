@@ -1,6 +1,15 @@
 TFile* anaFile;
+TH1D* hMCInc = nullptr;
+TH1D* hMCInt = nullptr;
+TH1D* hRecoInc = nullptr;
+TH1D* hRecoInt = nullptr;
+TH1D* hEffInc  = nullptr;
+TH1D* hEffInt  = nullptr;
+TH1D* hG4XS    = nullptr;
+TH2D* hS = nullptr;
+TH1D* hRecoRawXS = nullptr;
 
-void makeXsPlots()
+void makeMCXsPlots()
 {
   gStyle->SetOptStat(0);
 
@@ -17,7 +26,7 @@ void makeXsPlots()
 
   // make a histogram of g4 xs
   auto nBins = hMCXS->GetXaxis()->GetNbins();
-  TH1D *hG4XS = new TH1D("hG4XS", "G4 Prediction", nBins, 0, 50*nBins);
+  hG4XS = new TH1D("hG4XS", "G4 Prediction", nBins, 0, 50*nBins);
   
   for (size_t iBin = 1; iBin <= nBins; iBin++)
   {
@@ -98,8 +107,6 @@ void makeAnglePlots()
 
 void makeSmearingPlots()
 {
-  TH2D* hS = nullptr;
-
   anaFile->GetObject("reco/hSmearingMatrix", hS);
   if (!hS) {cout << "Nope\n"; return;}
 
@@ -135,41 +142,56 @@ void makeSmearingPlots()
 
 void makeEfficiencyPlots()
 {
-  TH1D* hMCInc = nullptr;
-  TH1D* hMCInt = nullptr;
-  TH1D* hRecoInc = nullptr;
-  TH1D* hRecoInt = nullptr;
-
   anaFile->GetObject("mc/hMCIncidentKE", hMCInc);
   anaFile->GetObject("mc/hMCInteractingKE", hMCInt);
   anaFile->GetObject("reco/hRecoIncidentKE", hRecoInc);
   anaFile->GetObject("reco/hRecoInteractingKE", hRecoInt);
+  anaFile->GetObject("reco/hRecoXSKE", hRecoRawXS);
 
-  if (!hMCInc || !hMCInt || !hRecoInc || !hRecoInt) {cout<<"Nope\n"; return;}
+  if (!hMCInc || !hMCInt || !hRecoInc || !hRecoInt || !hRecoRawXS) {cout<<"Nope\n"; return;}
   
+  TCanvas *c3 = new TCanvas("rawxs", "c3", 800, 800);
+  hRecoRawXS->GetXaxis()->SetTitle("Kinetic Energy (MeV)");
+  hRecoRawXS->GetYaxis()->SetTitle("Cross Section (MeV)");
+  //hG4XS->Draw();
+  hRecoRawXS->Draw();
+
   size_t nBins = hMCInc->GetXaxis()->GetNbins();
-  TH1D* hEffInc = new TH1D("hEffInc", "Incident Efficiency", nBins, 0, nBins*50. );
-  TH1D* hEffInt = new TH1D("hEffInt", "Interacting Efficiency", nBins, 0, nBins*50. );
+  hEffInc = new TH1D("hEffInc", "Incident Efficiency", nBins, 0, nBins*50. );
+  hEffInt = new TH1D("hEffInt", "Interacting Efficiency", nBins, 0, nBins*50. );
   
   std::vector<TH1D*> mcKE   = {hMCInt,   hMCInc};
   std::vector<TH1D*> recoKE = {hRecoInt, hRecoInc};
   std::vector<TH1D*> effKE  = {hEffInt,  hEffInc};
 
-  for (size_t iBin = 2; iBin <= nBins; iBin++)
+  for (size_t iBin = 2; iBin < nBins; iBin++)
   {
     // int
     if (mcKE[0]->GetBinContent(iBin)!=0)
     {
-      auto intEff = recoKE[0]->GetBinContent(iBin)/mcKE[0]->GetBinContent(iBin);
+      auto num = recoKE[0]->GetBinContent(iBin);
+      auto den = mcKE[0]->GetBinContent(iBin);
+      auto intEff = num/den;
+      double error = intEff * ( std::sqrt(num)/num + std::sqrt(den)/den );
       effKE[0]->SetBinContent(iBin, intEff);
+      effKE[0]->SetBinError(iBin, error);
     }
     // inc
     if (mcKE[1]->GetBinContent(iBin)!=0)
     {
-      auto incEff = recoKE[1]->GetBinContent(iBin)/mcKE[1]->GetBinContent(iBin);
+      auto num = recoKE[1]->GetBinContent(iBin);
+      auto den = mcKE[1]->GetBinContent(iBin);
+      auto incEff = num/den;
+      double error = incEff * ( std::sqrt(num)/num + std::sqrt(den)/den );
       effKE[1]->SetBinContent(iBin, incEff);
+      effKE[1]->SetBinError(iBin, error);
     }
   }
+
+  effKE[0]->GetXaxis()->SetTitle("Kinetic Energy (MeV)");
+  effKE[0]->GetYaxis()->SetTitle("#epsilon_{int}");
+  effKE[1]->GetXaxis()->SetTitle("Kinetic Energy (MeV)");
+  effKE[1]->GetYaxis()->SetTitle("#epsilon_{inc}");
 
   TCanvas* c1 = new TCanvas("effInt", "effInt", 800, 800);
   effKE[0]->Draw();
@@ -177,12 +199,44 @@ void makeEfficiencyPlots()
   effKE[1]->Draw();
 }
 
+void makeRecoXsPlots()
+{
+  size_t nBins = hRecoInc->GetXaxis()->GetNbins();
+  TH1D* hEffCorrXS = new TH1D("hEffCorrXS", "Efficiency Corrected XS", nBins, 0, 50*nBins);
+
+  for (size_t iBin = 2; iBin < nBins; iBin++)
+  {
+    double intEff     = hEffInt->GetBinContent(iBin);
+    double intErr     = hEffInt->GetBinError(iBin);
+    double incEff     = hEffInc->GetBinContent(iBin);
+    double incErr     = hEffInc->GetBinError(iBin);
+    
+    //cout << iBin << " " << intContent << " " << incContent << " " << intContent/incContent <<  endl;
+
+    double xs = hRecoRawXS->GetBinContent(iBin);
+    double xsErr = hRecoRawXS->GetBinError(iBin);
+    
+    double effCorrXS = (incEff/intEff) * xs;
+    double error = effCorrXS * ( intErr/intEff + incErr/intEff );
+
+    hEffCorrXS->SetBinContent( iBin, effCorrXS );
+    hEffCorrXS->SetBinError( iBin, error );
+  }
+
+  TCanvas* c1 = new TCanvas("effcorrectedxs", "c1", 800, 800);
+  hEffCorrXS->GetXaxis()->SetTitle("Kinetic Energy (MeV)");
+  hEffCorrXS->GetYaxis()->SetTitle("Cross section (MeV)");  
+  hEffCorrXS->Draw();
+  hG4XS->Draw("same");
+}
+
 void makeHists()
 {
   anaFile = new TFile("piMinusAna.root", "READ");
 
-  makeXsPlots();
+  makeMCXsPlots();
   makeAnglePlots();
   makeSmearingPlots();
   makeEfficiencyPlots();
+  makeRecoXsPlots();
 }
