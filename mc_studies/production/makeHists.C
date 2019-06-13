@@ -89,20 +89,25 @@ void makeSmearingPlots()
   hS->GetYaxis()->SetTitle("True KE (MeV)");
 
   // get avg smearing along diagonal
-  float sum = 0;
-  size_t count = 0;
+  float sum1 = 0;
+  size_t count1 = 0;
+  float sum2 = 0;
+  size_t count2 = 0;
   for(size_t iBinX = 0; iBinX < hS->GetXaxis()->GetNbins(); iBinX++)
   {
     for(size_t iBinY = 0; iBinY < hS->GetYaxis()->GetNbins(); iBinY++)
     {
       if (iBinX != iBinY) continue;
       auto content = hS->GetBinContent(iBinX, iBinY);
-      sum = sum + content;
-      count++;
+      sum1 = sum1 + content;
+      count1++;
+
+      auto center = hS->GetXaxis()->GetBinCenter(iBinX);
+      if (center >= 500) {sum2 = sum2+content; count2++;}
     }
   }
-  cout << "Average smearing along diagonal = " << sum/count << endl;
-  
+  cout << "Average smearing along diagonal = " << sum1/count1 << endl;
+  cout << "Average about 500 MeV = " << sum2/count2 << endl;
 }
 
 void makeEfficiencyPlots()

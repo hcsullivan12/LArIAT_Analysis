@@ -11,13 +11,16 @@
 // ============================================================================================
 void MakePlots();
 void ComputeAngles(float& phi, float& theta, const TVector3& p0Hat);
-void PreWCtoTPCStudies();
 std::string ConvertProcessToString(const int& i);
 void CalculateG4Xs();
 bool InActiveRegion(const TVector3& thePos);
 bool InTPCRegion(const TVector3& thePos);
 void BeginJob();
 inline void PrintVec(const TVector3& pos) {std::cout<<"\t("<<pos.X()<<", "<<pos.Y()<<", "<<pos.Z()<<")\n";};
+
+// mass of pion in MeV
+float PARTICLE_MASS(139.57); 
+inline double ToKineticEnergy(const TVector3& mom){return std::sqrt( mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; }
 
 
 // ==================================================================================================
@@ -48,9 +51,6 @@ float TPC_Z_BOUND[2] = {   0.0, 90.0 };
 float FV_X_BOUND[2] = {   2.0, 45.0 };
 float FV_Y_BOUND[2] = { -18.0, 18.0 };
 float FV_Z_BOUND[2] = {   0.0, 88.0 };
-
-// mass of pion in MeV
-float PARTICLE_MASS(139.57); 
 
 // number of centimeters in Z we require a track to have a spacepoint
 float FIRST_SP_Z_POS(4.0);
@@ -141,9 +141,9 @@ TH1D *hRecoIncidentKE = new TH1D("hRecoIncidentKE", "Incident for Reconstructed 
 TH1D *hRecoInteractingKE = new TH1D("hRecoInteractingKE", "Interacting for Reconstructed MC", 22, 0, 1100);
 TH1D *hRecoXSKE            = new TH1D("hRecoXSKE", "Reconstruced XS", 22, 0, 1100);
 TH1D *hMCXSKE            = new TH1D("hMCXSKE", "True XS", 22, 0, 1100);
-TH1D *hFurthestInZCaloX = new TH1D("hFurtherstInZCaloX", "Most downstream in TPC Calorimetry X", 1000, TPC_X_BOUND[0], TPC_X_BOUND[1]);
-TH1D *hFurthestInZCaloY = new TH1D("hFurtherstInZCaloY", "Most downstream in TPC Calorimetry Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
-TH1D *hFurthestInZCaloZ = new TH1D("hFurtherstInZCaloZ", "Most downstream in TPC Calorimetry Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
+TH1D *hFurthestInZCaloX = new TH1D("hFurtherstInZCaloX", "Most downstream in TPC Calorimetry X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
+TH1D *hFurthestInZCaloY = new TH1D("hFurtherstInZCaloY", "Most downstream in TPC Calorimetry Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
+TH1D *hFurthestInZCaloZ = new TH1D("hFurtherstInZCaloZ", "Most downstream in TPC Calorimetry Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
 TH1D* hSecondaryLength    = new TH1D("hSecondaryLength",     "Length of Secondary Tracks", 100, 0, 100);
 TH1D* hTrackVertexDiff         = new TH1D("hTrackVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
 TH1D* hRecoVertexDiff        = new TH1D("hRecoVertexDiff",         "Vertex Reco - MC", 100, 0, 50); 
@@ -165,14 +165,18 @@ TH1D* hIntVertexBkg = new TH1D("hIntVertexBkg", "Interacting Vertex Background",
 TH1D* hIntSignalBkg = new TH1D("hIntSignalBkg", "Interacting Signal", 22, 0, 1100);
 TH1D* hMCIncidentKE = new TH1D("hMCIncidentKE", "True Incident", 22, 0, 1100);
 TH1D* hMCInteractingKE = new TH1D("hMCInteractingKE", "True Interacting", 22, 0, 1100);
-TH1D* hMCFirstInTpcPointX = new TH1D("hMCFirstInTpcPointX", "MC First Point in TPC X", 1000, TPC_X_BOUND[0], TPC_X_BOUND[1]);
-TH1D* hMCFirstInTpcPointY = new TH1D("hMCFirstInTpcPointY", "MC First Point in TPC Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
-TH1D* hMCFirstInTpcPointZ = new TH1D("hMCFirstInTpcPointZ", "MC First Point in TPC Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
-TH1D* hRecoFirstInTpcPointX = new TH1D("hRecoFirstInTpcPointX", "Reco First Point in TPC X", 1000, TPC_X_BOUND[0], TPC_X_BOUND[1]);
-TH1D* hRecoFirstInTpcPointY = new TH1D("hRecoFirstInTpcPointY", "Reco First Point in TPC Y", 1000, TPC_Y_BOUND[0], TPC_Y_BOUND[1]);
-TH1D* hRecoFirstInTpcPointZ = new TH1D("hRecoFirstInTpcPointZ", "Reco First Point in TPC Z", 1000, TPC_Z_BOUND[0], TPC_Z_BOUND[1]);
-
-
+TH1D* hMCFirstInTpcPointX = new TH1D("hMCFirstInTpcPointX", "MC First Point in TPC X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
+TH1D* hMCFirstInTpcPointY = new TH1D("hMCFirstInTpcPointY", "MC First Point in TPC Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
+TH1D* hMCFirstInTpcPointZ = new TH1D("hMCFirstInTpcPointZ", "MC First Point in TPC Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hRecoFirstInTpcPointX = new TH1D("hRecoFirstInTpcPointX", "Reco First Point in TPC X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
+TH1D* hRecoFirstInTpcPointY = new TH1D("hRecoFirstInTpcPointY", "Reco First Point in TPC Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
+TH1D* hRecoFirstInTpcPointZ = new TH1D("hRecoFirstInTpcPointZ", "Reco First Point in TPC Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hMCPreWCtoTPCInteractingKE = new TH1D("hMCPreWCtoTPCInteractingKE", "Pre WC to TPC Match True Incident", 22, 0, 1100);
+TH1D* hMCPreWCtoTPCIncidentKE = new TH1D("hMCPreWCtoTPCIncidentKE", "Pre WC to TPC Match True Incident", 22, 0, 1100);
+TH1D* hMCLastPosFirstIntPosDiff = new TH1D("hMCLastPosFirstIntPosDiff", "MC Last Position - First Interacting Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hMCLastPosZ = new TH1D("hMCLastPosZ", "MC Last Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hMCUniformZ = new TH1D("hMCUniformZ", "MC Uniform Z", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hMCEnDep = new TH1D("hMCEnDep", "MC Energy Deposits", 200, -100, 100);
 
 
 
@@ -335,11 +339,7 @@ void myana::Loop(int inDebug)
       {
         TVector3 pos(     MidPosX[iPrim][iPoint],    MidPosY[iPrim][iPoint],    MidPosZ[iPrim][iPoint] );
         TVector3 mom(1000*MidPx[iPrim][iPoint], 1000*MidPy[iPrim][iPoint], 1000*MidPz[iPrim][iPoint] );
-        if (pos.Z() < 0)
-        {
-          float ke = std::sqrt( mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; 
-          keMap.emplace(pos.Z(), ke);
-        }
+        if (pos.Z() < 0) keMap.emplace(pos.Z(), ToKineticEnergy(mom));
         
         g4PrimaryTrTrjPos[iPrim].push_back( pos );
         g4PrimaryTrTrjMom[iPrim].push_back( mom );   
@@ -1356,7 +1356,12 @@ void MakePlots()
   hMCFirstInTpcPointX->Write();
   hMCFirstInTpcPointY->Write();
   hMCFirstInTpcPointZ->Write();
-
+  hMCPreWCtoTPCIncidentKE->Write();
+  hMCPreWCtoTPCInteractingKE->Write();
+  hMCLastPosFirstIntPosDiff->Write();
+  hMCLastPosZ->Write();
+  hMCUniformZ->Write();
+  hMCEnDep->Write();
 
   myRootFile.Close();
 }
@@ -1441,13 +1446,148 @@ bool InTPCRegion( const TVector3& thePos  )
 // %%% Truth XS
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void myana::TruthXS()
-{
+{ 
+  // Get the first tpc point
+  auto firstPos  = g4PrimaryPos0[0];
+  double firstKE = g4PrimaryKEFF[0];
+  bool didEnter = false;
+  for(size_t iPt = 0; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
+  {
+    auto thePos = g4PrimaryTrTrjPos[0][iPt];
+    auto theMom = g4PrimaryTrTrjMom[0][iPt];
+    // from reco distribution
+    if (thePos.Z() < 2.8) continue;
+    if (!InActiveRegion(thePos)) continue;
+
+    // this is our first position
+    firstPos = thePos;
+    firstKE  = ToKineticEnergy(theMom);
+    didEnter = true;
+    break;
+  }
+
+  // leave if we didn't enter the tpc 
+  if (!didEnter) return;
+
+  hMCFirstInTpcPointX->Fill(firstPos.X());
+  hMCFirstInTpcPointY->Fill(firstPos.Y());
+  hMCFirstInTpcPointZ->Fill(firstPos.Z());
+
+  // Get the first interesting tpc point
+  // This is either an interaction vertex or the last tpc point downstream
+  auto lastPos = g4PrimaryPosf[0];
+  std::string theInteractionLabel = "none";
+  bool keepInteraction = false;
+  size_t tempPoint = 0;
+  for (const auto& p : g4PrimaryInteractions[0])
+  {
+    // These should already be ordered 
+    auto thePoint = p.first;
+    auto theInt   = p.second;
+    auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
+
+    // not interested in coulomb scat or larvoxel or readout
+    if (theInt.find("CoulombScat")  != std::string::npos) continue;
+    if (theInt.find("LArVoxel")     != std::string::npos) continue;
+    if (theInt.find("OpDetReadout") != std::string::npos) continue;
+
+    if (!InActiveRegion(thePos)) continue;
+
+    // this is our last position
+    theInteractionLabel = theInt;
+    lastPos = thePos;
+    keepInteraction = true;
+    tempPoint = thePoint;
+    break;
+  }
+  if (!keepInteraction)
+  {
+    for(size_t iPt = (g4PrimaryTrTrjPos[0].size()-1); iPt > 0; iPt--)
+    {
+      auto thePos = g4PrimaryTrTrjPos[0][iPt];
+      if (thePos.Z() > FV_Z_BOUND[1]) continue;
+      if (!InActiveRegion(thePos)) continue;
+
+      lastPos = thePos;
+      tempPoint = iPt;
+      break;
+    }
+  }
+
+  //if (theInteractionLabel.find("pi-Inelastic")==std::string::npos) cout << theInteractionLabel << endl;
+  if (keepInteraction) hMCLastPosFirstIntPosDiff->Fill( (lastPos-g4PrimaryTrTrjPos[0][tempPoint]).Mag() );
+  else hMCLastPosZ->Fill(lastPos.Z());
+
   // ### We need to chop up the track uniformly between first point and first interaction point
   std::map<double, TVector3> orderedPoints;
+
+  // fill positions
+  orderedPoints[firstPos.Z()] = firstPos;
+  orderedPoints[lastPos.Z()]  = lastPos;
+
+  // leave if we've got no track
+  auto totalLength = (lastPos-firstPos).Mag();
+  if (totalLength <= 100*SLAB_WIDTH) return;
+
+  // Create our new points
+  size_t nPts = (int)(totalLength/(100*SLAB_WIDTH));
+  for (size_t iPt = 1; iPt <= nPts; iPt++)
+  {
+    auto nextPos = firstPos + iPt*((100*SLAB_WIDTH)/totalLength) * (lastPos-firstPos);
+    orderedPoints[nextPos.Z()] = nextPos;
+  }
+
+  // ### Start filling the histograms
+  double kinEn = firstKE;
+  auto oldIt = orderedPoints.begin();
+  for (auto it = std::next(orderedPoints.begin()); it != orderedPoints.end(); it++, oldIt++)
+  {
+    auto oldPos  = oldIt->second;
+    auto thisPos = it->second;
+    auto thisLength = (oldPos-thisPos).Mag();
+    hMCUniformZ->Fill(thisLength);
+
+    // Get the energy deposits
+    float currentEnDep = 0;
+    for (size_t iIDE = 0; iIDE < maxTrackIDE; iIDE++)
+    {
+      auto ideEnergy = IDEEnergy[iIDE];
+      auto idePos    = TVector3(IDEPos[iIDE][0], IDEPos[iIDE][1], IDEPos[iIDE][2]);
+
+      if (idePos.Z() < oldPos.Z()) continue;
+      if (idePos.Z() > thisPos.Z()) continue;
+
+      currentEnDep = currentEnDep + ideEnergy;
+    }
+
+    // avoid overfilling super tiny energy depositions
+    if (currentEnDep/thisLength < 0.1) continue;
+
+    hMCEnDep->Fill(currentEnDep);
+
+    kinEn = kinEn - currentEnDep;
+    if (kinEn <= 1.) continue;
+
+    hMCIncidentKE->Fill(kinEn);
+  }
+  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
+}
+
+
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Pre WC to TPC studies
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void myana::PreWCtoTPCStudies()
+{
+  // ### We have to do the same thing here as in TruthXS
+  // ### the purpose is to include WC to TPC effects
   
   // Get the first tpc point
   auto firstPos  = g4PrimaryPos0[0];
   double firstKE = g4PrimaryKEFF[0];
+  bool didEnter = false;
   for(size_t iPt = 0; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
   {
     auto thePos = g4PrimaryTrTrjPos[0][iPt];
@@ -1455,14 +1595,14 @@ void myana::TruthXS()
     if (thePos.Z() < FV_Z_BOUND[0]) continue;
     if (!InActiveRegion(thePos)) continue;
 
-    orderedPoints[thePos.Z()] = thePos;
     firstPos = thePos;
     firstKE  = std::sqrt( theMom.Mag()*theMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+    didEnter = true;
     break;
   }
-  hMCFirstInTpcPointX->Fill(firstPos.X());
-  hMCFirstInTpcPointY->Fill(firstPos.Y());
-  hMCFirstInTpcPointZ->Fill(firstPos.Z());
+
+  // leave if we didn't enter the tpc 
+  if (!didEnter) return;
 
   // Get the first interesting tpc point
   // This is either an interaction vertex or the last tpc point downstream
@@ -1485,6 +1625,7 @@ void myana::TruthXS()
 
     theInteractionLabel = theInt;
     keepInteraction = true;
+    lastPos = thePos;
     break;
   }
   if (!keepInteraction)
@@ -1500,9 +1641,19 @@ void myana::TruthXS()
     }
   }
 
+  // ### We need to chop up the track uniformly between first point and first interaction point
+  std::map<double, TVector3> orderedPoints;
+  
+  // fill positions
+  orderedPoints[firstPos.Z()] = firstPos;
+  orderedPoints[lastPos.Z()]  = lastPos;
+
   // leave if we've got no track
   auto totalLength = (lastPos-firstPos).Mag();
   if (totalLength <= 100*SLAB_WIDTH) return;
+
+  // leave if the track never entered tpc
+  if (lastPos.Z() < 0) return;
 
   // Create our new points
   size_t nPts = (int)(totalLength/(100*SLAB_WIDTH));
@@ -1540,42 +1691,9 @@ void myana::TruthXS()
     kinEn = kinEn - currentEnDep;
     if (kinEn <= 1.) continue;
 
-    hMCIncidentKE->Fill(kinEn);
+    hMCPreWCtoTPCIncidentKE->Fill(kinEn);
   }
-  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
-}
-
-
-
-
-// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// %%% Pre WC to TPC studies
-// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void PreWCtoTPCStudies()
-{
-  // ### How many pions entered TPC and first interaction was inelastic
-  // ### Get the first interesting tpc point
-  for (const auto& p : g4PrimaryInteractions[0])
-  {
-    // These should already be ordered 
-    auto thePoint = p.first;
-    auto theInt   = p.second;
-    auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
-    auto theMom   = g4PrimaryTrTrjMom[0][thePoint];
-    auto kinEn    = std::sqrt( theMom.Mag()*theMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-
-    // not interested in coulomb scat or larvoxel or readout
-    if (theInt.find("CoulombScat")  != std::string::npos) continue;
-    if (theInt.find("LArVoxel")     != std::string::npos) continue;
-    if (theInt.find("OpDetReadout") != std::string::npos) continue;
-
-    if (!InActiveRegion(thePos)) continue;
-
-    // first interesting point in tpc
-    // fill histo
-    if (hMCPreWCtoTPCInteractingKE->Fill()
-    break;
-  }
+  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCPreWCtoTPCInteractingKE->Fill(kinEn);}
 }
 
 
