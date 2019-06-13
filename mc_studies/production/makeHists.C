@@ -15,14 +15,37 @@ void makeXsPlots()
 
   if (!g || !temp || !hMCXS) {cout << "Nope\n"; return;}
 
+  // make a histogram of g4 xs
+  auto nBins = hMCXS->GetXaxis()->GetNbins();
+  TH1D *hG4XS = new TH1D("hG4XS", "G4 Prediction", nBins, 0, 50*nBins);
+  
+  for (size_t iBin = 1; iBin <= nBins; iBin++)
+  {
+    auto center = hMCXS->GetBinCenter(iBin);
+    double bounds[2] = {center-25, center+25};
+    double sum = 0;
+    double count = 0;
+    
+    for (size_t iPt = 1; iPt <= g->GetN(); iPt++)
+    {
+      double x = 0;
+      double y = 0;
+      g->GetPoint(iPt, x, y);
+
+      if (bounds[0] <= x && x < bounds[1]) {sum = sum + y; count++;}
+    }
+    hG4XS->SetBinContent(iBin, sum/count);
+  }
+
   TCanvas *c1 = new TCanvas("xsplots", "c1", 800., 800.);
   
   //hMCXS->SetMinimum(0);
   //hMCXS->SetMaximum(1100);
   //hMCXS->GetXaxis()->SetRangeUser(0,1000);
-  hMCXS->GetXaxis()->SetTitle("Kinetic energy (MeV)");
-  hMCXS->GetYaxis()->SetTitle("Cross section (barn)");
-  g->Draw("A c");
+  hG4XS->GetXaxis()->SetTitle("Kinetic energy (MeV)");
+  hG4XS->GetYaxis()->SetTitle("Cross section (barn)");
+  hG4XS->Draw("");
+  //g->Draw("A c");
   hMCXS->Draw("same");
 
   hMCXS->SetLineWidth(3);
@@ -35,8 +58,8 @@ void makeXsPlots()
   g->SetLineColor(kRed);
 
   auto legend = new TLegend(0.1,0.7,0.48,0.9);
-  legend->AddEntry(g, "G4Prediction Inelastic XS", "l");
-  legend->AddEntry(hMCXS,"MC inelastic XS","lp");
+  legend->AddEntry(hG4XS, "G4Prediction Inelastic XS", "l");
+  legend->AddEntry(hMCXS,"True Inelastic XS","lp");
   legend->Draw("same");
 }
 
@@ -132,7 +155,7 @@ void makeEfficiencyPlots()
   std::vector<TH1D*> recoKE = {hRecoInt, hRecoInc};
   std::vector<TH1D*> effKE  = {hEffInt,  hEffInc};
 
-  for (size_t iBin = 1; iBin <= nBins; iBin++)
+  for (size_t iBin = 2; iBin <= nBins; iBin++)
   {
     // int
     if (mcKE[0]->GetBinContent(iBin)!=0)

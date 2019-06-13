@@ -176,7 +176,10 @@ TH1D* hMCPreWCtoTPCIncidentKE = new TH1D("hMCPreWCtoTPCIncidentKE", "Pre WC to T
 TH1D* hMCLastPosFirstIntPosDiff = new TH1D("hMCLastPosFirstIntPosDiff", "MC Last Position - First Interacting Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
 TH1D* hMCLastPosZ = new TH1D("hMCLastPosZ", "MC Last Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
 TH1D* hMCUniformZ = new TH1D("hMCUniformZ", "MC Uniform Z", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hMCEnDep = new TH1D("hMCEnDep", "MC Energy Deposits", 200, -100, 100);
+TH1D* hMCEnDep = new TH1D("hMCEnDep", "MC Energy Deposits", 400, -100, 100);
+TH1D* hMCdEdX = new TH1D("hMCdEdX", "MC dEdX", 500, 0, 50);
+TH1D* hRecoTrackPitch = new TH1D("hRecoTrackPitch", "Reco Track Pitch", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+
 
 
 
@@ -637,7 +640,7 @@ void myana::Loop(int inDebug)
     TruthStudies();
 
     // ### Make MC XS plots
-    TruthXS();
+    //TruthXS();
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin tracking our matched track
@@ -679,6 +682,7 @@ void myana::Loop(int inDebug)
       auto calodEdX = trkdedx[xsRecoTrkId][1][j];
       auto caloResRan = trkrr[xsRecoTrkId][1][j];
       auto caloPitch  = trkpitchhit[xsRecoTrkId][1][j];
+      hRecoTrackPitch->Fill(caloPitch);
 
       // ### Make sure we can actually see this
       TVector3 theXYZ( caloX,
@@ -1342,6 +1346,7 @@ void MakePlots()
   hRecoFirstInTpcPointX->Write();
   hRecoFirstInTpcPointY->Write();
   hRecoFirstInTpcPointZ->Write();
+  hRecoTrackPitch->Write();
 
   myRootFile.cd();
   myRootFile.mkdir("mc/");
@@ -1362,6 +1367,7 @@ void MakePlots()
   hMCLastPosZ->Write();
   hMCUniformZ->Write();
   hMCEnDep->Write();
+  hMCdEdX->Write();
 
   myRootFile.Close();
 }
@@ -1455,8 +1461,8 @@ void myana::TruthXS()
   {
     auto thePos = g4PrimaryTrTrjPos[0][iPt];
     auto theMom = g4PrimaryTrTrjMom[0][iPt];
-    // from reco distribution
-    if (thePos.Z() < 2.8) continue;
+    // the reco distribution is 2.8cm not 0
+    if (thePos.Z() < FV_Z_BOUND[0]) continue;
     if (!InActiveRegion(thePos)) continue;
 
     // this is our first position
@@ -1564,6 +1570,7 @@ void myana::TruthXS()
     if (currentEnDep/thisLength < 0.1) continue;
 
     hMCEnDep->Fill(currentEnDep);
+    hMCdEdX->Fill(currentEnDep/thisLength);
 
     kinEn = kinEn - currentEnDep;
     if (kinEn <= 1.) continue;
@@ -1581,9 +1588,6 @@ void myana::TruthXS()
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void myana::PreWCtoTPCStudies()
 {
-  // ### We have to do the same thing here as in TruthXS
-  // ### the purpose is to include WC to TPC effects
-  
   // Get the first tpc point
   auto firstPos  = g4PrimaryPos0[0];
   double firstKE = g4PrimaryKEFF[0];
@@ -1592,11 +1596,13 @@ void myana::PreWCtoTPCStudies()
   {
     auto thePos = g4PrimaryTrTrjPos[0][iPt];
     auto theMom = g4PrimaryTrTrjMom[0][iPt];
+    // the reco distribution is 2.8cm not 0
     if (thePos.Z() < FV_Z_BOUND[0]) continue;
     if (!InActiveRegion(thePos)) continue;
 
+    // this is our first position
     firstPos = thePos;
-    firstKE  = std::sqrt( theMom.Mag()*theMom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+    firstKE  = ToKineticEnergy(theMom);
     didEnter = true;
     break;
   }
@@ -1604,11 +1610,16 @@ void myana::PreWCtoTPCStudies()
   // leave if we didn't enter the tpc 
   if (!didEnter) return;
 
+  hMCFirstInTpcPointX->Fill(firstPos.X());
+  hMCFirstInTpcPointY->Fill(firstPos.Y());
+  hMCFirstInTpcPointZ->Fill(firstPos.Z());
+
   // Get the first interesting tpc point
   // This is either an interaction vertex or the last tpc point downstream
   auto lastPos = g4PrimaryPosf[0];
   std::string theInteractionLabel = "none";
   bool keepInteraction = false;
+  size_t tempPoint = 0;
   for (const auto& p : g4PrimaryInteractions[0])
   {
     // These should already be ordered 
@@ -1623,9 +1634,11 @@ void myana::PreWCtoTPCStudies()
 
     if (!InActiveRegion(thePos)) continue;
 
+    // this is our last position
     theInteractionLabel = theInt;
-    keepInteraction = true;
     lastPos = thePos;
+    keepInteraction = true;
+    tempPoint = thePoint;
     break;
   }
   if (!keepInteraction)
@@ -1637,13 +1650,18 @@ void myana::PreWCtoTPCStudies()
       if (!InActiveRegion(thePos)) continue;
 
       lastPos = thePos;
+      tempPoint = iPt;
       break;
     }
   }
 
+  //if (theInteractionLabel.find("pi-Inelastic")==std::string::npos) cout << theInteractionLabel << endl;
+  if (keepInteraction) hMCLastPosFirstIntPosDiff->Fill( (lastPos-g4PrimaryTrTrjPos[0][tempPoint]).Mag() );
+  else hMCLastPosZ->Fill(lastPos.Z());
+
   // ### We need to chop up the track uniformly between first point and first interaction point
   std::map<double, TVector3> orderedPoints;
-  
+
   // fill positions
   orderedPoints[firstPos.Z()] = firstPos;
   orderedPoints[lastPos.Z()]  = lastPos;
@@ -1651,9 +1669,6 @@ void myana::PreWCtoTPCStudies()
   // leave if we've got no track
   auto totalLength = (lastPos-firstPos).Mag();
   if (totalLength <= 100*SLAB_WIDTH) return;
-
-  // leave if the track never entered tpc
-  if (lastPos.Z() < 0) return;
 
   // Create our new points
   size_t nPts = (int)(totalLength/(100*SLAB_WIDTH));
@@ -1671,6 +1686,7 @@ void myana::PreWCtoTPCStudies()
     auto oldPos  = oldIt->second;
     auto thisPos = it->second;
     auto thisLength = (oldPos-thisPos).Mag();
+    hMCUniformZ->Fill(thisLength);
 
     // Get the energy deposits
     float currentEnDep = 0;
@@ -1688,12 +1704,15 @@ void myana::PreWCtoTPCStudies()
     // avoid overfilling super tiny energy depositions
     if (currentEnDep/thisLength < 0.1) continue;
 
+    hMCEnDep->Fill(currentEnDep);
+    hMCdEdX->Fill(currentEnDep/thisLength);
+
     kinEn = kinEn - currentEnDep;
     if (kinEn <= 1.) continue;
 
-    hMCPreWCtoTPCIncidentKE->Fill(kinEn);
+    hMCIncidentKE->Fill(kinEn);
   }
-  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCPreWCtoTPCInteractingKE->Fill(kinEn);}
+  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
 }
 
 
