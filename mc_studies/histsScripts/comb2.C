@@ -2,7 +2,7 @@ void comb2()
 {
   gStyle->SetOptStat(0);
 
-  TFile *f1 = new TFile("piminusanatree.root", "READ");
+  TFile *f1 = new TFile("temp.root", "READ");
   TFile *f2 = new TFile("../hists/g4XsPredictions.root", "READ");
 
   std::vector<TH1D*> hists(5, nullptr);
@@ -52,8 +52,8 @@ void comb2()
   hists[0]->SetMinimum(1);
   hists[0]->SetMaximum(1100);
   hists[0]->GetXaxis()->SetRangeUser(0,1000);
-  hists[0]->GetXaxis()->SetTitle("Kinetic energy (MeV)");
-  hists[0]->GetYaxis()->SetTitle("Cross section (mb)");
+  hists[0]->GetXaxis()->SetTitle("Kinetic energy [MeV]");
+  hists[0]->GetYaxis()->SetTitle("#sigma [mb]");
   c1->SetLogy();
   hists[0]->Draw();
   hists[1]->Draw("same");
@@ -62,33 +62,33 @@ void comb2()
   hists[4]->Draw("same");
   g->Draw("same c");
 
-  hists[0]->SetLineWidth(3);
+  hists[0]->SetLineWidth(1);
   hists[0]->SetLineColor(kRed);
-  hists[0]->SetMarkerStyle(8);
+  hists[0]->SetMarkerStyle(21);
   hists[0]->SetMarkerColor(kRed);
 
   g->SetLineWidth(3);
   g->SetLineStyle(9);
   g->SetLineColor(kRed);
 
-  hists[1]->SetLineWidth(3);
+  hists[1]->SetLineWidth(1);
   hists[1]->SetLineColor(kGreen+3);
-  hists[1]->SetMarkerStyle(8);
+  hists[1]->SetMarkerStyle(21);
   hists[1]->SetMarkerColor(kGreen+3);
 
-  hists[2]->SetLineWidth(3);
+  hists[2]->SetLineWidth(1);
   hists[2]->SetLineColor(kBlue);
-  hists[2]->SetMarkerStyle(8);
+  hists[2]->SetMarkerStyle(21);
   hists[2]->SetMarkerColor(kBlue);
 
-  hists[3]->SetLineWidth(3);
+  hists[3]->SetLineWidth(1);
   hists[3]->SetLineColor(kMagenta);
-  hists[3]->SetMarkerStyle(8);
+  hists[3]->SetMarkerStyle(21);
   hists[3]->SetMarkerColor(kMagenta);
 
-  hists[4]->SetLineWidth(3);
+  hists[4]->SetLineWidth(1);
   hists[4]->SetLineColor(kAzure-8);
-  hists[4]->SetMarkerStyle(8);
+  hists[4]->SetMarkerStyle(21);
   hists[4]->SetMarkerColor(kAzure-8);
 
 

@@ -152,26 +152,20 @@ TH1D* hMCInelasticAngle     = new TH1D("hMCInelasticAngle", "Angle Between Secon
 TH1D* hMCInelasticOneVisDAngle = new TH1D("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
 TH1D* hRecoSecondaries  = new TH1D("hRecoSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
 TH1D* hMCSecondaries      = new TH1D("hMCSecondaries",     "True number of tracks leaving vertex", 10, 0, 10);
-TH1D* hSignalEff = new TH1D("hSignalEff", "Signal", 22, 0, 1100);
-TH1D* hRecoEff   = new TH1D("hRecoEff", "Reco", 22, 0, 1100);
-TH1D* hSignalPur = new TH1D("hSignalPur", "Signal", 22, 0, 1100);
-TH1D* hRecoPur   = new TH1D("hRecoPur", "Reco", 22, 0, 1100);
-TH1D* hEfficiencyKE = new TH1D("hEfficiencyKE", "Efficiency", 22, 0, 1100);
-TH1D* hPurityKE     = new TH1D("hPurityKE", "Purity", 22, 0, 1100);
 TH1D* hOneSecondaryTheta = new TH1D("hOneSecondaryTheta", "Angle between primary and single secondary", 180, 0, 180);
 TH2D* hSmearingMatrix = new TH2D("hSmearingMatrix", "Kinetic Energy smearing matrix", 22, 0, 1100, 22, 0, 1100);
 TH1D* hIntTypeBkg = new TH1D("hIntTypeBkg", "Interacting Type Background", 22, 0, 1100);
 TH1D* hIntVertexBkg = new TH1D("hIntVertexBkg", "Interacting Vertex Background", 22, 0, 1100);
 TH1D* hIntSignalBkg = new TH1D("hIntSignalBkg", "Interacting Signal", 22, 0, 1100);
-TH1D* hMCIncidentKE = new TH1D("hMCIncidentKE", "True Incident", 22, 0, 1100);
-TH1D* hMCInteractingKE = new TH1D("hMCInteractingKE", "True Interacting", 22, 0, 1100);
+TH1D* hMCNoCutIncidentKE = new TH1D("hMCNoCutIncidentKE", "True Incident", 22, 0, 1100);
+TH1D* hMCNoCutInteractingKE = new TH1D("hMCNoCutInteractingKE", "True Interacting", 22, 0, 1100);
 TH1D* hMCFirstInTpcPointX = new TH1D("hMCFirstInTpcPointX", "MC First Point in TPC X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
 TH1D* hMCFirstInTpcPointY = new TH1D("hMCFirstInTpcPointY", "MC First Point in TPC Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
 TH1D* hMCFirstInTpcPointZ = new TH1D("hMCFirstInTpcPointZ", "MC First Point in TPC Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
 TH1D* hRecoFirstInTpcPointX = new TH1D("hRecoFirstInTpcPointX", "Reco First Point in TPC X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
 TH1D* hRecoFirstInTpcPointY = new TH1D("hRecoFirstInTpcPointY", "Reco First Point in TPC Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
 TH1D* hRecoFirstInTpcPointZ = new TH1D("hRecoFirstInTpcPointZ", "Reco First Point in TPC Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hMCPreWCtoTPCInteractingKE = new TH1D("hMCPreWCtoTPCInteractingKE", "Pre WC to TPC Match True Incident", 22, 0, 1100);
+TH1D* hMCPreWCtoTPCInteractingKE = new TH1D("hMCPreWCtoTPCInteractingKE", "Pre WC to TPC Match True Interacting", 22, 0, 1100);
 TH1D* hMCPreWCtoTPCIncidentKE = new TH1D("hMCPreWCtoTPCIncidentKE", "Pre WC to TPC Match True Incident", 22, 0, 1100);
 TH1D* hMCLastPosFirstIntPosDiff = new TH1D("hMCLastPosFirstIntPosDiff", "MC Last Position - First Interacting Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
 TH1D* hMCLastPosZ = new TH1D("hMCLastPosZ", "MC Last Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
@@ -179,7 +173,8 @@ TH1D* hMCUniformZ = new TH1D("hMCUniformZ", "MC Uniform Z", 1300, TPC_Z_BOUND[0]
 TH1D* hMCEnDep = new TH1D("hMCEnDep", "MC Energy Deposits", 400, -100, 100);
 TH1D* hMCdEdX = new TH1D("hMCdEdX", "MC dEdX", 500, 0, 50);
 TH1D* hRecoTrackPitch = new TH1D("hRecoTrackPitch", "Reco Track Pitch", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-
+TH1D* hMCInteractingKE = new TH1D("hMCInteractingKE", "True Interacting with cuts", 22, 0, 1100);
+TH1D* hMCIncidentKE = new TH1D("hMCIncidentKE", "True Incident with cuts", 22, 0, 1100);
 
 
 
@@ -640,7 +635,7 @@ void myana::Loop(int inDebug)
     TruthStudies();
 
     // ### Make MC XS plots
-    //TruthXS();
+    TruthXSNoCuts();
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin tracking our matched track
@@ -773,6 +768,9 @@ void myana::Loop(int inDebug)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
+    // ### Apply same procedure to MC truth
+    TruthXS();
+
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin performance evaluation
@@ -830,25 +828,6 @@ void myana::Loop(int inDebug)
         break;
       }
     }
-    
-    
-    
-    /*
-    // ########################################
-    // ### Fill plots for efficiency/purity ###
-    // ########################################
-    // ### Efficiency
-    if (g4IsTrackSignal[0])
-    {
-      hSignalEff->Fill(g4PrimaryKEFF[0]);
-      if (didDetermineSignal) hRecoEff->Fill(g4PrimaryKEFF[0]);     
-    }
-    // ### Purity
-    if (didDetermineSignal)
-    {
-      hRecoPur->Fill(g4PrimaryKEFF[0]);
-      if (g4IsTrackSignal[0]) hSignalPur->Fill(g4PrimaryKEFF[0]);
-    }  */
 
 // End performance evaluation
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1082,6 +1061,8 @@ void myana::TruthStudies()
   }
 
   // ### Handle inelastic type with all relevant daughters
+  size_t primiG4 = 0;
+  for (size_t iG4 = 0; iG4 < geant_list_size; iG4++) {if (process_primary[iG4]==1) primiG4=iG4;}
   std::vector<size_t> visD;
   for (const auto& pMap : g4PrimaryInteractions[0])
   {
@@ -1102,6 +1083,11 @@ void myana::TruthStudies()
       auto primTrailDir = g4PrimaryTrTrjPos[0][p+1]-posHere;
       double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(primTrailDir.Unit()) );
       hMCInelasticAngle->Fill(theta);
+
+      // how much further?
+      auto lastPos = g4PrimaryPosf[0];
+      auto length = (lastPos-posHere).Mag();
+      if (length > SECONDARY_LENGTH_CUT) visD.push_back(primiG4);
     }
 
     // ### Now handle daughters 
@@ -1205,23 +1191,26 @@ void myana::RecoStudies(const size_t& xsRecoTrkId)
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 void MakePlots()
 {
-  // ### Make the mc XS plot
-  for (int iBin = 1; iBin <= hMCIncidentKE->GetNbinsX(); iBin++)
+  // ### make the pre wc to TPC xs plot
+  
+
+  // ### Make the mc no cuts XS plot
+  for (int iBin = 1; iBin <= hMCNoCutIncidentKE->GetNbinsX(); iBin++)
   {
-    if (hMCIncidentKE->GetBinContent(iBin) == 0) continue;
+    if (hMCNoCutIncidentKE->GetBinContent(iBin) == 0) continue;
 
     // ### our cross section
-    float tempXS = (hMCInteractingKE->GetBinContent(iBin)/hMCIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
+    float tempXS = (hMCNoCutInteractingKE->GetBinContent(iBin)/hMCNoCutIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
     hMCXSKE->SetBinContent(iBin, tempXS);
 
     // ### incident taken as poissonian
-    float denomError = std::sqrt(hMCIncidentKE->GetBinContent(iBin));
-    float denom      = hMCIncidentKE->GetBinContent(iBin);
+    float denomError = std::sqrt(hMCNoCutIncidentKE->GetBinContent(iBin));
+    float denom      = hMCNoCutIncidentKE->GetBinContent(iBin);
     if (denom == 0) continue;
     float term2 = denomError/denom;
 
-    auto intCounts = hMCInteractingKE->GetBinContent(iBin);
-    auto incCounts = hMCIncidentKE->GetBinContent(iBin);
+    auto intCounts = hMCNoCutInteractingKE->GetBinContent(iBin);
+    auto incCounts = hMCNoCutIncidentKE->GetBinContent(iBin);
     float var      = intCounts*( 1 - intCounts/incCounts );
     float numError = std::sqrt(var);
     float num      = intCounts;
@@ -1266,28 +1255,6 @@ void MakePlots()
       hRecoXSKE->SetBinError(iBin,totalError);
     }
   }
-
-  // ### Eff. plot
-  for (int iBin = 1; iBin <= hSignalEff->GetNbinsX(); iBin++)
-  {
-    if (hSignalEff->GetBinContent(iBin) == 0) continue;
-
-    auto n = hRecoEff->GetBinContent(iBin);
-    auto d = hSignalEff->GetBinContent(iBin);
-
-    hEfficiencyKE->SetBinContent(iBin, n/d);
-  }
-
-  // ### Purity 
-  for (int iBin = 1; iBin <= hSignalPur->GetNbinsX(); iBin++)
-  {
-    if (hRecoPur->GetBinContent(iBin) == 0) continue;
-
-    auto n = hSignalPur->GetBinContent(iBin);
-    auto d = hRecoPur->GetBinContent(iBin);
-
-    hPurityKE->SetBinContent(iBin, n/d);
-  } 
 
   // ### Normalize smearing matrix
   for (size_t iBinX = 1; iBinX <= hSmearingMatrix->GetXaxis()->GetNbins(); iBinX++)
@@ -1355,8 +1322,8 @@ void MakePlots()
   hMCInelasticAngle->Write();
   hMCInelasticOneVisDAngle->Write();
   hMCSecondaries->Write();
-  hMCIncidentKE->Write();
-  hMCInteractingKE->Write();
+  hMCNoCutIncidentKE->Write();
+  hMCNoCutInteractingKE->Write();
   hMCXSKE->Write();
   hMCFirstInTpcPointX->Write();
   hMCFirstInTpcPointY->Write();
@@ -1368,6 +1335,8 @@ void MakePlots()
   hMCUniformZ->Write();
   hMCEnDep->Write();
   hMCdEdX->Write();
+  hMCIncidentKE->Write();
+  hMCInteractingKE->Write();
 
   myRootFile.Close();
 }
@@ -1451,9 +1420,9 @@ bool InTPCRegion( const TVector3& thePos  )
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // %%% Truth XS
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-void myana::TruthXS()
+void myana::TruthXSNoCuts()
 { 
-  // Get the first tpc point
+// Get the first tpc point
   auto firstPos  = g4PrimaryPos0[0];
   double firstKE = g4PrimaryKEFF[0];
   bool didEnter = false;
@@ -1575,9 +1544,9 @@ void myana::TruthXS()
     kinEn = kinEn - currentEnDep;
     if (kinEn <= 1.) continue;
 
-    hMCIncidentKE->Fill(kinEn);
+    hMCNoCutIncidentKE->Fill(kinEn);
   }
-  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
+  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCNoCutInteractingKE->Fill(kinEn);}
 }
 
 
@@ -1610,10 +1579,6 @@ void myana::PreWCtoTPCStudies()
   // leave if we didn't enter the tpc 
   if (!didEnter) return;
 
-  hMCFirstInTpcPointX->Fill(firstPos.X());
-  hMCFirstInTpcPointY->Fill(firstPos.Y());
-  hMCFirstInTpcPointZ->Fill(firstPos.Z());
-
   // Get the first interesting tpc point
   // This is either an interaction vertex or the last tpc point downstream
   auto lastPos = g4PrimaryPosf[0];
@@ -1655,10 +1620,6 @@ void myana::PreWCtoTPCStudies()
     }
   }
 
-  //if (theInteractionLabel.find("pi-Inelastic")==std::string::npos) cout << theInteractionLabel << endl;
-  if (keepInteraction) hMCLastPosFirstIntPosDiff->Fill( (lastPos-g4PrimaryTrTrjPos[0][tempPoint]).Mag() );
-  else hMCLastPosZ->Fill(lastPos.Z());
-
   // ### We need to chop up the track uniformly between first point and first interaction point
   std::map<double, TVector3> orderedPoints;
 
@@ -1686,7 +1647,6 @@ void myana::PreWCtoTPCStudies()
     auto oldPos  = oldIt->second;
     auto thisPos = it->second;
     auto thisLength = (oldPos-thisPos).Mag();
-    hMCUniformZ->Fill(thisLength);
 
     // Get the energy deposits
     float currentEnDep = 0;
@@ -1704,19 +1664,196 @@ void myana::PreWCtoTPCStudies()
     // avoid overfilling super tiny energy depositions
     if (currentEnDep/thisLength < 0.1) continue;
 
-    hMCEnDep->Fill(currentEnDep);
-    hMCdEdX->Fill(currentEnDep/thisLength);
+    kinEn = kinEn - currentEnDep;
+    if (kinEn <= 1.) continue;
+
+    hMCPreWCtoTPCIncidentKE->Fill(kinEn);
+  }
+  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCPreWCtoTPCInteractingKE->Fill(kinEn);}
+}
+
+
+
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// %%% Truth studies
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void myana::TruthXS()
+{
+  // ### we're applying the same cuts to truth
+
+  // Get the first tpc point
+  auto firstPos  = g4PrimaryPos0[0];
+  double firstKE = g4PrimaryKEFF[0];
+  bool didEnter = false;
+  for(size_t iPt = 0; iPt < g4PrimaryTrTrjPos[0].size(); iPt++)
+  {
+    auto thePos = g4PrimaryTrTrjPos[0][iPt];
+    auto theMom = g4PrimaryTrTrjMom[0][iPt];
+    // the reco distribution is 2.8cm not 0
+    if (thePos.Z() < 2.8) continue;
+    if (!InActiveRegion(thePos)) continue;
+
+    // this is our first position
+    firstPos = thePos;
+    firstKE  = ToKineticEnergy(theMom);
+    didEnter = true;
+    break;
+  }
+
+  // leave if we didn't enter the tpc 
+  if (!didEnter) return;
+
+  // Get the first interesting tpc point
+  // This is either an interaction vertex or the last tpc point downstream
+  auto lastPos = g4PrimaryPosf[0];
+  std::string theInteractionLabel = "none";
+  bool keepInteraction = false;
+  size_t lastPt = g4PrimaryTrTrjPos[0].size()-1;
+  for (const auto& p : g4PrimaryInteractions[0])
+  {
+    // These should already be ordered 
+    auto thePoint = p.first;
+    auto theInt   = p.second;
+    auto thePos   = g4PrimaryTrTrjPos[0][thePoint];
+
+    // not interested in coulomb scat or larvoxel or readout
+    if (theInt.find("CoulombScat")  != std::string::npos) continue;
+    if (theInt.find("LArVoxel")     != std::string::npos) continue;
+    if (theInt.find("OpDetReadout") != std::string::npos) continue;
+
+    if (!InActiveRegion(thePos)) continue;
+
+    // this is our last position
+    theInteractionLabel = theInt;
+    lastPos = thePos;
+    keepInteraction = true;
+    lastPt = thePoint;
+    break;
+  }
+  if (!keepInteraction)
+  {
+    for(size_t iPt = (g4PrimaryTrTrjPos[0].size()-1); iPt > 0; iPt--)
+    {
+      auto thePos = g4PrimaryTrTrjPos[0][iPt];
+      if (thePos.Z() > FV_Z_BOUND[1]) continue;
+      if (!InActiveRegion(thePos)) continue;
+
+      lastPos = thePos;
+      lastPt = iPt;
+      break;
+    }
+  }
+
+  // ### We need to chop up the track uniformly between first point and first interaction point
+  std::map<double, TVector3> orderedPoints;
+
+  // fill positions
+  orderedPoints[firstPos.Z()] = firstPos;
+  orderedPoints[lastPos.Z()]  = lastPos;
+
+  bool didDetermineInteracting = false;
+  if (lastPos.Z() < THROUGHGOING_Z_CUT) didDetermineInteracting = true;
+
+  // leave if we've got no track
+  auto totalLength = (lastPos-firstPos).Mag();
+  if (totalLength <= 100*SLAB_WIDTH) return;
+
+  // Create our new points
+  size_t nPts = (int)(totalLength/(100*SLAB_WIDTH));
+  for (size_t iPt = 1; iPt <= nPts; iPt++)
+  {
+    auto nextPos = firstPos + iPt*((100*SLAB_WIDTH)/totalLength) * (lastPos-firstPos);
+    orderedPoints[nextPos.Z()] = nextPos;
+  }
+
+  // ### Start filling the histograms
+  double kinEn = firstKE;
+  auto oldIt = orderedPoints.begin();
+  for (auto it = std::next(orderedPoints.begin()); it != orderedPoints.end(); it++, oldIt++)
+  {
+    auto oldPos  = oldIt->second;
+    auto thisPos = it->second;
+    auto thisLength = (oldPos-thisPos).Mag();
+
+    // Get the energy deposits
+    float currentEnDep = 0;
+    for (size_t iIDE = 0; iIDE < maxTrackIDE; iIDE++)
+    {
+      auto ideEnergy = IDEEnergy[iIDE];
+      auto idePos    = TVector3(IDEPos[iIDE][0], IDEPos[iIDE][1], IDEPos[iIDE][2]);
+
+      if (idePos.Z() < oldPos.Z()) continue;
+      if (idePos.Z() > thisPos.Z()) continue;
+
+      currentEnDep = currentEnDep + ideEnergy;
+    }
+
+    // avoid overfilling super tiny energy depositions
+    if (currentEnDep/thisLength < 0.1) continue;
 
     kinEn = kinEn - currentEnDep;
     if (kinEn <= 1.) continue;
 
     hMCIncidentKE->Fill(kinEn);
   }
-  if (kinEn > 1. && theInteractionLabel.find("pi-Inelastic") != std::string::npos) {hMCInteractingKE->Fill(kinEn);}
+
+  // determine if this was signal based on our cuts
+  bool isSignal = false;
+  if (kinEn > 1. && didDetermineInteracting) 
+  {
+    // apply our cuts to determine if signal
+    // see if we have any daughters around our last point
+    std::vector<double> visD;
+
+    // incident direction
+    auto primIncDir = g4PrimaryTrTrjMom[0][lastPt-1];
+
+    // check the primary first
+    auto risRan = (g4PrimaryPosf[0]-lastPos).Mag();
+    if (risRan > SECONDARY_ANGLE_CUT) 
+    {
+      // we can also see this
+      auto primOutDir = g4PrimaryTrTrjMom[0][lastPt+1];
+      double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(primOutDir.Unit()) );
+      visD.push_back(theta);
+    }
+
+    // now handle daughters
+    for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
+    {
+      if (Mother[iG4] != g4PrimaryTrkId[0]) continue;
+
+      // ### Make sure it's charged 
+      auto thepdg = std::abs(pdg[iG4]);
+      if (thepdg != 13  && thepdg != 211 &&
+          thepdg != 321 && thepdg != 2212) continue;
+
+      // ### This is a daughter
+      TVector3 dPos0(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
+      TVector3 dPosf(EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]);
+      TVector3 dMom0(Px[iG4], Py[iG4], Pz[iG4]);
+
+      // ### Check track length
+      if ((dPosf-dPos0).Mag() < SECONDARY_LENGTH_CUT) continue;
+
+      // ### This needs to be attached to this vertex
+      if ((lastPos-dPos0).Mag() < 0.01)
+      {
+        // ### Compute angle between daughter and incoming primary
+        double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
+        visD.push_back(theta);
+      }
+    }
+
+    if (visD.size() >= 2) isSignal = true;
+    if (visD.size() == 1)
+    {
+      if (visD[0] > SECONDARY_ANGLE_CUT) isSignal = true;
+    }
+  }
+
+  if (isSignal) hMCInteractingKE->Fill(kinEn);
 }
-
-
-
 
 
 
