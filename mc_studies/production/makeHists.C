@@ -14,6 +14,8 @@ TH1D* hMCXS = nullptr;
 
 // Post WC to TPC and after cuts
 TH1D* hMCRawXS = nullptr;
+TH1D* hMCInc = nullptr;
+TH1D* hMCInt = nullptr;
 TH1D* hRecoRawXS = nullptr;
 TH1D* hRecoInc = nullptr;
 TH1D* hRecoInt = nullptr;
@@ -22,20 +24,25 @@ TH1D* hEffInt  = nullptr;
 
 // Smearing
 TH2D* hS = nullptr;
+TH1D* hRecoUnsmInc = new TH1D("hRecoUnsmInc", "hRecoUnsmInc", 22, 0, 22*50);
+TH1D* hRecoUnsmInt = new TH1D("hRecoUnsmInt", "hRecoUnsmInt", 22, 0, 22*50);
+
+// Backgrounds
+TH1D* hRecoVertexBkg = nullptr;
+TH1D* hRecoTypeBkg = nullptr;
+TH1D* hBkgSubInt = new TH1D("hBkgSubInt", "hBkgSubInt", 22, 0, 22*50);
+TH1D* hBkgSubInc = new TH1D("hBkgSubInc", "hBkgSubInc", 22, 0, 22*50);
 
 void makeMCPreWCtoTPCXsPlots()
 {
   gStyle->SetOptStat(0);
 
-  anaFile->GetObject("mc/hMCPreWCtoTPCXSKE", hMCPreWCtoTPCXS);
-  if (!hMCXS) {cout << "Nope\n"; return;}
-
   // make a histogram of g4 xs
-  auto nBins = hMCXS->GetXaxis()->GetNbins();
+  auto nBins = hMCPreWCtoTPCXS->GetXaxis()->GetNbins();
   hG4XS = new TH1D("hG4XS", "G4 Prediction", nBins, 0, 50*nBins);
   for (size_t iBin = 1; iBin <= nBins; iBin++)
   {
-    auto center = hMCXS->GetBinCenter(iBin);
+    auto center = hMCPreWCtoTPCXS->GetBinCenter(iBin);
     double bounds[2] = {center-25, center+25};
     double sum = 0;
     double count = 0;
@@ -53,27 +60,27 @@ void makeMCPreWCtoTPCXsPlots()
 
   TCanvas *c1 = new TCanvas("xsplots", "c1", 800., 800.);
   
-  //hMCXS->SetMinimum(0);
-  //hMCXS->SetMaximum(1100);
-  //hMCXS->GetXaxis()->SetRangeUser(0,1000);
+  //hMCPreWCtoTPCXS->SetMinimum(0);
+  //hMCPreWCtoTPCXS->SetMaximum(1100);
+  //hMCPreWCtoTPCXS->GetXaxis()->SetRangeUser(0,1000);
   g->GetXaxis()->SetTitle("Kinetic energy [MeV]");
   g->GetYaxis()->SetTitle("#sigma [barn]");
   //hG4XS->Draw("][");
   g->Draw("A c");
-  hMCXS->Draw("same");
+  hMCPreWCtoTPCXS->Draw("same");
 
-  hMCXS->SetLineWidth(1);
-  hMCXS->SetLineColor(kAzure+4);
-  hMCXS->SetMarkerStyle(21);
-  hMCXS->SetMarkerColor(kAzure+4);
-  hMCXS->SetMarkerColor(kAzure+4);
+  hMCPreWCtoTPCXS->SetLineWidth(1);
+  hMCPreWCtoTPCXS->SetLineColor(kAzure+4);
+  hMCPreWCtoTPCXS->SetMarkerStyle(21);
+  hMCPreWCtoTPCXS->SetMarkerColor(kAzure+4);
+  hMCPreWCtoTPCXS->SetMarkerColor(kAzure+4);
   g->SetLineWidth(4);
   g->SetLineStyle(1);
   g->SetLineColor(kAzure+4);
 
   auto legend = new TLegend(0.1,0.7,0.48,0.9);
   legend->AddEntry(g, "G4Prediction Inelastic XS", "l");
-  legend->AddEntry(hMCXS,"True Inelastic XS","lp");
+  legend->AddEntry(hMCPreWCtoTPCXS,"True Inelastic XS","lp");
   legend->Draw("same");
 }
 
@@ -98,7 +105,7 @@ void makeAnglePlots()
 
   auto legend = new TLegend(0.1,0.7,0.48,0.9);
   legend->AddEntry(hEla,"Elastic (primary/primary)","l");
-  legend->AddEntry(hInelNDa,"Inelastic (primary/one visible daughter)","l");
+  legend->AddEntry(hInelNDa,"Inelastic (primary/one visible secondary)","l");
   legend->Draw("same");
   legend->SetLineColor(0);
 
@@ -112,9 +119,6 @@ void makeAnglePlots()
 
 void makeSmearingPlots()
 {
-  anaFile->GetObject("reco/hSmearingMatrix", hS);
-  if (!hS) {cout << "Nope\n"; return;}
-
   TCanvas *c1 = new TCanvas("smearing", "c1", 800, 800);
   gStyle->SetPaintTextFormat("4.3f");
   gStyle->SetPalette(kBlueRedYellow);
@@ -143,22 +147,39 @@ void makeSmearingPlots()
   }
   cout << "Average smearing along diagonal = " << sum1/count1 << endl;
   cout << "Average about 500 MeV = " << sum2/count2 << endl;
+
+  auto nBins = hMCPreWCtoTPCInc->GetXaxis()->GetNbins();
+  for (size_t iBin = 1; iBin <= nBins; iBin++)
+  {
+    auto recoIncCounts = hBkgSubInc->GetBinContent(iBin);
+    auto recoIntCounts = hBkgSubInt->GetBinContent(iBin);
+    for (size_t iTrueBin = 1; iTrueBin <= nBins; iTrueBin++)
+    {
+      auto weight = hS->GetBinContent(iBin, iTrueBin);
+      
+      auto newIntCounts  = weight * recoIntCounts;
+      auto origIntCounts = hRecoUnsmInt->GetBinContent(iTrueBin);
+      hRecoUnsmInt->SetBinContent(iTrueBin, origIntCounts+newIntCounts);
+
+      auto newIncCounts  = weight * recoIncCounts;
+      auto origIncCounts = hRecoUnsmInc->GetBinContent(iTrueBin);
+      hRecoUnsmInc->SetBinContent(iTrueBin, origIncCounts+newIncCounts);
+    }
+  }
+
+  TCanvas* c2 = new TCanvas("unsmearinginc", "unsmearinginc", 800,800);
+  hRecoUnsmInc->Draw();
+  TCanvas* c3 = new TCanvas("unsmearingint", "unsmearingint", 800,800);
+  hRecoUnsmInt->Draw();
+
 }
 
 void makeEfficiencyPlots()
 {
-  //### need to change to pre WC to TPC matching!!!
-  anaFile->GetObject("mc/hMCPreWCtoTPCIncidentKE", hMCPreWCtoTPCInc);
-  anaFile->GetObject("mc/hMCPreWCtoTPCInteractingKE", hMCPreWCtoTPCInt);
-  anaFile->GetObject("reco/hRecoIncidentKE", hRecoInc);
-  anaFile->GetObject("reco/hRecoInteractingKE", hRecoInt);
-  anaFile->GetObject("reco/hRecoXSKE", hRecoRawXS);
-  anaFile->GetObject("mc/hMCXSKE", hMCRawXS);
   std::vector<TH1D*> mcRawHists = {nullptr, nullptr};
   anaFile->GetObject("mc/hMCInteractingKE", mcRawHists[0]);
   anaFile->GetObject("mc/hMCIncidentKE", mcRawHists[1]);
-
-  if (!hMCPreWCtoTPCInc || !hMCPreWCtoTPCInt || !hRecoInc || !hRecoInt || !hRecoRawXS) {cout<<"Nope\n"; return;}
+  if (!mcRawHists[0] || !mcRawHists[1]) {cout<<"Nope\n"; return;}
   
   TCanvas *c3 = new TCanvas("rawxs", "c3", 800, 800);
   hRecoRawXS->GetXaxis()->SetTitle("Kinetic Energy (MeV)");
@@ -168,30 +189,30 @@ void makeEfficiencyPlots()
   TH1D *htemp = new TH1D("temp", "temp", mcRawHists[0]->GetXaxis()->GetNbins(), 0, 50*mcRawHists[0]->GetXaxis()->GetNbins() );
   for (size_t iBin=1; iBin <=mcRawHists[0]->GetXaxis()->GetNbins(); iBin++)
   {
-    cout << mcRawHists[0]->GetBinContent(iBin) << endl;
+    if (mcRawHists[1]->GetBinContent(iBin) == 0) continue;
     htemp->SetBinContent(iBin, (1/0.0047) * (1/2.1029554659845297e+28) * (1/1e-28) * mcRawHists[0]->GetBinContent(iBin)/mcRawHists[1]->GetBinContent(iBin));
   }
-  htemp->SetMaximum(0.8);
-  htemp->SetMinimum(0);
-  htemp->GetXaxis()->SetTitle("Kinetic Energy [MeV]");
-  htemp->GetYaxis()->SetTitle("Cross Section [MeV]");
-  htemp->Draw("][");
-  hRecoRawXS->Draw("same");
+  hRecoRawXS->SetMaximum(0.5);
+  hRecoRawXS->SetMinimum(0);
+  hRecoRawXS->GetXaxis()->SetRangeUser(0,1000);
+  hRecoRawXS->GetXaxis()->SetTitle("Kinetic Energy [MeV]");
+  hRecoRawXS->GetYaxis()->SetTitle("#sigma [barns]");
+  //htemp->Draw("][");
+  hRecoRawXS->Draw("");
   auto legend = new TLegend(0.1,0.7,0.48,0.9);
   legend->AddEntry(htemp, "MC raw XS", "l");
   legend->AddEntry(hRecoRawXS,"Reco raw XS","lp");
-  legend->Draw("same");
+  //legend->Draw("same");
   
-
   size_t nBins = hMCPreWCtoTPCInc->GetXaxis()->GetNbins();
   hEffInc = new TH1D("hEffInc", "Incident Efficiency", nBins, 0, nBins*50. );
   hEffInt = new TH1D("hEffInt", "Interacting Efficiency", nBins, 0, nBins*50. );
   
   std::vector<TH1D*> mcPreWCtoTPCKE = {hMCPreWCtoTPCInt,   hMCPreWCtoTPCInc};
-  std::vector<TH1D*> recoKE = {hRecoInt, hRecoInc};
+  std::vector<TH1D*> recoKE = {hRecoUnsmInt, hRecoUnsmInc};
   std::vector<TH1D*> effKE  = {hEffInt,  hEffInc};
 
-  for (size_t iBin = 2; iBin < nBins; iBin++)
+  for (size_t iBin = 1; iBin <= nBins; iBin++)
   {
     // int
     if (mcPreWCtoTPCKE[0]->GetBinContent(iBin)!=0)
@@ -230,20 +251,6 @@ void makeRecoXsPlots()
 {
   size_t nBins = hRecoInc->GetXaxis()->GetNbins();
   TH1D* hEffCorrXS = new TH1D("hEffCorrXS", "Efficiency Corrected XS", nBins, 0, 50*nBins);
-  TH1D* hEffCorrUnsmXS = new TH1D("hEffCorrUnsmXS", "Efficiency Corrected Unsmeared XS", nBins, 0, 50*nBins);
-
-  
-  for (size_t iBin = 1; iBin <= nBins; iBin++)
-  {
-    auto rawRecoCounts = hRecoRawXS->GetBinContent(iBin);
-    for (size_t iTrueBin = 1; iTrueBin <= nBins; iTrueBin++)
-    {
-      auto weight         = hS->GetBinContent(iBin, iTrueBin);
-      auto recoCountsCorr = weight * rawRecoCounts;
-      auto orig = hEffCorrUnsmXS->GetBinContent(iTrueBin);
-      hEffCorrUnsmXS->SetBinContent(iTrueBin, orig+recoCountsCorr);
-    }
-  }
 
   for (size_t iBin = 2; iBin < nBins; iBin++)
   {
@@ -262,8 +269,6 @@ void makeRecoXsPlots()
 
     hEffCorrXS->SetBinContent( iBin, effCorrXS );
     hEffCorrXS->SetBinError( iBin, error );
-
-    hEffCorrUnsmXS->SetBinContent(iBin, hEffCorrUnsmXS->GetBinContent(iBin)*(incEff/intEff));
   }
 
   TCanvas* c1 = new TCanvas("effcorrectedxs", "c1", 800, 800);
@@ -276,10 +281,61 @@ void makeRecoXsPlots()
   legend->AddEntry(g, "G4Prediction Inelastic XS", "l");
   legend->AddEntry(hEffCorrXS,"Eff. corrected Reco XS","lp");
   legend->Draw("same");
+}
 
+void makeBkgSubtraction()
+{
+  // add background hists
+  auto nBins = hRecoVertexBkg->GetXaxis()->GetNbins();
+  for (size_t iBin = 1; iBin <= nBins; iBin++)
+  {
+    auto term1 = hRecoVertexBkg->GetBinContent(iBin);
+    auto term2 = hRecoTypeBkg->GetBinContent(iBin);
 
-  TCanvas* c2 = new TCanvas("unsmearingxs", "unsmearing", 800, 800);
-  hEffCorrUnsmXS->Draw();
+    auto rawContentInt = hRecoInt->GetBinContent(iBin);
+    auto rawContentInc = hRecoInc->GetBinContent(iBin);
+    hBkgSubInt->SetBinContent(iBin, rawContentInt-term1-term2);
+    hBkgSubInc->SetBinContent(iBin, rawContentInc-term1-term2);
+  }
+
+  TCanvas *c1 = new TCanvas("backsubint", "backsubint", 800, 800);
+  hBkgSubInt->Draw();
+  TCanvas *c2 = new TCanvas("backsubinc", "backsubinc", 800, 800);
+  hBkgSubInc->Draw();
+}
+
+void makeOtherPlots()
+{
+  TCanvas *c1 = new TCanvas("hintcomp", "hintcomp", 800, 800);
+  hMCInt->Draw();
+  hRecoInt->Draw("e p same");
+  hMCInt->SetTitle("Interacting");
+  auto legend1 = new TLegend(0.1,0.7,0.48,0.9);
+  legend1->AddEntry(hRecoInt, "Reco", "lp");
+  legend1->AddEntry(hMCInt,"Truth","l");
+  legend1->Draw("same");
+  hRecoInt->SetMarkerStyle(21);
+  hRecoInt->SetMarkerSize(1.5);
+  hRecoInt->SetMarkerColor(kAzure+4);
+  hRecoInt->SetLineWidth(2);
+  hMCInt->SetLineColor(kAzure+4);
+  hMCInt->SetLineWidth(4);
+
+  TCanvas *c2 = new TCanvas("hinccomp", "hinccomp", 800, 800);
+  hRecoInc->Draw("e p");
+  hMCInc->Draw("same");
+  hRecoInc->SetTitle("Incident");
+  auto legend2 = new TLegend(0.1,0.7,0.48,0.9);
+  legend2->AddEntry(hRecoInc, "Reco", "lp");
+  legend2->AddEntry(hMCInc,"Truth","l");
+  legend2->Draw("same");
+  hRecoInc->SetMarkerStyle(21);
+  hRecoInc->SetMarkerSize(1.5);
+  hRecoInc->SetLineWidth(2);
+  hRecoInc->SetLineColor(kAzure+4);
+  hRecoInc->SetMarkerColor(kAzure+4);
+  hMCInc->SetLineColor(kAzure+4);
+  hMCInc->SetLineWidth(4);
 }
 
 void makeHists()
@@ -293,9 +349,56 @@ void makeHists()
   g = (TGraph*)temp->GetListOfPrimitives()->FindObject("Graph");
   if (!g) {cout << "No G4 predictions!\n"; return;}
 
-  makeMCPreWCtoTPCXsPlots();
+  anaFile->GetObject("reco/hRecoIncidentKE", hRecoInc);
+  anaFile->GetObject("reco/hRecoInteractingKE", hRecoInt);
+  anaFile->GetObject("reco/hRecoXSKE", hRecoRawXS);
+  anaFile->GetObject("reco/hRecoSmearingMatrix", hS);
+  anaFile->GetObject("mc/hMCIncidentKE", hMCInc);
+  anaFile->GetObject("mc/hMCInteractingKE", hMCInt);
+  anaFile->GetObject("mc/hMCXSKE", hMCRawXS);
+  anaFile->GetObject("mc/hMCPreWCtoTPCIncidentKE", hMCPreWCtoTPCInc);
+  anaFile->GetObject("mc/hMCPreWCtoTPCInteractingKE", hMCPreWCtoTPCInt);
+  anaFile->GetObject("mc/hMCPreWCtoTPCXSKE", hMCPreWCtoTPCXS); 
+  anaFile->GetObject("reco/hRecoIntVertexBkg", hRecoVertexBkg);
+  anaFile->GetObject("reco/hRecoIntTypeBkg", hRecoTypeBkg);
+  if (!hRecoInc)         {cout << "Nope1\n"; return;}
+  if (!hRecoInt)         {cout << "Nope2\n"; return;}
+  if (!hRecoRawXS)       {cout << "Nope3\n"; return;}
+  if (!hS)               {cout << "Nope4\n"; return;}
+  //if (!hMCRawXS)         {cout << "Nope5\n"; return;}
+  if (!hMCPreWCtoTPCInc) {cout << "Nope6\n"; return;}
+  if (!hMCPreWCtoTPCInt) {cout << "Nope7\n"; return;}
+  if (!hMCPreWCtoTPCXS)  {cout << "Nope8\n"; return;}
+  if (!hRecoVertexBkg)   {cout << "Nope9\n"; return;}
+  if (!hRecoTypeBkg)     {cout << "Nope10\n"; return;}
+
+  // temp
+  //TCanvas* c1 = new TCanvas("c1", "int", 800, 800);
+  //hRecoInt->SetTitle("Reconstructed Interacting");
+  //hRecoInt->GetXaxis()->SetTitle("Kinetic Energy [MeV]");
+  //hRecoInt->Draw();
+  //TCanvas* c2 = new TCanvas("c2", "inc", 800, 800);
+  //hRecoInc->SetTitle("Reconstructed Incident");
+  //hRecoInc->GetXaxis()->SetTitle("Kinetic Energy [MeV]");
+  //hRecoInc->Draw();
+  //TCanvas* c3 = new TCanvas("c3", "recorawxs", 800, 800);
+  //hRecoRawXS->SetLineColor(kAzure+4);
+  //hRecoRawXS->SetLineWidth(2);
+  //hRecoRawXS->SetMarkerStyle(21);
+  //hRecoRawXS->SetMarkerSize(1.5);
+  //hRecoRawXS->SetMarkerColor(kAzure+4);
+  //hRecoRawXS->SetMinimum(0);
+  //hRecoRawXS->SetMaximum(0.5);
+  //hRecoRawXS->GetXaxis()->SetRangeUser(0,1000);
+  //hRecoRawXS->Draw();
+
+  //makeMCPreWCtoTPCXsPlots();
   //makeAnglePlots();
-  //makeSmearingPlots();
-  //makeEfficiencyPlots();
+  // bkg subtract first
+  makeBkgSubtraction();
+  // then unsmear
+  makeSmearingPlots();
+  makeEfficiencyPlots();
   //makeRecoXsPlots();
+  //makeOtherPlots();
 }

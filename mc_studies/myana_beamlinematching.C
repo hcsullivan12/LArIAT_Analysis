@@ -120,6 +120,7 @@ double THROUGHGOING_Z_CUT(86.);
 // ============================================================================================
 // ====================================  HISTOGRAMS  ==========================================
 // ============================================================================================
+// WC to TPC matching/beamline
 TH1D* hMCELossUpstream = new TH1D("hMCELossUpstream", "MC Energy Loss Upstream", 1000, 0, 1000);
 TH1D* hMCPrimaryMissedTpcX = new TH1D("hMCPrimaryMissedTpcX", "MC Primary Missed TPC X", 200, -50, 50);
 TH1D* hMCPrimaryMissedTpcY = new TH1D("hMCPrimaryMissedTpcY", "MC Primary Missed TPC Y", 200, -50, 50);
@@ -135,46 +136,58 @@ TH1D *hMCPrimaryPy = new TH1D("hMCPrimaryPy", "Primary Particle P_{y}", 22, 0, 1
 TH1D *hMCPrimaryPz = new TH1D("hMCPrimaryPz", "Primary Particle P_{z}", 22, 0 , 1100);
 TH1D *hMCPrimaryP  = new TH1D("hMCPrimaryP", "Primary Particle P", 22, 0, 1100);
 TH1D *hTrueLength = new TH1D("hTrueLength", "#True Length of the Primary Particle inside the TPC", 200, 0 , 100);
-TH1D *hDataUpstreamZPos = new TH1D("hDataUpstreamZPos", "Most upstream spacepoint of all TPC Tracks", 20, 0, 10);
+TH1D *hMostUpstreamZPos = new TH1D("hMostUpstreamZPos", "Most upstream spacepoint of all TPC Tracks", 20, 0, 10);
 TH1D *hAlpha = new TH1D("hAlpha", "#alpha between MC Particle and TPC Track", 90, 0, 90);
+
+// Reco
 TH1D *hRecoIncidentKE = new TH1D("hRecoIncidentKE", "Incident for Reconstructed MC", 22, 0, 1100);
 TH1D *hRecoInteractingKE = new TH1D("hRecoInteractingKE", "Interacting for Reconstructed MC", 22, 0, 1100);
-TH1D *hRecoXSKE            = new TH1D("hRecoXSKE", "Reconstruced XS", 22, 0, 1100);
-TH1D *hMCXSKE            = new TH1D("hMCXSKE", "True XS", 22, 0, 1100);
-TH1D *hFurthestInZCaloX = new TH1D("hFurtherstInZCaloX", "Most downstream in TPC Calorimetry X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
-TH1D *hFurthestInZCaloY = new TH1D("hFurtherstInZCaloY", "Most downstream in TPC Calorimetry Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
-TH1D *hFurthestInZCaloZ = new TH1D("hFurtherstInZCaloZ", "Most downstream in TPC Calorimetry Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hSecondaryLength    = new TH1D("hSecondaryLength",     "Length of Secondary Tracks", 100, 0, 100);
-TH1D* hTrackVertexDiff         = new TH1D("hTrackVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
+TH1D *hRecoXSKE          = new TH1D("hRecoXSKE", "Reconstruced XS", 22, 0, 1100);
+TH1D *hRecoFurthestInZCaloX = new TH1D("hRecoFurthestInZCaloX", "Most downstream in TPC Calorimetry X", 1300, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
+TH1D *hRecoFurthestInZCaloY = new TH1D("hRecoFurthestInZCaloY", "Most downstream in TPC Calorimetry Y", 1300, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
+TH1D *hRecoFurthestInZCaloZ = new TH1D("hRecoFurthestInZCaloZ", "Most downstream in TPC Calorimetry Z", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hRecoSecondaryLength    = new TH1D("hRecoSecondaryLength",     "Length of Secondary Tracks", 100, 0, 100);
+TH1D* hRecoTrackVertexDiff    = new TH1D("hRecoTrackVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
 TH1D* hRecoVertexDiff        = new TH1D("hRecoVertexDiff",         "Vertex Reco - MC", 100, 0, 50); 
+TH1D* hRecoSecondaries  = new TH1D("hRecoSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
+TH1D* hRecoOneSecondaryTheta = new TH1D("hRecoOneSecondaryTheta", "Angle between primary and single secondary", 180, 0, 180);
+TH2D* hRecoSmearingMatrix = new TH2D("hRecoSmearingMatrix", "Kinetic Energy smearing matrix", 22, 0, 1100, 22, 0, 1100);
+TH1D* hRecoIntTypeBkg = new TH1D("hRecoIntTypeBkg", "Interacting Type Background", 22, 0, 1100);
+TH1D* hRecoIntVertexBkg = new TH1D("hRecoIntVertexBkg", "Interacting Vertex Background", 22, 0, 1100);
+TH1D* hRecoIntSignalBkg = new TH1D("hRecoIntSignalBkg", "Interacting Signal", 22, 0, 1100);
+TH1D* hRecoFirstInTpcPointX = new TH1D("hRecoFirstInTpcPointX", "Reco First Point in TPC X", 400, TPC_X_BOUND[0]-20, 20);
+TH1D* hRecoFirstInTpcPointY = new TH1D("hRecoFirstInTpcPointY", "Reco First Point in TPC Y", 400, TPC_Y_BOUND[0]-20, 20);
+TH1D* hRecoFirstInTpcPointZ = new TH1D("hRecoFirstInTpcPointZ", "Reco First Point in TPC Z", 400, TPC_Z_BOUND[0]-20, 20);
+TH1D* hRecoTrackPitch = new TH1D("hRecoTrackPitch", "Reco Track Pitch", 1000, TPC_Z_BOUND[0], 10);
+TH1D* hRecoIntBkgDecay = new TH1D("hRecoIntBkgDecay", "Interaction Type Background from Decay", 22, 0, 1100);
+TH1D* hRecoIntBkgElastic = new TH1D("hRecoIntBkgElastic", "Interaction Type Background from Elastic", 22, 0, 1100);
+TH1D* hRecoIntBkgCapture = new TH1D("hRecoIntBkgCapture", "Interaction Type Background from Capture", 22, 0, 1100);
+
+// mc
+TH1D* hMCPreWCtoTPCInteractingKE = new TH1D("hMCPreWCtoTPCInteractingKE", "Pre WC to TPC Match True Interacting", 22, 0, 1100);
+TH1D* hMCPreWCtoTPCIncidentKE = new TH1D("hMCPreWCtoTPCIncidentKE", "Pre WC to TPC Match True Incident", 22, 0, 1100);
+TH1D *hMCPreWCtoTPCXSKE         = new TH1D("hMCPreWCtoTPCXSKE", "True XS", 22, 0, 1100);
+TH1D* hMCLastPosFirstIntPosDiff = new TH1D("hMCLastPosFirstIntPosDiff", "MC Last Position - First Interacting Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hMCLastPosZ = new TH1D("hMCLastPosZ", "MC Last Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+TH1D* hMCUniformZ = new TH1D("hMCUniformZ", "MC Uniform Z", 1000, TPC_Z_BOUND[0], 10);
+TH1D* hMCEnDep = new TH1D("hMCEnDep", "MC Energy Deposits", 400, -100, 100);
+TH1D* hMCdEdX = new TH1D("hMCdEdX", "MC dEdX", 500, 0, 50);
+TH1D* hMCInteractingKE = new TH1D("hMCInteractingKE", "True Interacting with cuts", 22, 0, 1100);
+TH1D* hMCIncidentKE = new TH1D("hMCIncidentKE", "True Incident with cuts", 22, 0, 1100);
+TH1D *hMCNoCutXSKE       = new TH1D("hMCNoCutXSKE", "True XS", 22, 0, 1100);
 TH1D* hMCElasticAngle       = new TH1D("hMCElasticAngle", "Elastic Scattering Angle of Primary", 180, 0, 180);
 TH1D* hMCInelasticAngle     = new TH1D("hMCInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 180, 0, 180);
 TH1D* hMCInelasticOneVisDAngle = new TH1D("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
-TH1D* hRecoSecondaries  = new TH1D("hRecoSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
 TH1D* hMCSecondaries      = new TH1D("hMCSecondaries",     "True number of tracks leaving vertex", 10, 0, 10);
-TH1D* hOneSecondaryTheta = new TH1D("hOneSecondaryTheta", "Angle between primary and single secondary", 180, 0, 180);
-TH2D* hSmearingMatrix = new TH2D("hSmearingMatrix", "Kinetic Energy smearing matrix", 22, 0, 1100, 22, 0, 1100);
-TH1D* hIntTypeBkg = new TH1D("hIntTypeBkg", "Interacting Type Background", 22, 0, 1100);
-TH1D* hIntVertexBkg = new TH1D("hIntVertexBkg", "Interacting Vertex Background", 22, 0, 1100);
-TH1D* hIntSignalBkg = new TH1D("hIntSignalBkg", "Interacting Signal", 22, 0, 1100);
 TH1D* hMCNoCutIncidentKE = new TH1D("hMCNoCutIncidentKE", "True Incident", 22, 0, 1100);
 TH1D* hMCNoCutInteractingKE = new TH1D("hMCNoCutInteractingKE", "True Interacting", 22, 0, 1100);
-TH1D* hMCFirstInTpcPointX = new TH1D("hMCFirstInTpcPointX", "MC First Point in TPC X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
-TH1D* hMCFirstInTpcPointY = new TH1D("hMCFirstInTpcPointY", "MC First Point in TPC Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
-TH1D* hMCFirstInTpcPointZ = new TH1D("hMCFirstInTpcPointZ", "MC First Point in TPC Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hRecoFirstInTpcPointX = new TH1D("hRecoFirstInTpcPointX", "Reco First Point in TPC X", 1000, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
-TH1D* hRecoFirstInTpcPointY = new TH1D("hRecoFirstInTpcPointY", "Reco First Point in TPC Y", 1000, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
-TH1D* hRecoFirstInTpcPointZ = new TH1D("hRecoFirstInTpcPointZ", "Reco First Point in TPC Z", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hMCPreWCtoTPCInteractingKE = new TH1D("hMCPreWCtoTPCInteractingKE", "Pre WC to TPC Match True Interacting", 22, 0, 1100);
-TH1D* hMCPreWCtoTPCIncidentKE = new TH1D("hMCPreWCtoTPCIncidentKE", "Pre WC to TPC Match True Incident", 22, 0, 1100);
-TH1D* hMCLastPosFirstIntPosDiff = new TH1D("hMCLastPosFirstIntPosDiff", "MC Last Position - First Interacting Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hMCLastPosZ = new TH1D("hMCLastPosZ", "MC Last Position", 1000, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hMCUniformZ = new TH1D("hMCUniformZ", "MC Uniform Z", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hMCEnDep = new TH1D("hMCEnDep", "MC Energy Deposits", 400, -100, 100);
-TH1D* hMCdEdX = new TH1D("hMCdEdX", "MC dEdX", 500, 0, 50);
-TH1D* hRecoTrackPitch = new TH1D("hRecoTrackPitch", "Reco Track Pitch", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
-TH1D* hMCInteractingKE = new TH1D("hMCInteractingKE", "True Interacting with cuts", 22, 0, 1100);
-TH1D* hMCIncidentKE = new TH1D("hMCIncidentKE", "True Incident with cuts", 22, 0, 1100);
+TH1D* hMCFirstInTpcPointX = new TH1D("hMCFirstInTpcPointX", "MC First Point in TPC X", 400, TPC_X_BOUND[0]-20, 20);
+TH1D* hMCFirstInTpcPointY = new TH1D("hMCFirstInTpcPointY", "MC First Point in TPC Y", 400, TPC_Y_BOUND[0]-20, 20);
+TH1D* hMCFirstInTpcPointZ = new TH1D("hMCFirstInTpcPointZ", "MC First Point in TPC Z", 400, TPC_Z_BOUND[0]-20, 20);
+TH1D* hMCLastInTpcPointX = new TH1D("hMCLastInTpcPointX", "MC Last Point in TPC X", 1300, TPC_X_BOUND[0]-20, TPC_X_BOUND[1]+20);
+TH1D* hMCLastInTpcPointY = new TH1D("hMCLastInTpcPointY", "MC Last Point in TPC Y", 1300, TPC_Y_BOUND[0]-20, TPC_Y_BOUND[1]+20);
+TH1D* hMCLastInTpcPointZ = new TH1D("hMCLastInTpcPointZ", "MC Last Point in TPC Z", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
+
 
 
 
@@ -234,7 +247,7 @@ void myana::Loop(int inDebug)
     //if (event == 1) cout << jentry << endl;
     if(IN_DEBUG) std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
     //std::cout << "Event " << event << "\n\n";
-    //if (nTotalEvents > 100) break;
+    //if (nTotalEvents > 500) break;
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -503,7 +516,7 @@ void myana::Loop(int inDebug)
       if (isUpstreamTpcTrk) nUpstreamTpcTrks++;
 
       // fill histos
-      hDataUpstreamZPos->Fill(tempMinZ);
+      hMostUpstreamZPos->Fill(tempMinZ);
     }//<-- End loop over reconstructed tracks
 
     // skip events that do not have a trk at the front
@@ -657,16 +670,6 @@ void myana::Loop(int inDebug)
     TVector3 furthestInZCaloPoint(0,0,0);
   
     // ### We need the calorimetry information for the track
-    // ### Just in case tracking is backwards
-    bool isInvertedTracking = false;
-    TVector3 realFirstValidPt( trjPt_X[xsRecoTrkId][0], trjPt_Y[xsRecoTrkId][0], trjPt_Z[xsRecoTrkId][0] );
-    TVector3 realLastValidPt ( trjPt_X[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1], trjPt_Y[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1], trjPt_Z[xsRecoTrkId][nTrajPoint[xsRecoTrkId]-1] );
-
-    if ( realFirstValidPt.Z() - realLastValidPt.Z() > 0) isInvertedTracking = true;
-    hRecoFirstInTpcPointX->Fill(realFirstValidPt.X());
-    hRecoFirstInTpcPointY->Fill(realFirstValidPt.Y());
-    hRecoFirstInTpcPointZ->Fill(realFirstValidPt.Z());
-
     // ### Loop over calos
     for (size_t j = 0; j < trkhits[xsRecoTrkId][1]; j++)
     {
@@ -719,9 +722,9 @@ void myana::Loop(int inDebug)
     if (furthestInZCaloPointIndex >= 0)
     {
       // ### Fill histos
-      hFurthestInZCaloX->Fill(furthestInZCaloPoint.X());
-      hFurthestInZCaloY->Fill(furthestInZCaloPoint.Y());
-      hFurthestInZCaloZ->Fill(furthestInZCaloPoint.Z());
+      hRecoFurthestInZCaloX->Fill(furthestInZCaloPoint.X());
+      hRecoFurthestInZCaloY->Fill(furthestInZCaloPoint.Y());
+      hRecoFurthestInZCaloZ->Fill(furthestInZCaloPoint.Z());
       if (InActiveRegion(furthestInZCaloPoint) && furthestInZCaloPoint.Z() < THROUGHGOING_Z_CUT) didDetermineInteracting = true;
     }
    
@@ -729,14 +732,18 @@ void myana::Loop(int inDebug)
     if (pitchVec.size() == 0) continue;
 
     // ### Check track inversion
-    if (isInvertedTracking)
+    if (posVec[0].Z() > posVec.back().Z())
     {
       std::reverse(pitchVec.begin(),  pitchVec.end());
       std::reverse(dEdXVec.begin(),   dEdXVec.end());
       std::reverse(eDepVec.begin(),   eDepVec.end());
       std::reverse(resRanVec.begin(), resRanVec.end());
       std::reverse(zPosVec.begin(),   zPosVec.end());
+      std::reverse(posVec.begin(),    posVec.end());
     }
+    hRecoFirstInTpcPointX->Fill(posVec[0].X());
+    hRecoFirstInTpcPointY->Fill(posVec[0].Y());
+    hRecoFirstInTpcPointZ->Fill(posVec[0].Z());
 
     // ### Determine if the interaction was inelastic
     if(IN_DEBUG) std::cout << "Primary processes...\n";
@@ -792,12 +799,19 @@ void myana::Loop(int inDebug)
       if (nearestDiff < (100*SLAB_WIDTH))
       {
         // 1) If we determined signal but it's not
-        if (didDetermineSignal && nearestProc.find("pi-Inelastic") == std::string::npos) hIntTypeBkg->Fill(recoIncidentKEVec.back().second);
+        if (didDetermineSignal && nearestProc.find("pi-Inelastic") == std::string::npos) 
+        {
+          hRecoIntTypeBkg->Fill(recoIncidentKEVec.back().second);
+          if (nearestProc.find("Decay") != std::string::npos) hRecoIntBkgDecay->Fill(recoIncidentKEVec.back().second);
+          else if (nearestProc.find("hadElastic") != std::string::npos) hRecoIntBkgElastic->Fill(recoIncidentKEVec.back().second);
+          else if (nearestProc.find("hBertiniCaptureAtRest") != std::string::npos) hRecoIntBkgCapture->Fill(recoIncidentKEVec.back().second);
+          else cout << nearestProc << endl;
+        }
         // we got it right!
-        else if (didDetermineSignal && nearestProc.find("pi-Inelastic") != std::string::npos) hIntSignalBkg->Fill(recoIncidentKEVec.back().second);
+        else if (didDetermineSignal && nearestProc.find("pi-Inelastic") != std::string::npos) hRecoIntSignalBkg->Fill(recoIncidentKEVec.back().second);
       }
       // 2) Vertex misidentification
-      else hIntVertexBkg->Fill(recoIncidentKEVec.back().second);
+      else if (didDetermineSignal) hRecoIntVertexBkg->Fill(recoIncidentKEVec.back().second);
     }
 
 
@@ -822,9 +836,10 @@ void myana::Loop(int inDebug)
       
       if (minDist < 0.5*(SLAB_WIDTH*100)) // convert to cm 
       {
-        auto mom  = g4PrimaryTrTrjMom[0][minPt];
+        // ##### CHANGING TO PREVIOUS POINT (THINK THIS IS ZERO FOR ENDING PRIMARY)
+        auto mom  = g4PrimaryTrTrjMom[0][minPt-1];
         double ke = std::sqrt(mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS) - PARTICLE_MASS;
-        hSmearingMatrix->Fill(recoKE, ke);
+        hRecoSmearingMatrix->Fill(recoKE, ke);
         break;
       }
     }
@@ -890,7 +905,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
 
     double diffArr[2] = {diff1, diff2};
     size_t minId    = diffArr[0] < diffArr[1] ? 0 : 1;
-    hTrackVertexDiff->Fill(diffArr[minId]);
+    hRecoTrackVertexDiff->Fill(diffArr[minId]);
 
     if(IN_DEBUG)
     {
@@ -909,7 +924,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     }
 
     // ### Vertex cut and length cut
-    if (diffArr[minId] < VERTEX_CUT) hSecondaryLength->Fill(length);
+    if (diffArr[minId] < VERTEX_CUT) hRecoSecondaryLength->Fill(length);
     if (diffArr[minId] < VERTEX_CUT && length > SECONDARY_LENGTH_CUT)
     {
       if (minId == 0) theTracksLeaving.emplace(iTrk, false);
@@ -997,7 +1012,7 @@ bool myana::DetermineInelasticity(const size_t& xsRecoTrkId,
     TVector3 secDir (secPoints[1]  - secPoints[0]);
 
     double theta = (180/TMath::Pi())*std::acos( primDir.Unit().Dot(secDir.Unit()) );
-    hOneSecondaryTheta->Fill(theta);
+    hRecoOneSecondaryTheta->Fill(theta);
     if (theta > SECONDARY_ANGLE_CUT) isSignal = true;
 
     if(IN_DEBUG)
@@ -1192,7 +1207,35 @@ void myana::RecoStudies(const size_t& xsRecoTrkId)
 void MakePlots()
 {
   // ### make the pre wc to TPC xs plot
-  
+  for (int iBin = 1; iBin <= hMCPreWCtoTPCIncidentKE->GetNbinsX(); iBin++)
+  {
+    if (hMCPreWCtoTPCIncidentKE->GetBinContent(iBin) == 0) continue;
+
+    // ### our cross section
+    float tempXS = (hMCPreWCtoTPCInteractingKE->GetBinContent(iBin)/hMCPreWCtoTPCIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
+    hMCPreWCtoTPCXSKE->SetBinContent(iBin, tempXS);
+
+    // ### incident taken as poissonian
+    float denomError = std::sqrt(hMCPreWCtoTPCIncidentKE->GetBinContent(iBin));
+    float denom      = hMCPreWCtoTPCIncidentKE->GetBinContent(iBin);
+    if (denom == 0) continue;
+    float term2 = denomError/denom;
+
+    auto intCounts = hMCPreWCtoTPCInteractingKE->GetBinContent(iBin);
+    auto incCounts = hMCPreWCtoTPCIncidentKE->GetBinContent(iBin);
+    float var      = intCounts*( 1 - intCounts/incCounts );
+    float numError = std::sqrt(var);
+    float num      = intCounts;
+
+    if (num)
+    {
+      float term1 = numError/num;
+      float xs    = hMCPreWCtoTPCXSKE->GetBinContent(iBin);
+      float totalError = xs * ( term1 + term2 );
+
+      hMCPreWCtoTPCXSKE->SetBinError(iBin,totalError);
+    }
+  }
 
   // ### Make the mc no cuts XS plot
   for (int iBin = 1; iBin <= hMCNoCutIncidentKE->GetNbinsX(); iBin++)
@@ -1201,7 +1244,7 @@ void MakePlots()
 
     // ### our cross section
     float tempXS = (hMCNoCutInteractingKE->GetBinContent(iBin)/hMCNoCutIncidentKE->GetBinContent(iBin)) * (1/NUMBER_DENSITY) * (1/SLAB_WIDTH) * (1/M2_PER_BARN);
-    hMCXSKE->SetBinContent(iBin, tempXS);
+    hMCNoCutXSKE->SetBinContent(iBin, tempXS);
 
     // ### incident taken as poissonian
     float denomError = std::sqrt(hMCNoCutIncidentKE->GetBinContent(iBin));
@@ -1218,12 +1261,14 @@ void MakePlots()
     if (num)
     {
       float term1 = numError/num;
-      float xs    = hMCXSKE->GetBinContent(iBin);
+      float xs    = hMCNoCutXSKE->GetBinContent(iBin);
       float totalError = xs * ( term1 + term2 );
 
-      hMCXSKE->SetBinError(iBin,totalError);
+      hMCNoCutXSKE->SetBinError(iBin,totalError);
     }
   }
+
+  // ### NEED TO MAKE MC WITH CUTS
 
   // ### Make the reco XS plot
   for (int iBin = 1; iBin <= hRecoIncidentKE->GetNbinsX(); iBin++)
@@ -1257,17 +1302,17 @@ void MakePlots()
   }
 
   // ### Normalize smearing matrix
-  for (size_t iBinX = 1; iBinX <= hSmearingMatrix->GetXaxis()->GetNbins(); iBinX++)
+  for (size_t iBinX = 1; iBinX <= hRecoSmearingMatrix->GetXaxis()->GetNbins(); iBinX++)
   {
     double sum = 0;
-    for(size_t iBinY = 1; iBinY <= hSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
+    for(size_t iBinY = 1; iBinY <= hRecoSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
     {
-      sum = sum + hSmearingMatrix->GetBinContent(iBinX, iBinY);
+      sum = sum + hRecoSmearingMatrix->GetBinContent(iBinX, iBinY);
     }
-    for(size_t iBinY = 1; iBinY <= hSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
+    for(size_t iBinY = 1; iBinY <= hRecoSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
     {
-      auto content = hSmearingMatrix->GetBinContent(iBinX, iBinY);
-      hSmearingMatrix->SetBinContent(iBinX, iBinY, content/sum);
+      auto content = hRecoSmearingMatrix->GetBinContent(iBinX, iBinY);
+      hRecoSmearingMatrix->SetBinContent(iBinX, iBinY, content/sum);
     }
   }
 
@@ -1289,7 +1334,7 @@ void MakePlots()
   hMCPrimaryPz->Write();
   hMCPrimaryP->Write();
   hTrueLength->Write();
-  hDataUpstreamZPos->Write();
+  hMostUpstreamZPos->Write();
   hAlpha->Write();
 
   myRootFile.cd();
@@ -1298,17 +1343,20 @@ void MakePlots()
   hRecoIncidentKE->Write();
   hRecoInteractingKE->Write();
   hRecoXSKE->Write();
-  hFurthestInZCaloX->Write();
-  hFurthestInZCaloY->Write();
-  hFurthestInZCaloZ->Write();
-  hSecondaryLength->Write();
-  hTrackVertexDiff->Write();
+  hRecoFurthestInZCaloX->Write();
+  hRecoFurthestInZCaloY->Write();
+  hRecoFurthestInZCaloZ->Write();
+  hRecoSecondaryLength->Write();
+  hRecoTrackVertexDiff->Write();
   hRecoSecondaries->Write();
-  hOneSecondaryTheta->Write();
-  hSmearingMatrix->Write();
-  hIntTypeBkg  ->Write();
-  hIntVertexBkg->Write();
-  hIntSignalBkg->Write();
+  hRecoOneSecondaryTheta->Write();
+  hRecoSmearingMatrix->Write();
+  hRecoIntTypeBkg  ->Write();
+  hRecoIntVertexBkg->Write();
+  hRecoIntSignalBkg->Write();
+  hRecoIntBkgDecay->Write();
+  hRecoIntBkgElastic->Write();
+  hRecoIntBkgCapture->Write();
   hRecoVertexDiff->Write();
   hRecoFirstInTpcPointX->Write();
   hRecoFirstInTpcPointY->Write();
@@ -1324,12 +1372,16 @@ void MakePlots()
   hMCSecondaries->Write();
   hMCNoCutIncidentKE->Write();
   hMCNoCutInteractingKE->Write();
-  hMCXSKE->Write();
+  hMCNoCutXSKE->Write();
   hMCFirstInTpcPointX->Write();
   hMCFirstInTpcPointY->Write();
   hMCFirstInTpcPointZ->Write();
+  hMCLastInTpcPointX->Write();
+  hMCLastInTpcPointY->Write();
+  hMCLastInTpcPointZ->Write();
   hMCPreWCtoTPCIncidentKE->Write();
   hMCPreWCtoTPCInteractingKE->Write();
+  hMCPreWCtoTPCXSKE->Write();
   hMCLastPosFirstIntPosDiff->Write();
   hMCLastPosZ->Write();
   hMCUniformZ->Write();
@@ -1348,11 +1400,11 @@ void MakePlots()
 void BeginJob()
 {
   // ### Initialize smaearing matrix to zero
-  for (size_t iBinX = 1; iBinX <= hSmearingMatrix->GetXaxis()->GetNbins(); iBinX++)
+  for (size_t iBinX = 1; iBinX <= hRecoSmearingMatrix->GetXaxis()->GetNbins(); iBinX++)
   {
-    for(size_t iBinY = 1; iBinY <= hSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
+    for(size_t iBinY = 1; iBinY <= hRecoSmearingMatrix->GetYaxis()->GetNbins(); iBinY++)
     {
-      hSmearingMatrix->SetBinContent(iBinX, iBinY, 0.001); // to make a nicer plot
+      hRecoSmearingMatrix->SetBinContent(iBinX, iBinY, 0.001); // to make a nicer plot
     }
   }
 }
@@ -1490,8 +1542,11 @@ void myana::TruthXSNoCuts()
   }
 
   //if (theInteractionLabel.find("pi-Inelastic")==std::string::npos) cout << theInteractionLabel << endl;
-  if (keepInteraction) hMCLastPosFirstIntPosDiff->Fill( (lastPos-g4PrimaryTrTrjPos[0][tempPoint]).Mag() );
-  else hMCLastPosZ->Fill(lastPos.Z());
+  //if (keepInteraction) hMCLastPosFirstIntPosDiff->Fill( (lastPos-g4PrimaryTrTrjPos[0][tempPoint]).Mag() );
+  //else hMCLastPosZ->Fill(lastPos.Z());
+  hMCLastInTpcPointX->Fill(lastPos.X());
+  hMCLastInTpcPointY->Fill(lastPos.Y());
+  hMCLastInTpcPointZ->Fill(lastPos.Z());
 
   // ### We need to chop up the track uniformly between first point and first interaction point
   std::map<double, TVector3> orderedPoints;
