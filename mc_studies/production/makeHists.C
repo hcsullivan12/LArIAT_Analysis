@@ -124,8 +124,8 @@ void makeSmearingPlots()
   gStyle->SetPalette(kBlueRedYellow);
   hS->Draw("colz text");
 
-  hS->GetXaxis()->SetTitle("Reconstructed KE (MeV)");
-  hS->GetYaxis()->SetTitle("True KE (MeV)");
+  hS->GetXaxis()->SetTitle("Reconstructed KE [MeV]");
+  hS->GetYaxis()->SetTitle("True KE [MeV]");
 
   // get avg smearing along diagonal
   float sum1 = 0;
@@ -146,7 +146,7 @@ void makeSmearingPlots()
     }
   }
   cout << "Average smearing along diagonal = " << sum1/count1 << endl;
-  cout << "Average about 500 MeV = " << sum2/count2 << endl;
+  cout << "Average above 500 MeV = " << sum2/count2 << endl;
 
   auto nBins = hMCPreWCtoTPCInc->GetXaxis()->GetNbins();
   for (size_t iBin = 1; iBin <= nBins; iBin++)
@@ -272,8 +272,8 @@ void makeRecoXsPlots()
   }
 
   TCanvas* c1 = new TCanvas("effcorrectedxs", "c1", 800, 800);
-  hEffCorrXS->GetXaxis()->SetTitle("Kinetic Energy (MeV)");
-  hEffCorrXS->GetYaxis()->SetTitle("Cross section (MeV)");  
+  hEffCorrXS->GetXaxis()->SetTitle("Kinetic Energy [MeV]");
+  hEffCorrXS->GetYaxis()->SetTitle("#sigma [barns]");  
   hEffCorrXS->Draw();
   g->Draw("same");
   //hG4XS->Draw("same");
@@ -287,15 +287,15 @@ void makeBkgSubtraction()
 {
   // add background hists
   auto nBins = hRecoVertexBkg->GetXaxis()->GetNbins();
-  for (size_t iBin = 1; iBin <= nBins; iBin++)
+  for (size_t iBin = 2; iBin <= nBins; iBin++)
   {
     auto term1 = hRecoVertexBkg->GetBinContent(iBin);
     auto term2 = hRecoTypeBkg->GetBinContent(iBin);
 
     auto rawContentInt = hRecoInt->GetBinContent(iBin);
     auto rawContentInc = hRecoInc->GetBinContent(iBin);
-    hBkgSubInt->SetBinContent(iBin, rawContentInt-term1-term2);
-    hBkgSubInc->SetBinContent(iBin, rawContentInc-term1-term2);
+    hBkgSubInt->SetBinContent(iBin, rawContentInt-/*term1*/-term2);
+    hBkgSubInc->SetBinContent(iBin, rawContentInc-/*term1*/-term2);
   }
 
   TCanvas *c1 = new TCanvas("backsubint", "backsubint", 800, 800);
@@ -399,6 +399,6 @@ void makeHists()
   // then unsmear
   makeSmearingPlots();
   makeEfficiencyPlots();
-  //makeRecoXsPlots();
+  makeRecoXsPlots();
   //makeOtherPlots();
 }

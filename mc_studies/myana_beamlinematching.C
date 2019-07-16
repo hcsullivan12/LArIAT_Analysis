@@ -148,7 +148,7 @@ TH1D *hRecoFurthestInZCaloY = new TH1D("hRecoFurthestInZCaloY", "Most downstream
 TH1D *hRecoFurthestInZCaloZ = new TH1D("hRecoFurthestInZCaloZ", "Most downstream in TPC Calorimetry Z", 1300, TPC_Z_BOUND[0]-20, TPC_Z_BOUND[1]+20);
 TH1D* hRecoSecondaryLength    = new TH1D("hRecoSecondaryLength",     "Length of Secondary Tracks", 100, 0, 100);
 TH1D* hRecoTrackVertexDiff    = new TH1D("hRecoTrackVertexDiff",          "Distance of Candidate Endpoints", 100, 0, 50); 
-TH1D* hRecoVertexDiff        = new TH1D("hRecoVertexDiff",         "Vertex Reco - MC", 100, 0, 50); 
+TH1D* hRecoVertexDiff        = new TH1D("hRecoVertexDiff",         "Vertex Reco - MC", 100, -50, 50); 
 TH1D* hRecoSecondaries  = new TH1D("hRecoSecondaries", "Reconstructed number of tracks leaving vertex", 10, 0, 10);
 TH1D* hRecoOneSecondaryTheta = new TH1D("hRecoOneSecondaryTheta", "Angle between primary and single secondary", 180, 0, 180);
 TH2D* hRecoSmearingMatrix = new TH2D("hRecoSmearingMatrix", "Kinetic Energy smearing matrix", 22, 0, 1100, 22, 0, 1100);
@@ -787,7 +787,7 @@ void myana::Loop(int inDebug)
     // Get the true process only if the vertices match up
     // This ensures we've truely identified an interaction
     std::map<double, std::string> diffs;
-    for (const auto& p : g4PrimaryInteractions[0]) diffs.emplace( (furthestInZCaloPoint-g4PrimaryTrTrjPos[0][p.first]).Mag(), p.second );
+    for (const auto& p : g4PrimaryInteractions[0]) diffs.emplace( furthestInZCaloPoint.Z()-g4PrimaryTrTrjPos[0][p.first].Z(), p.second );
     if (diffs.size())
     {
       auto nearestDiff = diffs.begin()->first;
