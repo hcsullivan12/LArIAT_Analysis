@@ -35,6 +35,9 @@ size_t nTotalEvents(0),  nPrimariesEntered(0),
 /// Primary track Id
 int primTrkId(-1);
 
+/// Vector of g4 Ids for visible secondaries
+std::vector<size_t> visSec;
+
 /// Container for pdg codes for charged particles (cuz I can't remember) 
 struct PdgCodes
 {
@@ -52,6 +55,17 @@ inline bool IsCharged(int const& pdg)
           pdg == pdgcodes.kPion     || pdg == pdgcodes.kKaon || 
           pdg == pdgcodes.kProton);
 }
+
+/// Stucture for IDE
+struct TrackIde
+{
+  int trackId;
+  int g4Id;
+  float energy;
+  TVector3 pos;
+};
+/// vector of TrackIdes 
+std::vector<TrackIde> ides;
 /// @}
 
 /// @name Cuts and constants
@@ -237,12 +251,34 @@ void vertexStudy::Loop(int inDebug)
       TVector3 endPoint(EndPointx[iG4], EndPointy[iG4], EndPointz[iG4]);
       hMCSecondaryTrkLength->Fill((startPoint-endPoint).Mag());
     }
+
+    // Get first interaction in TPC
+    int firstProcessPointInTpc(NTrTrajPts[0]);
+    std::string firstProcessInTpc("none");
+    GetFirstInteractionInTPC(firstProcessPointInTpc, firstProcessInTpc);
+
     // Angle study
     bool isElasticLike(false);
-    AngleStudy(isElasticLike);
+    visSec.clear();
+    AngleStudy(firstProcessPointInTpc, firstProcessInTpc, isElasticLike);
     if (isElasticLike) nElasticLikeEvents++;
 
-    if (isElasticLike) VertexStudy();
+    // Vertex study for elastic like events
+    if (isElasticLike) 
+    {
+      ides.clear();
+      ides.reserve(maxTrackIDE);
+      for (int iIDE = 0; iIDE < maxTrackIDE; iIDE++) 
+      {
+        TrackIde tide;
+        tide.trackId = IDETrackId[iIDE];
+        tide.energy  = IDEEnergy[iIDE];
+        tide.pos     = TVector3( IDEPos[iIDE][0], IDEPos[iIDE][1], IDEPos[iIDE][2] );
+        tide.g4Id    = DetermineG4Id(tide.trackId);
+        ides.push_back(tide);
+      }
+      VertexStudy();
+    }
 
 // End study
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -265,79 +301,104 @@ void vertexStudy::Loop(int inDebug)
   gApplication->Terminate(0);
 }//<---- End main loop
 
+/**
+ * @brief Method to get the first interaction in tpc
+ * 
+ * @param point The primary point
+ * @param process The process type
+ */
+void vertexStudy::GetFirstInteractionInTPC(int& point, std::string& process)
+{
+  for (size_t iPr = 0; iPr < (*InteractionPoint).size(); iPr++)
+  {
+    // The point and process
+    auto p    = (*InteractionPoint)[iPr];
+    auto proc = (*InteractionPointType)[iPr];
+
+    // Get the trj point here and before here
+    TVector3 posBefore( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
+    TVector3 posHere  ( MidPosX[0][p],   MidPosY[0][p],   MidPosZ[0][p] );
+    auto primIncDir = (posHere-posBefore).Unit();
+    if (!InActiveRegion(posHere)) continue;
+
+    point   = p;
+    process = proc;
+    return;
+  }
+}
 
 /**
- * @brief Area to study single visible daughters
+ * @brief Method to get G4 Id from track id
  * 
+ * @param tid Track id
+ * @return int The particle's G4 Id
  */
-void vertexStudy::AngleStudy(bool& isElasticLike)
+int vertexStudy::DetermineG4Id(const int& tid)
 {
-  if (!(*InteractionPointType).size()) return;
+  for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
+  {
+    if (TrackId[iG4] == tid) return iG4;
+  }
+} 
 
+/**
+ * @brief Method to study angles for elastic like events
+ * 
+ * @param p Interaction point
+ * @param proc Interaction process type
+ * @param isElasticLike Is this process elastic like (one visible secondary)
+ */
+void vertexStudy::AngleStudy(const int& p, const std::string& proc, bool& isElasticLike)
+{
   // Make the distribution of scattering angles
   // We need direction vectors before interaction points
-  // Handle the case of just the primary
   size_t primiG4(0);
-  std::vector<size_t> visD;
   for (size_t iG4 = 0; iG4 < geant_list_size; iG4++) {if (process_primary[iG4]==1) primiG4=iG4;}
-  for (size_t iPr = 0; iPr < (*InteractionPoint).size(); iPr++)
+
+  // Handle the case of just the primary
+  bool isElastic(false);
+  bool isInelastic(false);
+  if (proc.find("hadElastic") != std::string::npos || proc.find("CoulombScat") != std::string::npos) isElastic = true;
+  if (proc.find("pi-Inelastic") != std::string::npos) isInelastic = true;
+
+  // Only looking at elastic or inelastic
+  if (!isElastic && !isInelastic) return;
+  if (isElastic && isInelastic) std::cout << "WARNING: Check the process types!\n";
+
+  // Get the trj point here and before here
+  TVector3 posBefore( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
+  TVector3 posHere  ( MidPosX[0][p],   MidPosY[0][p],   MidPosZ[0][p] );
+  auto primIncDir = (posHere-posBefore).Unit();
+
+  // After
+  if ( (p+1) < NTrTrajPts[0]) 
   {
-    // The point and process
-    auto p    = (*InteractionPoint)[iPr];
-    auto proc = (*InteractionPointType)[iPr];
-
-    bool isElastic(false);
-    bool isInelastic(false);
-    if (proc.find("hadElastic") != std::string::npos || proc.find("CoulombScat") != std::string::npos) isElastic = true;
-    if (proc.find("pi-Inelastic") != std::string::npos) isInelastic = true;
-    if (!isElastic && !isInelastic) continue;
-    if (isElastic && isInelastic) std::cout << "WARNING: Check the process types!\n";
-
-    // Get the trj point here and before here
-    TVector3 posBefore( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
-    TVector3 posHere  ( MidPosX[0][p],   MidPosY[0][p],   MidPosZ[0][p] );
-    auto primIncDir = (posHere-posBefore).Unit();
-    if (!InActiveRegion(posHere)) continue;
-
-    // After
-    if ( (p+1) < NTrTrajPts[0]) 
+    TVector3 posAfter( MidPosX[0][p+1], MidPosY[0][p+1], MidPosZ[0][p+1] );
+    auto primTrailDir = posAfter-posHere;
+    double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(primTrailDir.Unit()) );
+    
+    if (isElastic)   
     {
-      TVector3 posAfter( MidPosX[0][p+1], MidPosY[0][p+1], MidPosZ[0][p+1] );
-      auto primTrailDir = posAfter-posHere;
-      double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(primTrailDir.Unit()) );
-      
-      if (isElastic)   
-      {
-        isElasticLike = true;
-        hMCElasticAngle->Fill(theta);
-      }
-      if (isInelastic) hMCInelasticAngle->Fill(theta);
+      isElasticLike = true;
+      hMCElasticAngle->Fill(theta);
+    }
 
-      // In the inelastic case, add this to the visible daughters list
-      // since the primary still lives
-      // @todo Add this case to the track length distribution
-      if (isInelastic) visD.push_back(primiG4);
+    // In the inelastic case, add this to the visible daughters list
+    // since the primary still lives
+    // @todo Add this case to the track length distribution
+    if (isInelastic) 
+    {
+      hMCInelasticAngle->Fill(theta); 
+      visSec.push_back(primiG4);
     }
   }
-
+  
   // Handle inelastic type with all relevant daughters
-  for (size_t iPr = 0; iPr < (*InteractionPoint).size(); iPr++)
+  if (isInelastic)
   {
-    // The point and process
-    auto p    = (*InteractionPoint)[iPr];
-    auto proc = (*InteractionPointType)[iPr];
-
-    // Get the trj point here and before here
-    TVector3 posBefore( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
-    TVector3 posHere  ( MidPosX[0][p],   MidPosY[0][p],   MidPosZ[0][p] );
-    auto primIncDir = (posHere-posBefore).Unit();
-    if (!InActiveRegion(posHere)) continue;
-
-    // Now handle daughters 
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
       if (Mother[iG4] != primTrkId) continue;
-
       // Make sure she is charged 
       if ( !IsCharged(std::abs(pdg[iG4])) ) continue;
 
@@ -352,55 +413,42 @@ void vertexStudy::AngleStudy(bool& isElasticLike)
       // This needs to be attached to this vertex
       if ((posHere-dPos0).Mag() < 0.01)
       {
-        visD.push_back(iG4);
-
+        visSec.push_back(iG4);
         // Compute angle between daughter and incoming primary
         double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
         hMCInelasticAngle->Fill(theta);
       }
     }//<-- End loop over G4 particles
-  }//<-- End loop over vertices
 
-  // Do it again, except for cases in which inelastic but one visible daughter
-  // If visD.size() == 1 this looks elastic
-  hMCSecondaries->Fill(visD.size());
-  if (visD.size() == 1) 
-  {
-    size_t iG4 = visD[0];
-    isElasticLike = true;
-
-    for (size_t iPr = 0; iPr < (*InteractionPoint).size(); iPr++)
+    // Do it again, except for cases in which inelastic but one visible daughter
+    // If visSec.size() == 1 this looks elastic
+    hMCSecondaries->Fill(visSec.size());
+    if (visSec.size() == 1)
     {
-      // The point and process
-      auto p    = (*InteractionPoint)[iPr];
-      auto proc = (*InteractionPointType)[iPr];
-      if (proc.find("pi-Inelastic") == std::string::npos) continue;
-  
-      // Get the trj point here and before here
-      TVector3 posBefore( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
-      TVector3 posHere  ( MidPosX[0][p],   MidPosY[0][p],   MidPosZ[0][p] );
-      auto primIncDir = (posHere-posBefore).Unit();
-      if (!InActiveRegion(posHere)) continue;
+      size_t iG4 = visSec[0];
+      isElasticLike = true;
 
+      // If this visible secondary is the primary
       if (iG4 == primiG4)
       {
-        TVector3 posAfter( MidPosX[0][p+1], MidPosY[0][p+1], MidPosZ[0][p+1] );
-        auto primTrailDir = posAfter-posHere;
-        double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(primTrailDir.Unit()) );
+        TVector3 posAfter(MidPosX[0][p + 1], MidPosY[0][p + 1], MidPosZ[0][p + 1]);
+        auto primTrailDir = posAfter - posHere;
+        double theta = (180 / TMath::Pi()) * std::acos(primIncDir.Unit().Dot(primTrailDir.Unit()));
         hMCInelasticOneVisDAngle->Fill(theta);
       }
-      else 
+      else
       {
         TVector3 dPos0(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
-        TVector3 dPosf(EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]);
+        TVector3 dPosf(EndPointx[iG4], EndPointy[iG4], EndPointz[iG4]);
         TVector3 dMom0(Px[iG4], Py[iG4], Pz[iG4]);
-  
+      
         // Compute angle between daughter and incoming primary
-        double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
+        double theta = (180 / TMath::Pi()) * std::acos(primIncDir.Unit().Dot(dMom0.Unit()));
         hMCInelasticOneVisDAngle->Fill(theta);
       }
-    }//<-- End loop over G4 particles
-  }//<-- End if one visible daughter
+    }//<-- End if one visible daughter
+  }//<-- End if is inelastic
+
 }//<-- End truth studies
 
 
@@ -428,20 +476,42 @@ void vertexStudy::VertexStudy()
 
     // Get the trj point here
     TVector3 posHere( MidPosX[0][p], MidPosY[0][p], MidPosZ[0][p] );
-    TVector3 momHere( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
-    momHere = momHere.Unit();
     if (!InActiveRegion(posHere)) continue;
 
     // Total energy within some radius
-    //for (int iBin = 1; iBin <= hMCIdeVertexElastic->GetNbinsX(); iBin++)
+    for (int iBin = 1; iBin <= hMCIdeVertexElastic->GetNbinsX(); iBin++)
     {
-      float r = 5;//hMCIdeVertexElastic->GetBinCenter(iBin);
-      float totEnergy = 0;// GetIDENearVertex(posHere, momHere, r);
-      //if (isElastic) hMCIdeVertexElastic->SetBinContent(iBin, totEnergy);
-      //if (isInelastic) hMCIdeVertexInelastic->SetBinContent(iBin, totEnergy);
+      float r = hMCIdeVertexElastic->GetBinCenter(iBin);
+      float totEnergy = GetIDENearVertex(posHere, r);
+      if (isElastic)   hMCIdeVertexElastic->SetBinContent(iBin, totEnergy);
+      if (isInelastic) hMCIdeVertexInelastic->SetBinContent(iBin, totEnergy);
     }
     break;
   }
+}
+
+/**
+ * @brief Method to get the energy deposited inside bubble near vertex.
+ * 
+ * Subtracts out all ides from visible particle (e.g. charged). The remaining
+ * energy is from neutrons and/or dexcitation gammas. 
+ * 
+ * @todo Should we consider a track length cut? 
+ * 
+ * @param vertex 
+ * @param radius 
+ * @return float 
+ */
+float vertexStudy::GetIDENearVertex(const TVector3& vertex, const float& radius)
+{
+  // Loop over ides and subtract out those which belong to all visible particles
+  for (auto& tide : ides)
+  {
+    if ( !IsCharged( pdg[tide.g4Id] ) ) continue;
+
+
+  }
+
 }
 
 
