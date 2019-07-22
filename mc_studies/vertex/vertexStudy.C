@@ -428,43 +428,20 @@ void vertexStudy::VertexStudy()
 
     // Get the trj point here
     TVector3 posHere( MidPosX[0][p], MidPosY[0][p], MidPosZ[0][p] );
+    TVector3 momHere( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
+    momHere = momHere.Unit();
     if (!InActiveRegion(posHere)) continue;
 
     // Total energy within some radius
     //for (int iBin = 1; iBin <= hMCIdeVertexElastic->GetNbinsX(); iBin++)
     {
       float r = 5;//hMCIdeVertexElastic->GetBinCenter(iBin);
-      float totEnergy = GetIDENearVertex(posHere, r);
+      float totEnergy = 0;// GetIDENearVertex(posHere, momHere, r);
       //if (isElastic) hMCIdeVertexElastic->SetBinContent(iBin, totEnergy);
       //if (isInelastic) hMCIdeVertexInelastic->SetBinContent(iBin, totEnergy);
     }
     break;
   }
-}
-
-/**
- * @brief Method to get energy deps near vertex
- * 
- * @param pos Vertex position
- * @param radius Bubble radius
- * @return float Total energy
- */
-float vertexStudy::GetIDENearVertex(const TVector3& pos, const float& radius)
-{
-  cout << nTotalEvents << endl;
-  // Subtract out the primary track
-  for (int iPt = 0; iPt < NTrTrajPts[0]; iPt++)
-  {
-    TVector3 pos( MidPosX[0][iPt], MidPosY[0][iPt], MidPosZ[0][iPt] );
-    for (int iIDE = 0; iIDE < maxTrackIDE; iIDE++)
-    {
-      TVector3 idePos( IDEPos[iIDE][0], IDEPos[iIDE][1], IDEPos[iIDE][2] );
-      if ( (idePos-pos).Mag() < 0.01 ) IDEEnergy[iIDE] = 0;
-    }
-  }
-  float totEnergy(0);
-  //for (const auto& ide : ides) totEnergy += ide.first;
-  return 0; //totEnergy;
 }
 
 
