@@ -94,7 +94,6 @@ const int kMaxPrimaries = 20000;     //maximum number of true particles tracked
 const int kMaxShower = 100;          //maximum number of Reconstructed showers
 const int kMaxMCShower = 1000;       //maximum number of MCShower Object
 const int kMaxTruePrimaryPts = 5000; //maximum number of points in the true primary trajectory
-const int kMaxIDE = 5000;            //maximum number of points in the true primary trajectory
 
 namespace lariat
 {
@@ -280,10 +279,9 @@ private:
   bool HitExist1p06_2[kMaxAG];
 
   // === Storing SimChannel Stuff ===
-  int maxTrackIDE;
-  double IDEEnergy[kMaxIDE];
-  double IDEPos[kMaxIDE][3];
-  int IDETrackId[kMaxIDE];
+  std::vector<float>              IDEEnergy;
+  std::vector<std::vector<float>> IDEPos;
+  std::vector<int>                IDETrackId;
 
   // === Storing Geant4 MC Truth Information ===
   int no_primaries;                  //<---Number of primary Geant4 particles in the event
@@ -305,21 +303,7 @@ private:
   double EndPy[kMaxPrimaries];     //<---End Py momentum of the particle
   double EndPz[kMaxPrimaries];     //<---End Pz momentum of the particle
 
-  std::vector<std::string> Process; //<---Geant 4 process ID number
-  // ### Recording the process as a integer ###
-  // 0 = primary
-  // 1 = PionMinusInelastic
-  // 2 = NeutronInelastic
-  // 3 = hadElastic
-  // 4 = nCapture
-  // 5 = CHIPSNuclearCaptureAtRest
-  // 6 = Decay
-  // 7 = KaonZeroLInelastic
-  // 8 = CoulombScat
-  // 9 = muMinusCaptureAtRest
-  //10 = ProtonInelastic
-  //11 = KaonPlusInelastic
-  //12 = hBertiniCaptureAtRest
+  std::vector<std::string> Process;        //<---Geant 4 process 
   int NumberDaughters[kMaxPrimaries];      //<---Number of Daughters this particle has
   int TrackId[kMaxPrimaries];              //<---Geant4 TrackID number
   int Mother[kMaxPrimaries];               //<---TrackID of the mother of this particle
@@ -641,8 +625,6 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const &evt)
       art::fill_ptr_vector(Simlist, SimListHandle);
     }
 
-    maxTrackIDE = 0;
-
     // Loop over the channels, the wires
     for (size_t nChan = 0; nChan < Simlist.size(); nChan++)
     {
@@ -660,15 +642,12 @@ void lariat::AnaTreeT1034UTA::analyze(art::Event const &evt)
         for (size_t i = 0; i < it->second.size(); i++)
         {
 
-          IDEEnergy[maxTrackIDE] = it->second.at(i).energy;
+          IDEEnergy.push_back(it->second.at(i).energy);
 
-          IDEPos[maxTrackIDE][0] = it->second.at(i).x;
-          IDEPos[maxTrackIDE][1] = it->second.at(i).y;
-          IDEPos[maxTrackIDE][2] = it->second.at(i).z;
+          std::vector<float> pos = {it->second.at(i).x, it->second.at(i).y, it->second.at(i).z};
+          IDEPos.push_back(pos);
 
-          IDETrackId[maxTrackIDE] = it->second.at(i).trackID;
-
-          maxTrackIDE += 1;
+          IDETrackId.push_back(it->second.at(i).trackID);
         } // Loop over IDE
       }   // Loop over Time
     }     // Loop over Wire
@@ -1772,10 +1751,9 @@ void lariat::AnaTreeT1034UTA::beginJob()
   fTree->Branch("HitExist1p06_1", HitExist1p06_1, "HitExist1p06_1[nAG]/O");
   fTree->Branch("HitExist1p06_2", HitExist1p06_2, "HitExist1p06_2[nAG]/O");
 
-  fTree->Branch("maxTrackIDE", &maxTrackIDE, "maxTrackIDE/I");
-  fTree->Branch("IDEEnergy", IDEEnergy, "IDEEnergy[maxTrackIDE]/D");
-  fTree->Branch("IDEPos", IDEPos, "IDEPos[maxTrackIDE][3]/D");
-  fTree->Branch("IDETrackId", IDETrackId, "IDETrackId[maxTrackIDE]/I");
+  fTree->Branch("IDEEnergy",  &IDEEnergy);
+  fTree->Branch("IDEPos",     &IDEPos); 
+  fTree->Branch("IDETrackId", &IDETrackId);
 
   fTree->Branch("no_primaries", &no_primaries, "no_primaries/I");
   fTree->Branch("geant_list_size", &geant_list_size, "geant_list_size/I");
@@ -2051,19 +2029,9 @@ void lariat::AnaTreeT1034UTA::ResetVars()
 
   } //<---End i loop
 
-  maxTrackIDE = -999;
-
-  for (size_t i = 0; i < kMaxIDE; ++i)
-  {
-    IDEEnergy[i] = -999;
-
-    IDEPos[i][0] = -999.9;
-    IDEPos[i][1] = -999.9;
-    IDEPos[i][2] = -999.9;
-
-    IDETrackId[i] = -999;
-
-  } // End of maxTrackID loop
+  IDEEnergy.clear();
+  IDEPos.clear();
+  IDETrackId.clear();
 
   no_primaries = -99999;
   geant_list_size = -999;
