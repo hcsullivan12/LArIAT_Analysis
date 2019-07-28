@@ -27,8 +27,9 @@ cInel = ROOT.TCanvas("cInela", "Elastic", 1000, 1000)
 cInel.SetLogz()
 hElaHist.Draw('colz')
 
-rcuts = [0.5 * x for x in range(0, 10)]
-ecuts = [x for x in range(5, 20, 5)]
+rcuts = [0.5 * x for x in range(0, 20)]
+ecuts = [x for x in range(4, 5, 5)]
+print rcuts, ecuts
 COLORS = plt.cm.get_cmap('hsv', len(ecuts))
 yEl   = {}
 yInel = {}
@@ -42,22 +43,25 @@ for r in rcuts:
 
     for e in ecuts:
         elBin   = hElaHist.GetYaxis().FindBin(e)
+        elEvents = hElaHist.GetEntries()/nBins
         inelBin = hInelHist.GetYaxis().FindBin(e)
+        inelEvents = hInelHist.GetEntries()/nBins
         s = 0
         for iBin in range(elBin, hElaHist.GetNbinsY()+1):
             s += hElaHist.GetBinContent(xBin, iBin)
-        yEl[e].append(s)
+        yEl[e].append(s/elEvents)
         s = 0
         for iBin in range(inelBin, hInelHist.GetNbinsY()+1):
             s += hInelHist.GetBinContent(xBin, iBin)
-        yInel[e].append(s)
+        yInel[e].append(s/inelEvents)
 
 # plot the results for each cut
-counter = [x for x in range(1, 5)]
+counter = [x for x in range(0, len(ecuts))]
+col = ['blue', 'red', 'green', 'magenta']
 for e, c in zip(ecuts, counter):
     print yEl[e]
-    plt.plot(rcuts, yEl[e],   color=COLORS(c), label='Elastic_'+str(e)+'cut')
-    plt.plot(rcuts, yInel[e], color=COLORS(c), label='Inelastic_'+str(e)+'cut')
+    plt.plot(rcuts, yEl[e],   color=col[c], linestyle='-',  label='Elastic_'+str(e)+'cut')
+    plt.plot(rcuts, yInel[e], color=col[c], linestyle='--', label='Inelastic_'+str(e)+'cut')
 
 
 plt.xlabel('Bubble radius [cm]', fontsize=25)
@@ -65,5 +69,6 @@ plt.ylabel('Events', fontsize=25)
 plt.title('Elastic like events', fontsize=25)
 ax = plt.subplot(111)
 ax.legend(prop={'size': 20})
+plt.grid(linestyle='--')
 plt.show()
 wait = input(' ')

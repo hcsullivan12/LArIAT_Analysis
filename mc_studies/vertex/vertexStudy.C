@@ -56,16 +56,11 @@ inline bool IsCharged(int const& pdg)
           pdg == pdgcodes.kProton);
 }
 
-/// Stucture for IDE
-struct TrackIde
-{
-  int trackId;
-  int g4Id;
-  float energy;
-  TVector3 pos;
-};
 /// vector of TrackIdes 
 std::vector<TrackIde> ides;
+
+/// vector of vertices
+std::vector<std::pair<std::string, TVector3>> vertices;
 /// @}
 
 /// @name Cuts and constants
@@ -78,7 +73,7 @@ float TPC_Y_BOUND[2] = { -20.0, 20.0 };
 float TPC_Z_BOUND[2] = {   0.0, 90.0 };
 
 /// Fiducial volume definition
-float FV_X_BOUND[2] = {   2.0, 45.0 };
+float FV_X_BOUND[2] = {   1.0, 46.0 };
 float FV_Y_BOUND[2] = { -18.0, 18.0 };
 float FV_Z_BOUND[2] = {   0.0, 88.0 };
 
@@ -127,6 +122,7 @@ TH2D* hMCIdeVertexElastic = new TH2D("hMCIdeVertexElastic", "IDEs versus bubble 
 TH2D* hMCIdeVertexInelastic = new TH2D("hMCIdeVertexInelastic", "IDEs versus bubble radius inelastic", 20, 0, 10, 200, 0, 200);
 TH2D* hMCIdesXvsZ = new TH2D("hMCIdesXvsZ", "IDEs for X vs Z ", 200, 0, 100, 100, 0, 50);
 TH2D* hMCIdesSubXvsZ = new TH2D("hMCIdesSubXvsZ", "IDEs subtracted for X vs Z ", 200, 0, 100, 100, 0, 50);
+TH1I* hMCNumInteractions = new TH1I("hMCNumInteractions", "Number of interactions in TPC for elastic like", 5, 0, 5);
 /// @}
 
 /// Output root file
@@ -144,10 +140,10 @@ void vertexStudy::Loop(int inDebug)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (jentry=0; jentry<=nentries;jentry++) 
+  for (jentry=102; jentry<=102/*nentries*/;jentry++) 
   {
     // If debug, only look at a sub sample 
-    if (inDebug == 1 && jentry%1000 != 0) continue;
+    //if (inDebug == 1 && jentry%1000 != 0) continue;
     if (inDebug == 1) cout << "InDubug: " << jentry << endl;
     IN_DEBUG = inDebug;
 
@@ -237,9 +233,20 @@ void vertexStudy::Loop(int inDebug)
     if (!isGoodEvent) continue;
     nGoodMCEvents++;
 
+    if (nTotalEvents == 1)
+    {
+      for (int iIDE = 0; iIDE < IDETrackId->size(); iIDE++) 
+      {
+        auto xBin = hMCIdesXvsZ->GetXaxis()->FindBin(IDEPos->at(iIDE)[2]);
+        auto yBin = hMCIdesXvsZ->GetYaxis()->FindBin(IDEPos->at(iIDE)[0]);
+        hMCIdesSubXvsZ->SetBinContent(xBin, yBin, IDEEnergy->at(iIDE));
+      }
+    }
+  
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin study
+
     if (IN_DEBUG) std::cout << "Filling track lengths...\n";
     // Make distribution of secondary track lengths
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
@@ -257,15 +264,53 @@ void vertexStudy::Loop(int inDebug)
 
     // Get first interaction in TPC
     if (IN_DEBUG) std::cout << "Getting first interaction in TPC...\n";
-    int firstProcessPointInTpc(NTrTrajPts[0]);
+    int firstProcessPointInTpc(-1);
     std::string firstProcessInTpc("none");
-    bool doSkip = GetFirstInteractionInTPC(firstProcessPointInTpc, firstProcessInTpc);
+    vertices.clear();
+    GetFirstInteractionInTPC(firstProcessPointInTpc, firstProcessInTpc);
 
     // Angle study
     if (IN_DEBUG) std::cout << "Starting angle study...\n";
     bool isElasticLike(false);
     visSec.clear();
     AngleStudy(firstProcessPointInTpc, firstProcessInTpc, isElasticLike);
+
+    // Option to only do events for which there is only one elastic like interaction in TPC
+    // Is we have something other than elastic, CoulombScat, or pi-Inelastic, skip
+    bool doSkip(false);
+    {
+      bool isElastic(false);
+      bool isInelastic(false);
+      bool isOther(false);
+
+      // Check the vertices
+      for (const auto& v : vertices)
+      {
+        if      (v.first.find("hadElastic") != std::string::npos || v.first.find("CoulombScat") != std::string::npos) isElastic = true;
+        else if (v.first.find("pi-Inelastic") != std::string::npos) isInelastic = true;
+        else isOther = true;
+      }
+      // Check the interactionxxx vectors too in case we missed something
+      for (const auto& v : *InteractionPointType)
+      {
+             if (v.find("hadElastic") != std::string::npos || v.find("CoulombScat") != std::string::npos) isElastic = true;
+        else if (v.find("pi-Inelastic") != std::string::npos) isInelastic = true;
+        else isOther = true;
+      }
+      if (isElastic && isInelastic) doSkip = true;
+      if (!isElastic && !isInelastic) doSkip = true;
+      if (isOther) doSkip = true;
+
+      if (IN_DEBUG) 
+      {
+        std::cout << "isElastic = " << isElastic << "  isInelastic = " << isInelastic << "  isOther = " << isOther << std::endl;
+        std::cout << "Vertices:\n";
+        for (const auto& v : vertices) std::cout << v.first << " " << v.second.Z() << std::endl;
+        std::cout << "Interactionxxx:\n";
+        for (const auto& v : *InteractionPointType) std::cout << v << std::endl;
+      }
+    }
+    if (doSkip) continue;
 
     if (isElasticLike) nElasticLikeEvents++;
     if (IN_DEBUG) 
@@ -283,9 +328,10 @@ void vertexStudy::Loop(int inDebug)
     }
 
     // Vertex study for elastic like events
-    if (doSkip) continue;
     if (isElasticLike) 
     {
+      hMCNumInteractions->Fill(InteractionPoint->size());
+
       ides.clear();
       ides.reserve(IDETrackId->size());
       for (int iIDE = 0; iIDE < IDETrackId->size(); iIDE++) 
@@ -313,7 +359,7 @@ void vertexStudy::Loop(int inDebug)
             << "Events simulated:                           " << nTotalEvents                 << endl
             << "Tracks entered TPC:                         " << nPrimariesEntered            << endl
             << "Events with > 0 entered tracks:             " << nGoodMCEvents                << endl
-            << "Elastic like events:                        " << nElasticLikeEvents++         << endl
+            << "Elastic like events:                        " << nElasticLikeEvents           << endl
             << "Inelastic interactions:                     " << nEventsInelastic             << endl
             << endl;
 
@@ -326,42 +372,67 @@ void vertexStudy::Loop(int inDebug)
 /**
  * @brief Method to get the first interaction in tpc
  * 
+ * @note Something is wrong with the InteractionPoint vectors.
+ *       I have seen events for which the Interactionxxx vectors
+ *       contain only a hadElastic but see a piInelastic when 
+ *       checking the daughters. So I will check the Process
+ *       labels for each daughter of primary.
+ * 
  * @param point The primary point
  * @param process The process type
- * @return If primary underwent both types
  */
-bool vertexStudy::GetFirstInteractionInTPC(int& point, std::string& process)
+void vertexStudy::GetFirstInteractionInTPC(int& point, std::string& process)
 {
-  // Skip events for which there is both elastic and inelastic interactions
-  bool foundFirst(false);
-  bool isElastic(false);
-  bool isInelastic(false);
-  for (size_t iPr = 0; iPr < (*InteractionPoint).size(); iPr++)
+  // Get the processes and vertices 
+  for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
+  {
+    if (TrackId[iG4] == primTrkId) continue;
+    if (std::abs(Mother[iG4]) != primTrkId) continue; // in case of negative tid
+
+    TVector3 p(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
+    std::string proc = Process->at(iG4);
+    bool weGotIt(false);
+    for (const auto& v : vertices)
+    {
+      if ( (v.second-p).Mag() < 0.01 && v.first == proc) weGotIt = true;
+    }
+    if (!weGotIt) vertices.emplace_back(proc, p);
+  }
+  // Check Interactionxxx just in case
+  for (int iPt = 0; iPt < InteractionPoint->size(); iPt++)
+  {
+    TVector3 p(MidPosX[0][InteractionPoint->at(iPt)], MidPosY[0][InteractionPoint->at(iPt)], MidPosZ[0][InteractionPoint->at(iPt)]);
+    std::string proc = InteractionPointType->at(iPt);
+    bool weGotIt(false);
+    for (const auto& v : vertices)
+    {
+      if ( (v.second-p).Mag() < 0.01 && v.first == proc) weGotIt = true;
+    }
+    if (!weGotIt) vertices.emplace_back(proc, p);
+  }
+  std::sort(vertices.begin(), vertices.end(), [](const auto& l, const auto& r) {return l.second.Z() < r.second.Z();});
+
+  // Get the first point
+  for (const auto& v : vertices)
   {
     // The point and process
-    auto p    = (*InteractionPoint)[iPr];
-    auto proc = (*InteractionPointType)[iPr];
-
-    // Get the trj point here and before here
-    TVector3 posBefore( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
-    TVector3 posHere  ( MidPosX[0][p],   MidPosY[0][p],   MidPosZ[0][p] );
-    auto primIncDir = (posHere-posBefore).Unit();
-
+    auto posHere = v.second;
+    auto proc    = v.first;
     if (!InActiveRegion(posHere)) continue;
 
-    if (!foundFirst)
+    // This is the first vertex in the TPC
+    // Find the point in MidPos container corresponding to this
+    for (int iPt = 0; iPt < NTrTrajPts[0]; iPt++)
     {
-      point   = p;
-      process = proc;
-      foundFirst = true;
+      TVector3 pos(MidPosX[0][iPt], MidPosY[0][iPt], MidPosZ[0][iPt]);
+      if ( (pos-posHere).Mag() < 0.01 ) 
+      {
+        point = iPt;
+        process = proc;
+        return;
+      }
     }
-
-    if (proc.find("hadElastic") != std::string::npos || proc.find("CoulombScat") != std::string::npos) isElastic = true;
-    if (proc.find("pi-Inelastic") != std::string::npos) isInelastic = true;
-  }
-
-  if (isElastic && isInelastic) return true;
-  else return false;
+  }//<-- End loop over vertices
 }
 
 /**
@@ -388,6 +459,8 @@ int vertexStudy::DetermineG4Id(const int& tid)
  */
 void vertexStudy::AngleStudy(const int& p, const std::string& proc, bool& isElasticLike)
 {
+  if (proc.find("none") != std::string::npos) return;
+
   // Make the distribution of scattering angles
   // We need direction vectors before interaction points
   size_t primiG4(0);
@@ -401,7 +474,6 @@ void vertexStudy::AngleStudy(const int& p, const std::string& proc, bool& isElas
 
   // Only looking at elastic or inelastic
   if (!isElastic && !isInelastic) return;
-  if (isElastic && isInelastic) std::cout << "WARNING: Check the process types!\n";
 
   // Get the trj point here and before here
   TVector3 posBefore( MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1] );
@@ -419,6 +491,7 @@ void vertexStudy::AngleStudy(const int& p, const std::string& proc, bool& isElas
     {
       isElasticLike = true;
       hMCElasticAngle->Fill(theta);
+      if (theta < 1) cout << jentry << endl;
     }
 
     // @todo Add this case to the track length distribution
@@ -433,7 +506,9 @@ void vertexStudy::AngleStudy(const int& p, const std::string& proc, bool& isElas
   {
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
+      // @todo Take absolute value here?
       if (Mother[iG4] != primTrkId) continue;
+
       // Make sure she is charged 
       if ( !IsCharged(std::abs(pdg[iG4])) ) continue;
 
@@ -443,9 +518,10 @@ void vertexStudy::AngleStudy(const int& p, const std::string& proc, bool& isElas
       TVector3 dMom0(Px[iG4], Py[iG4], Pz[iG4]);
 
       // Check track length
+      // @todo Do we need this cut?
       if ((dPosf-dPos0).Mag() < SECONDARY_LENGTH_CUT) continue;
 
-      // This needs to be attached to this vertex
+      // This particle needs to be attached to the vertex
       if ((posHere-dPos0).Mag() < 0.01)
       {
         visSec.push_back(iG4);
@@ -502,19 +578,9 @@ void vertexStudy::VertexStudy(const int& p, const std::string& proc)
 
   // Get the trj point here
   TVector3 posHere( MidPosX[0][p], MidPosY[0][p], MidPosZ[0][p] );
-  
-  if (nTotalEvents == 1)
-  {
-    for (const auto& ide : ides) 
-    {
-      auto xBin = hMCIdesXvsZ->GetXaxis()->FindBin(ide.pos.Z());
-      auto yBin = hMCIdesXvsZ->GetYaxis()->FindBin(ide.pos.X());
-      hMCIdesXvsZ->SetBinContent(xBin, yBin, ide.energy);
-    }
-  }
 
   // First subtract out ides which belong to primary or single secondary
-  SubtractIdes();
+  SubtractIdes(p);
 
   if (nTotalEvents == 1)
   {
@@ -535,11 +601,11 @@ void vertexStudy::VertexStudy(const int& p, const std::string& proc)
     if (isElastic)   hMCIdeVertexElastic  ->Fill(r, totEnergy);
     if (isInelastic) hMCIdeVertexInelastic->Fill(r, totEnergy);
 
-    if (isElastic && totEnergy > 1) 
+    if (isElastic && totEnergy > 5) 
     {
-      //cout << "ENTRY = " << jentry << endl;
-      //cout << MidPosZ[0][p] << endl;
-      //for (const auto& p : *InteractionPointType) cout << p << endl;
+      cout << "ENTRY = " << jentry << endl;
+      cout << MidPosZ[0][p] << endl;
+      for (size_t p = 0; p < InteractionPointType->size(); p++) cout << MidPosZ[0][InteractionPoint->at(p)] << " " << InteractionPointType->at(p) << endl;
     }
   }
 }
@@ -548,7 +614,7 @@ void vertexStudy::VertexStudy(const int& p, const std::string& proc)
  * @brief Method to subtract out ides which belong to primary or single secondary.
  * 
  */
-void vertexStudy::SubtractIdes()
+void vertexStudy::SubtractIdes(const int& p)
 {
   if (visSec.size() != 1) cout << "\nWHAT ARE YOU DOING HERE?\n";
 
@@ -556,13 +622,71 @@ void vertexStudy::SubtractIdes()
   // @note Negative tid means EM activity, -1*tid is mother
   for (auto& tide : ides)
   {
-    //cout << tide.trackId << " " << pdg[tide.g4Id] << " " << tide.energy << " " << tide.pos.X() << " " << tide.pos.Z() << endl;
     // If this is the primary or the single secondary set the energy to zero
     if (TrackId[tide.g4Id] == primTrkId || tide.g4Id == visSec[0]) tide.energy = 0;
-    
+   
+    // Check vicinity to tracks
+    CheckVicinity(tide, p);
+
+    //cout << tide.trackId << " " << pdg[tide.g4Id] << " " << tide.energy << " " << tide.pos.X() << " " << tide.pos.Z() << endl; 
     // @todo Don't quite understand this, only looking for neutrons or gammas
     //if (tide.trackId < 1 || pdg[tide.g4Id] > 10000) tide.energy = 0;
   }//<-- End loop over ides
+}
+
+/**
+ * @brief Check vicinity to primary and secondary. 
+ * 
+ * @param tide The track ide
+ * @param p The interaction point
+ */
+void vertexStudy::CheckVicinity(TrackIde& tide, const int& p)
+{
+  // @note using argoneut numbers
+  float CONE_DISTANCE_CUT(2.4);  // cm
+  float CONE_ANGLE_CUT(120);     // degrees
+  float CYLINDER_DISTANCE_CUT(3); // argoneut used 5cm, I'm less generous
+
+  // Get direction vectors
+  TVector3 point = tide.pos;
+  TVector3 vertex(MidPosX[0][p], MidPosY[0][p], MidPosZ[0][p]);
+  TVector3 primDir(MidPosX[0][p-1], MidPosY[0][p-1], MidPosZ[0][p-1]);
+  primDir = primDir - vertex;
+  primDir = primDir.Unit();
+  TVector3 secDir(EndPointx[visSec[0]], EndPointy[visSec[0]], EndPointz[visSec[0]]);
+  secDir = secDir - vertex;
+  secDir = secDir.Unit();
+
+  // First check for primary
+  auto u = point - vertex;
+  auto uDotPrim  = u.Dot(primDir);
+  auto uCosPrim  = uDotPrim/u.Mag();
+  auto uSinPrim  = std::sqrt(1 - uCosPrim*uCosPrim);
+  auto uDistPrim = u.Mag() * uSinPrim;
+  
+  // check if in cone first
+  if (uDotPrim < CONE_DISTANCE_CUT)
+  {
+    float coneDist = uDotPrim * std::tan( 0.5*CONE_ANGLE_CUT*TMath::Pi()/180 );
+    if (uDistPrim < coneDist) tide.energy = 0;
+  }
+  // check if in cylinder
+  else if (uDistPrim < CYLINDER_DISTANCE_CUT) tide.energy = 0;
+
+  // Now check for secondary
+  auto uDotSec   = u.Dot(secDir);
+  auto uCosSec   = uDotSec/u.Mag();
+  auto uSinSec   = std::sqrt(1 - uCosSec*uCosSec);
+  auto uDistSec  = u.Mag() * uSinSec;
+  
+  // check if in cone first
+  if (uDotSec < CONE_DISTANCE_CUT)
+  {
+    float coneDist = uDotSec * std::tan( 0.5*CONE_ANGLE_CUT*TMath::Pi()/180 );
+    if (uDistSec < coneDist) tide.energy = 0;
+  }
+  // check if in cylinder
+  else if (uDistSec < CYLINDER_DISTANCE_CUT) tide.energy = 0;
 }
 
 /**
@@ -635,6 +759,7 @@ void MakePlots()
   hMCIdeVertexInelastic->Write();
   hMCIdesXvsZ->Write();
   hMCIdesSubXvsZ->Write();
+  hMCNumInteractions->Write();
 
   myRootFile.Close();
 }

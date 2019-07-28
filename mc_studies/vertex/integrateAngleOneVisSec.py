@@ -6,14 +6,11 @@ hElaHist  = f.Get("mc/hMCElasticAngle")
 hInelHist = f.Get("mc/hMCInelasticOneVisDAngle")
 
 # make plot of integral versus cut line
-cuts = [c for c in range(1, 90, 1) ]
+cuts = [c for c in range(0, 90, 1) ]
 
-elaCounts = 0
-inelCounts = 0
+elaCounts  = hElaHist.GetEntries()
+inelCounts = hInelHist.GetEntries()
 nBins = hElaHist.GetNbinsX()
-for b in range(1, nBins+1):
-    elaCounts  += hElaHist.GetBinContent(b)
-    inelCounts += hInelHist.GetBinContent(b)
 
 elaIntegrals = []
 inelIntegrals = []
@@ -39,3 +36,13 @@ plt.title('Events with one visible secondary', fontsize=25)
 ax = plt.subplot(111)
 ax.legend(prop={'size': 20})
 plt.show()
+
+# renormalize the histograms
+for b in range(1, nBins+1):
+    hElaHist.SetBinContent(b, hElaHist.GetBinContent(b)/(elaCounts+inelCounts))
+    hInelHist.SetBinContent(b, hInelHist.GetBinContent(b)/(elaCounts+inelCounts))
+
+hElaHist.Draw()
+hInelHist.Draw('same')
+
+wait = input('')
