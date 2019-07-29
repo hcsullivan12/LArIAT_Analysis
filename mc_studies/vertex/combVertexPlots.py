@@ -20,11 +20,15 @@ for xBin in range(0, nBins):
         hInelHist.SetBinContent(xBin+1, yBin+1, hInelHist.GetBinContent(xBin+1, yBin+1)/integrals[xBin])
 
 ROOT.gStyle.SetPalette(ROOT.kBlueRedYellow)
-cEla = ROOT.TCanvas("cEla", "Elastic", 1000, 1000)
-cEla.SetLogz()
-hInelHist.Draw('colz')
 cInel = ROOT.TCanvas("cInela", "Elastic", 1000, 1000)
 cInel.SetLogz()
+hInelHist.GetXaxis().SetTitle('Bubble radius [cm]')
+hInelHist.GetYaxis().SetTitle('Energy [MeV]')
+hInelHist.Draw('colz')
+cEla = ROOT.TCanvas("cEla", "Elastic", 1000, 1000)
+cEla.SetLogz()
+hElaHist.GetXaxis().SetTitle('Bubble radius [cm]')
+hElaHist.GetYaxis().SetTitle('Energy [MeV]')
 hElaHist.Draw('colz')
 
 rcuts = [0.5 * x for x in range(0, 20)]

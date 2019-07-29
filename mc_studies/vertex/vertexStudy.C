@@ -140,7 +140,7 @@ void vertexStudy::Loop(int inDebug)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (jentry=0; jentry<=nentries;jentry++) 
+  for (jentry=152; jentry<=152/*nentries*/;jentry++) 
   {
     // If debug, only look at a sub sample 
     //if (inDebug == 1 && jentry%1000 != 0) continue;
@@ -239,7 +239,7 @@ void vertexStudy::Loop(int inDebug)
       {
         auto xBin = hMCIdesXvsZ->GetXaxis()->FindBin(IDEPos->at(iIDE)[2]);
         auto yBin = hMCIdesXvsZ->GetYaxis()->FindBin(IDEPos->at(iIDE)[0]);
-        hMCIdesSubXvsZ->SetBinContent(xBin, yBin, IDEEnergy->at(iIDE));
+        hMCIdesXvsZ->SetBinContent(xBin, yBin, IDEEnergy->at(iIDE));
       }
     }
   
@@ -251,9 +251,11 @@ void vertexStudy::Loop(int inDebug)
     // Make distribution of secondary track lengths
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
-      //cout << pdg[iG4] << " " << process_primary[iG4] << " " << TrackId[iG4] << endl;
       // Only look at daughters of primary
       if (Mother[iG4] != primTrkId) continue;
+
+      if (IN_DEBUG) std::cout << pdg[iG4] << " " << process_primary[iG4] << " " << TrackId[iG4] << " " << Process->at(iG4) << std::endl;
+
       // Make sure she's charged
       if ( !IsCharged(std::abs(pdg[iG4])) ) continue;
 
@@ -299,6 +301,7 @@ void vertexStudy::Loop(int inDebug)
       if (isElastic && isInelastic) doSkip = true;
       if (!isElastic && !isInelastic) doSkip = true;
       if (isOther) doSkip = true;
+      if (isElastic && !isInelastic) cout << jentry << endl;
 
       if (IN_DEBUG) 
       {
@@ -309,7 +312,7 @@ void vertexStudy::Loop(int inDebug)
         for (const auto& v : *InteractionPointType) std::cout << v << std::endl;
       }
     }
-    //if (doSkip) continue;
+    if (doSkip) continue;
 
     if (isElasticLike) nElasticLikeEvents++;
     if (IN_DEBUG) 
@@ -478,7 +481,7 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
     {
       isElasticLike = true;
       hMCElasticAngle->Fill(theta);
-      //if (theta < 1) cout << jentry << endl;
+      //if (theta > 10) cout << jentry << endl;
     }
 
     // @todo Add this case to the track length distribution
@@ -588,7 +591,7 @@ void vertexStudy::VertexStudy(const Vertex_t& vertex)
     if (isElastic)   hMCIdeVertexElastic  ->Fill(r, totEnergy);
     if (isInelastic) hMCIdeVertexInelastic->Fill(r, totEnergy);
 
-    //if (isElastic && totEnergy > 5) 
+    //if (isElastic) 
     //{
     //  cout << "ENTRY = " << jentry << endl;
     //  cout << MidPosZ[0][vertex.p] << endl;
