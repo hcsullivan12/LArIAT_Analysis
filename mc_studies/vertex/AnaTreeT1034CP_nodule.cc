@@ -93,6 +93,7 @@ const int kMaxPrimaries  = 20000;    //maximum number of true particles tracked
 const int kMaxShower     = 100;      //maximum number of Reconstructed showers
 const int kMaxMCShower   = 1000;     //maximum number of MCShower Object
 const int kMaxTruePrimaryPts = 5000; //maximum number of points in the true primary trajectory 
+const int kMaxIDE = 5000; //maximum number of points in the true primary trajectory 
 
 namespace lariat 
 {
@@ -280,9 +281,9 @@ private:
   bool              HitExist1p06_2[kMaxAG];
    
   // === Storing SimChannel Stuff ===
-  std::vector<float>              IDEEnergy;
-  std::vector<std::vector<float>> IDEPos;
-  std::vector<int>                IDETrackId;
+  int maxTrackIDE;
+  double IDEEnergy[kMaxIDE]; 
+  double IDEPos[kMaxIDE][3];
 
   // === Storing Geant4 MC Truth Information ===
   int no_primaries;				//<---Number of primary Geant4 particles in the event
@@ -626,43 +627,46 @@ void lariat::AnaTreeT1034::analyze(art::Event const & evt)
   // ----------------------------------------------------------------------------------------------------------------------------
   // ----------------------------------------------------------------------------------------------------------------------------
 
-  if (!isdata)
-  {
+  if(!isdata) {
 
-    art::Handle<std::vector<sim::SimChannel>> SimListHandle;
-    std::vector<art::Ptr<sim::SimChannel>> Simlist;
-    if (evt.getByLabel(fSimChanModuleLabel, SimListHandle))
-    {
-      art::fill_ptr_vector(Simlist, SimListHandle);
-    }
+    art::Handle< std::vector<sim::SimChannel> > SimListHandle; 
+    std::vector<art::Ptr<sim::SimChannel> > Simlist;    
+    if(evt.getByLabel(fSimChanModuleLabel, SimListHandle))
+      { art::fill_ptr_vector(Simlist, SimListHandle); }
+  
+    maxTrackIDE = 0;
 
     // Loop over the channels, the wires
-    for (size_t nChan = 0; nChan < Simlist.size(); nChan++)
-    {
-      // Only getting one plane
-      if (Simlist.at(nChan)->Channel() > 240)
-        break;
+    for(size_t nChan = 0; nChan < Simlist.size(); nChan++) {
 
+      // Only getting one plane
+      if(Simlist.at(nChan)->Channel() > 240) { break; }
+      
       // Get the information of each wire
-      const auto &wire = Simlist.at(nChan)->TDCIDEMap();
+     const auto & wire = Simlist.at(nChan)->TDCIDEMap();
 
       // Looping over the IDEs in a wire, or looping over time
-      for (auto it = wire.begin(); it != wire.end(); it++)
-      {
-        // Looping over the IDEs in a given time tick
-        for (size_t i = 0; i < it->second.size(); i++)
-        {
+      //typedef std::map<unsigned short, std::vector< sim::IDE > >::iterator it_type;
+      for(auto it = wire.begin(); it != wire.end(); it++) {
 
-          IDEEnergy.push_back(it->second.at(i).energy);
+	// Looping over the IDEs in a given time tick
+	for(size_t i = 0; i < it->second.size(); i++) {
 
-          std::vector<float> pos = {it->second.at(i).x, it->second.at(i).y, it->second.at(i).z};
-          IDEPos.push_back(pos);
+	  // Only non-showering (nonnegative) primary track IDEs
+	  if(it->second.at(i).trackID != 1) { continue; } 
+ 
+	  IDEEnergy[maxTrackIDE] = it->second.at(i).energy; 
+	    
+	  IDEPos[maxTrackIDE][0] = it->second.at(i).x; 
+	  IDEPos[maxTrackIDE][1] = it->second.at(i).y;
+	  IDEPos[maxTrackIDE][2] = it->second.at(i).z;
 
-          IDETrackId.push_back(it->second.at(i).trackID);
-        } // Loop over IDE
-      }   // Loop over Time
-    }     // Loop over Wire
-  }       // End of isdata
+	  maxTrackIDE += 1;
+	  
+	} // Loop over IDE
+      } // Loop over Time
+    } // Loop over Wire
+  } // End of isdata
 
 
    
@@ -1877,9 +1881,9 @@ void lariat::AnaTreeT1034::beginJob()
   fTree->Branch("HitExist1p06_1", HitExist1p06_1, "HitExist1p06_1[nAG]/O");
   fTree->Branch("HitExist1p06_2", HitExist1p06_2, "HitExist1p06_2[nAG]/O");
 
-  fTree->Branch("IDEEnergy",  &IDEEnergy);
-  fTree->Branch("IDEPos",     &IDEPos); 
-  fTree->Branch("IDETrackId", &IDETrackId);
+  fTree->Branch("maxTrackIDE", &maxTrackIDE, "maxTrackIDE/I");
+  fTree->Branch("IDEEnergy", IDEEnergy, "IDEEnergy[maxTrackIDE]/D");
+  fTree->Branch("IDEPos", IDEPos, "IDEPos[maxTrackIDE][3]/D");
 
   fTree->Branch("no_primaries",&no_primaries,"no_primaries/I");
   fTree->Branch("geant_list_size",&geant_list_size,"geant_list_size/I");
@@ -1981,10 +1985,6 @@ void lariat::AnaTreeT1034::ResetVars()
 
   InteractionPoint.clear();
   InteractionPointType.clear();
-
-  IDEEnergy.clear();
-  IDEPos.clear();
-  IDETrackId.clear();
 
   run = -99999;
   subrun = -99999;
@@ -2152,6 +2152,17 @@ void lariat::AnaTreeT1034::ResetVars()
       HitExist1p06_2[i] = -99999;
 
     }//<---End i loop
+
+  maxTrackIDE = -999;
+  
+  for(size_t i = 0; i < kMaxIDE; ++i) {
+    IDEEnergy[i] = -999;
+
+    IDEPos[i][0] = -999.9;
+    IDEPos[i][1] = -999.9;
+    IDEPos[i][2] = -999.9;
+
+  } // End of maxTrackID loop
 
   no_primaries = -99999;
   geant_list_size=-999;

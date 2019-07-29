@@ -110,6 +110,8 @@ TH1D* hMCLastPosZ = new TH1D("hMCLastPosZ", "MC Last Position", 1000, TPC_Z_BOUN
 TH1D* hMCElasticAngle       = new TH1D("hMCElasticAngle", "Elastic Scattering Angle of Primary", 180, 0, 180);
 TH1D* hMCInelasticAngle     = new TH1D("hMCInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 180, 0, 180);
 TH1D* hMCInelasticOneVisDAngle = new TH1D("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
+TH1D* hMCElasticConeAngle = new TH1D("hMCElasticConeAngle", "Cone Angle Between Single Visible Secondary and Primary for Elastic", 90, 0, 90);
+TH1D* hMCInelasticConeAngle = new TH1D("hMCInelasticConeAngle", "Cone Angle Between Single Visible Secondary and Primary for Inelastic", 90, 0, 90);
 TH1D* hMCSecondaries      = new TH1D("hMCSecondaries",     "True number of tracks leaving vertex", 10, 0, 10);
 TH1D* hMCFirstInTpcPointX = new TH1D("hMCFirstInTpcPointX", "MC First Point in TPC X", 400, TPC_X_BOUND[0]-20, 20);
 TH1D* hMCFirstInTpcPointY = new TH1D("hMCFirstInTpcPointY", "MC First Point in TPC Y", 400, TPC_Y_BOUND[0]-20, 20);
@@ -130,6 +132,11 @@ TFile myRootFile("piMinusAna.root", "RECREATE");
 
 Long64_t jentry(0);
 
+/// Fiducial volume definition
+float FV_X_BOUND[2] = {   1.0, 46.0 };
+float FV_Y_BOUND[2] = { -18.0, 18.0 };
+float FV_Z_BOUND[2] = {   0.0, 88.0 };
+
 /**
  * @brief Main loop
  * 
@@ -140,7 +147,7 @@ void vertexStudy::Loop(int inDebug)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (jentry=125; jentry<=125/*nentries*/;jentry++) 
+  for (jentry=2; jentry<=2/*nentries*/;jentry++) 
   {
     // If debug, only look at a sub sample 
     //if (inDebug == 1 && jentry%1000 != 0) continue;
@@ -270,14 +277,14 @@ void vertexStudy::Loop(int inDebug)
     Vertex_t firstVertexInTpc(-1, "none", TVector3(0,0,-100));
     vertices.clear();
     GetFirstInteractionInTPC(firstVertexInTpc);
-    firstVertexInTpc.position.Print();
-    for (const auto& v : vertices) cout << v.position.Z() << " " << v.process << std::endl;
+    //firstVertexInTpc.position.Print();
+    //for (const auto& v : vertices) cout << v.position.Z() << " " << v.process << std::endl;
 
     // Angle study
     if (IN_DEBUG) std::cout << "Starting angle study...\n";
     bool isElasticLike(false);
     visSec.clear();
-    
+    AngleStudy(firstVertexInTpc, isElasticLike);
 
     // Option to only do events for which there is only one elastic like interaction in TPC
     // Is we have something other than elastic, CoulombScat, or pi-Inelastic, skip
@@ -317,8 +324,6 @@ void vertexStudy::Loop(int inDebug)
       }
     }
     if (doSkip) continue;
-
-    AngleStudy(firstVertexInTpc, isElasticLike);
 
     if (isElasticLike) nElasticLikeEvents++;
     if (IN_DEBUG) 
@@ -394,42 +399,47 @@ void vertexStudy::Loop(int inDebug)
 void vertexStudy::GetFirstInteractionInTPC(Vertex_t& point)
 {
   // Get the processes and vertices 
-  for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
-  {
-    if (TrackId[iG4] == primTrkId) continue;
-    if (std::abs(Mother[iG4]) != primTrkId) continue; // in case of negative tid
-  
-    TVector3 thisPoint(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
-    Vertex_t thisVertex( ConvertToPrimaryPoint(thisPoint),
-                         Process->at(iG4),
-                         thisPoint );
-    bool weGotIt(false);
-    for (const auto& v : vertices)
-    {
-      if ( (v.position-thisPoint).Mag() < 0.01 && v.process == v.process) weGotIt = true;
-    }
-    if (!weGotIt) vertices.push_back(thisVertex);
-  }
+  //for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
+  //{
+  //  if (TrackId[iG4] == primTrkId) continue;
+  //  if (std::abs(Mother[iG4]) != primTrkId) continue; // in case of negative tid
+  //
+  //  TVector3 thisPoint(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
+  //  Vertex_t thisVertex( ConvertToPrimaryPoint(thisPoint),
+  //                       Process->at(iG4),
+  //                       thisPoint );
+  //  bool weGotIt(false);
+  //  for (const auto& v : vertices)
+  //  {
+  //    float diff = (v.position-thisVertex.position).Mag();
+  //    if (  diff < 0.01 && v.process == thisVertex.process) weGotIt = true;
+  //  }
+  //  if (!weGotIt) 
+  //  {
+  //    vertices.push_back(thisVertex);
+  //  }
+  //}
 
   // Check Interactionxxx just in case
   for (int iPt = 0; iPt < InteractionPoint->size(); iPt++)
   {
-    Vertex_t v(InteractionPoint->at(iPt),
-               InteractionPointType->at(iPt),
-               TVector3(MidPosX[0][InteractionPoint->at(iPt)], MidPosY[0][InteractionPoint->at(iPt)], MidPosZ[0][InteractionPoint->at(iPt)]) );
-    vertices.push_back(v);
+    Vertex_t thisVertex( InteractionPoint->at(iPt),
+                         InteractionPointType->at(iPt),
+                         TVector3(MidPosX[0][InteractionPoint->at(iPt)], MidPosY[0][InteractionPoint->at(iPt)], MidPosZ[0][InteractionPoint->at(iPt)]) );
+    // Check if in FV
+    if (!InActiveRegion(thisVertex.position)) continue;
+
+    bool weGotIt(false);
+    for (const auto& v : vertices)
+    {
+      float diff = (v.position-thisVertex.position).Mag();
+      if (  diff < 0.01 && v.process == thisVertex.process) weGotIt = true;
+    }
+    if (!weGotIt) vertices.push_back(thisVertex);
   }
   std::sort(vertices.begin(), vertices.end(), [](const auto& l, const auto& r) {return l.position.Z() < r.position.Z();});
 
-  // Get the first point
-  for (const auto& v : vertices)
-  {
-    // Check if in FV
-    if (!InActiveRegion(v.position)) continue;
-
-    point   = v;
-    return;
-  }//<-- End loop over vertices
+  if (vertices.size()) point = vertices[0];
 }
 
 /**
@@ -450,25 +460,21 @@ int vertexStudy::DetermineG4Id(const int& tid)
 /**
  * @brief Method to study angles for elastic like events
  * 
- * @param p Interaction point
- * @param proc Interaction process type
+ * @param vertex The first vertex in the tpc
  * @param isElasticLike Is this process elastic like (one visible secondary)
  */
 void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
 {
-  std::string proc = vertex.process;
-  if (proc.find("none") != std::string::npos) return;
+  if (vertex.process.find("none") != std::string::npos) return;
 
-  // Make the distribution of scattering angles
-  // We need direction vectors before interaction points
-  size_t primiG4(0);
-  for (size_t iG4 = 0; iG4 < geant_list_size; iG4++) {if (process_primary[iG4]==1) primiG4=iG4;}
+  // Identify visible secondaries
+  IdentifyVisibleSecondaries(vertex);
 
   // Handle the case of just the primary
   bool isElastic(false);
   bool isInelastic(false);
-  if (proc.find("hadElastic") != std::string::npos || proc.find("CoulombScat") != std::string::npos) isElastic = true;
-  if (proc.find("pi-Inelastic") != std::string::npos) isInelastic = true;
+  if (vertex.process.find("hadElastic")   != std::string::npos || vertex.process.find("CoulombScat") != std::string::npos) isElastic = true;
+  if (vertex.process.find("pi-Inelastic") != std::string::npos) isInelastic = true;
 
   // Only looking at elastic or inelastic
   if (!isElastic && !isInelastic) return;
@@ -478,7 +484,7 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
   TVector3 posHere  ( MidPosX[0][vertex.p],   MidPosY[0][vertex.p],   MidPosZ[0][vertex.p] );
   auto primIncDir = (posHere-posBefore).Unit();
 
-  // After
+  // If the primary doesn't end here
   if ( (vertex.p+1) < NTrTrajPts[0] ) 
   {
     TVector3 posAfter( MidPosX[0][vertex.p+1], MidPosY[0][vertex.p+1], MidPosZ[0][vertex.p+1] );
@@ -489,47 +495,33 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
     {
       isElasticLike = true;
       hMCElasticAngle->Fill(theta);
-      if (theta > 10) cout << jentry << endl;
     }
 
     // @todo Add this case to the track length distribution
     if (isInelastic) hMCInelasticAngle->Fill(theta); 
-
-    // In any case, the primary doesn't end here
-    visSec.push_back(primiG4);
   }
   
-  // Handle inelastic type with all relevant daughters
+  // Fill inelastic scattering angles for all relevant daughters
   if (isInelastic)
   {
-    for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
+    for (const auto& iG4 : visSec)
     {
-      // @todo Take absolute value here?
-      if (Mother[iG4] != primTrkId) continue;
-
-      // Make sure she is charged 
-      if ( !IsCharged(std::abs(pdg[iG4])) ) continue;
+      if (iG4 == DetermineG4Id(primTrkId)) continue;
 
       // This is a charged daughter
       TVector3 dPos0(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
       TVector3 dPosf(EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4]);
       TVector3 dMom0(Px[iG4], Py[iG4], Pz[iG4]);
 
-      // Check track length
-      // @todo Do we need this cut?
-      if ((dPosf-dPos0).Mag() < SECONDARY_LENGTH_CUT) continue;
+      // Compute angle between daughter and incoming primary
+      double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
+      hMCInelasticAngle->Fill(theta);
+    }//<-- End loop over visible particles
+  }//<--End if inelastic
 
-      // This particle needs to be attached to the vertex
-      if ((posHere-dPos0).Mag() < 0.01)
-      {
-        visSec.push_back(iG4);
-        // Compute angle between daughter and incoming primary
-        double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
-        hMCInelasticAngle->Fill(theta);
-      }
-    }//<-- End loop over G4 particles
-
-    // Do it again, except for cases in which inelastic but one visible daughter
+  // Do it again, except for cases in which inelastic but one visible daughter
+  if (isInelastic)
+  {
     // If visSec.size() == 1 this looks elastic
     hMCSecondaries->Fill(visSec.size());
     if (visSec.size() == 1)
@@ -538,12 +530,13 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
       isElasticLike = true;
 
       // If this visible secondary is the primary
-      if (iG4 == primiG4)
+      if (iG4 == DetermineG4Id(primTrkId))
       {
         TVector3 posAfter(MidPosX[0][vertex.p + 1], MidPosY[0][vertex.p + 1], MidPosZ[0][vertex.p + 1]);
         auto primTrailDir = posAfter - posHere;
         double theta = (180 / TMath::Pi()) * std::acos(primIncDir.Unit().Dot(primTrailDir.Unit()));
         hMCInelasticOneVisDAngle->Fill(theta);
+        //if (theta > 10) cout << jentry << endl;
       }
       else
       {
@@ -558,7 +551,86 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
     }//<-- End if one visible daughter
   }//<-- End if is inelastic
 
+  // Look at the cone angle 
+  if (visSec.size() == 1)
+  {
+    size_t iG4 = visSec[0];
+    // If this visible secondary is the primary
+    if (iG4 == DetermineG4Id(primTrkId))
+    {
+      TVector3 posAfter(MidPosX[0][vertex.p + 1], MidPosY[0][vertex.p + 1], MidPosZ[0][vertex.p + 1]);
+      auto primTrailDir = posAfter - posHere;
+      auto r = primIncDir + primTrailDir;
+      double theta = (180 / TMath::Pi()) * std::acos(primIncDir.Unit().Dot(r.Unit()));
+      
+           if (isElastic)   hMCElasticConeAngle->Fill(theta);
+      else if (isInelastic) hMCInelasticConeAngle->Fill(theta);
+
+      if (isElastic && theta < 10)
+      {
+        primIncDir.Print();
+        primTrailDir.Print();
+        r.Print();
+        cout << jentry << "\n";
+      }
+    }
+    else
+    {
+      TVector3 dPos0(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
+      TVector3 dPosf(EndPointx[iG4], EndPointy[iG4], EndPointz[iG4]);
+      TVector3 dMom0(Px[iG4], Py[iG4], Pz[iG4]);
+      auto r = primIncDir + dMom0;
+   
+      // Compute angle between daughter and incoming primary
+      double theta = (180 / TMath::Pi()) * std::acos(primIncDir.Unit().Dot(r.Unit()));
+           if (isElastic)   hMCElasticConeAngle->Fill(theta);
+      else if (isInelastic) hMCInelasticConeAngle->Fill(theta);
+    }
+  }//<-- End if one visible daughter
+
+
+  // Sanity checks
+  if (isElastic && visSec.size() != 1) 
+  {
+    std::cout << "WARNING: Is elastic but visible secondaries does not make sense!\n";
+    std::cout << visSec.size() << " " << jentry << std::endl;
+  }
 }//<-- End truth studies
+
+/**
+ * @brief Method to identify visible secondaries attached to the interaction vertex
+ * 
+ * @param vertex The interaction vertex
+ */
+void vertexStudy::IdentifyVisibleSecondaries(const Vertex_t& vertex)
+{
+  visSec.clear();
+
+  // If the primary doesn't end here
+  size_t primiG4 = DetermineG4Id(primTrkId);
+  if ((vertex.p+1) < NTrTrajPts[0]) visSec.push_back(primiG4);
+
+  // Fill inelastic scattering angles for all relevant daughters
+  for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
+  {
+    // @todo Take absolute value here?
+    if (Mother[iG4] != primTrkId) continue;
+
+    // Make sure she is charged 
+    if ( !IsCharged(std::abs(pdg[iG4])) ) continue;
+
+    // This is a charged daughter
+    TVector3 dPos0(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
+    TVector3 dPosf(EndPointx[iG4], EndPointy[iG4], EndPointz[iG4]);
+
+    // Check track length
+    // @todo Do we need this cut?
+    if ((dPosf-dPos0).Mag() < SECONDARY_LENGTH_CUT) continue;
+
+    // This particle needs to be attached to the vertex
+    if ((vertex.position-dPos0).Mag() < 0.01) visSec.push_back(iG4);
+  }//<-- End loop over G4 particles
+}
 
 
 /**
@@ -576,7 +648,6 @@ void vertexStudy::VertexStudy(const Vertex_t& vertex)
 
   // Get the trj point here
   TVector3 posHere = vertex.position;
-  posHere.Print();
 
   // First subtract out ides which belong to primary or single secondary
   SubtractIdes(vertex.p);
@@ -615,7 +686,7 @@ void vertexStudy::VertexStudy(const Vertex_t& vertex)
  */
 void vertexStudy::SubtractIdes(const int& p)
 {
-  if (visSec.size() != 1) cout << "\nWHAT ARE YOU DOING HERE?\n";
+  if (visSec.size() != 1) cout << "\nWHAT ARE YOU DOING HERE? " << visSec.size() << "\n";
 
   // Loop over ides 
   // @note Negative tid means EM activity, -1*tid is mother
@@ -643,7 +714,7 @@ void vertexStudy::CheckVicinity(TrackIde_t& tide, const int& p)
   // @note using argoneut numbers
   float CONE_DISTANCE_CUT(2.4);  // cm
   float CONE_ANGLE_CUT(120);     // degrees
-  float CYLINDER_DISTANCE_CUT(3); // argoneut used 5cm, I'm less generous
+  float CYLINDER_DISTANCE_CUT(3); // argoneut used 5cm
 
   // Get direction vectors
   TVector3 point = tide.pos;
@@ -661,23 +732,21 @@ void vertexStudy::CheckVicinity(TrackIde_t& tide, const int& p)
   auto uCosPrim  = uDotPrim/u.Mag();
   auto uSinPrim  = std::sqrt(1 - uCosPrim*uCosPrim);
   auto uDistPrim = u.Mag() * uSinPrim;
-  
 
   // check if in cone first
   if (uDotPrim < CONE_DISTANCE_CUT)
   {
-    if (39 <= point.Z() && point.Z() < 40) 
+    if (10 <= point.Z() && point.Z() < 16) 
     {
-      cout << "A " << uDotPrim << " " << CONE_DISTANCE_CUT << " " << uDistPrim << endl;
-      u.Print();
-      point.Print();
-      vertex.Print();
-      primDir.Print();
+      //cout << "A " << uDotPrim << " " << CONE_DISTANCE_CUT << " " << uDistPrim << endl;
+      //u.Print();
+      //point.Print();
+      //vertex.Print();
+      //primDir.Print();
     }
     float coneDist = uDotPrim * std::tan( 0.5*CONE_ANGLE_CUT*TMath::Pi()/180 );
     if (uDistPrim < coneDist) 
     {
-      if (39 <= point.Z() && point.Z() < 40) cout << "B " << uDistPrim << " " << coneDist << endl;
       tide.energy = 0;
     }
   }
@@ -772,6 +841,8 @@ void MakePlots()
   hMCIdesXvsZ->Write();
   hMCIdesSubXvsZ->Write();
   hMCNumInteractions->Write();
+  hMCInelasticConeAngle->Write();
+  hMCElasticConeAngle->Write();
 
   myRootFile.Close();
 }
