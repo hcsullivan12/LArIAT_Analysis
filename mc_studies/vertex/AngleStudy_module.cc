@@ -281,7 +281,7 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
   }
   auto primMcParticle = plist.Particle(primId);
 
-  TVector3 primIncDir = primMcParticle->Momentum(vertex.point-1).Vect().Unit();
+  TVector3 primIncDir = primMcParticle->Momentum(vertex.point-1).Vect();
 
   // If the primary doesn't end here
   if ( (vertex.point+1) < (int)primMcParticle->NumberTrajectoryPoints())
