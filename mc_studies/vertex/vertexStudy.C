@@ -20,6 +20,8 @@ void MakePlots();
 bool InActiveRegion(const TVector3& thePos);
 bool InTPCRegion(const TVector3& thePos);
 inline void PrintVec(const TVector3& pos) {std::cout<<"\t("<<pos.X()<<", "<<pos.Y()<<", "<<pos.Z()<<")\n";};
+std::string IntProcessToString(const int& p);
+
 /// Mass of pion in MeV
 float PARTICLE_MASS(139.57); 
 inline double ToKineticEnergy(const TVector3& mom){return std::sqrt( mom.Mag()*mom.Mag() + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS; }
@@ -125,17 +127,16 @@ TH2D* hMCIdeVertexInelastic = new TH2D("hMCIdeVertexInelastic", "IDEs versus bub
 TH2D* hMCIdesXvsZ = new TH2D("hMCIdesXvsZ", "IDEs for X vs Z ", 200, 0, 100, 100, 0, 50);
 TH2D* hMCIdesSubXvsZ = new TH2D("hMCIdesSubXvsZ", "IDEs subtracted for X vs Z ", 200, 0, 100, 100, 0, 50);
 TH1I* hMCNumInteractions = new TH1I("hMCNumInteractions", "Number of interactions in TPC for elastic like", 5, 0, 5);
+
+/// reco
+TH2D* hRecoHitsXvsZ = new TH2D("hRecoHitsXvsZ", "Hits for X vs Z ", 200, 0, 100, 100, 0, 50);
+
 /// @}
 
 /// Output root file
 TFile myRootFile("piMinusAna.root", "RECREATE");
 
 Long64_t jentry(0);
-
-/// Fiducial volume definition
-float FV_X_BOUND[2] = {   1.0, 46.0 };
-float FV_Y_BOUND[2] = { -18.0, 18.0 };
-float FV_Z_BOUND[2] = {   0.0, 88.0 };
 
 /**
  * @brief Main loop
@@ -147,7 +148,7 @@ void vertexStudy::Loop(int inDebug)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (jentry=2; jentry<=2/*nentries*/;jentry++) 
+  for (jentry=0; jentry<=nentries;jentry++) 
   {
     // If debug, only look at a sub sample 
     //if (inDebug == 1 && jentry%1000 != 0) continue;
@@ -250,6 +251,17 @@ void vertexStudy::Loop(int inDebug)
         hMCIdesXvsZ->SetBinContent(xBin, yBin, IDEEnergy->at(iIDE));
       }
     }
+
+    //if (nTotalEvents == 1)
+    {
+      for (int iPt = 0; iPt < nhits; iPt++)
+      {
+        if (hit_charge[iPt] > -90000) std::cout << hit_charge[iPt] << endl;
+        auto xBin = hRecoHitsXvsZ->GetXaxis()->FindBin(hit_z[iPt]);
+        auto yBin = hRecoHitsXvsZ->GetYaxis()->FindBin(hit_x[iPt]);
+        //hRecoHitsXvsZ->SetBinContent(xBin, yBin, hit_charge[iPt]);
+      }
+    }
   
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -260,9 +272,7 @@ void vertexStudy::Loop(int inDebug)
     Vertex_t firstVertexInTpc(-1, "none", TVector3(0,0,-100));
     vertices.clear();
     GetFirstInteractionInTPC(firstVertexInTpc);
-    //firstVertexInTpc.position.Print();
-    //for (const auto& v : vertices) cout << v.position.Z() << " " << v.process << std::endl;
-    if (vertex.process.find("none") != std::string::npos) continue;
+    if (firstVertexInTpc.process.find("none") != std::string::npos) continue;
 
     // Identify visible secondaries
     visSec.clear();
@@ -310,13 +320,13 @@ void vertexStudy::Loop(int inDebug)
         for (const auto& v : *InteractionPointType) std::cout << v << std::endl;
       }
     }
-    if (doSkip) continue;
+    //if (doSkip) continue;
 
     if (isElasticLike) nElasticLikeEvents++;
     if (IN_DEBUG) 
     {
       std::cout << "\njEntry                 = " << jentry 
-                << "\nFirst int point in TPC = " << MidPosZ[0][firstVertexInTpc.p]
+                << "\nFirst int point in TPC = " << MidPosZ[0][firstVertexInTpc.point]
                 << "\nFirst process in TPC   = " << firstVertexInTpc.process
                 << "\nIs elastic like        = ";
       if (isElasticLike) std::cout << "yes" << std::endl;
@@ -330,7 +340,7 @@ void vertexStudy::Loop(int inDebug)
     // Vertex study for elastic like events
     if (isElasticLike) 
     {
-      hMCNumInteractions->Fill(InteractionPoint->size());
+      hMCNumInteractions->Fill(vertices.size());
 
       ides.clear();
       ides.reserve(IDETrackId->size());
@@ -354,7 +364,7 @@ void vertexStudy::Loop(int inDebug)
 
 
   // Event reduction table
-  std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl
+  std::cout << "\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl
             << "Events simulated:                           " << nTotalEvents                 << endl
             << "Tracks entered TPC:                         " << nPrimariesEntered            << endl
             << "Events with > 0 entered tracks:             " << nGoodMCEvents                << endl
@@ -364,7 +374,6 @@ void vertexStudy::Loop(int inDebug)
 
   // Make plots
   MakePlots();
-
   gApplication->Terminate(0);
 }//<---- End main loop
 
@@ -389,7 +398,7 @@ void vertexStudy::GetFirstInteractionInTPC(Vertex_t& point)
   for (int iPt = 0; iPt < InteractionPoint->size(); iPt++)
   {
     Vertex_t thisVertex( InteractionPoint->at(iPt),
-                         InteractionPointType->at(iPt),
+                         IntProcessToString(InteractionPointType->at(iPt)),
                          TVector3(MidPosX[0][InteractionPoint->at(iPt)], MidPosY[0][InteractionPoint->at(iPt)], MidPosZ[0][InteractionPoint->at(iPt)]) );
     // Check if in FV
     if (!InActiveRegion(thisVertex.position)) continue;
@@ -528,7 +537,7 @@ void vertexStudy::IdentifyVisibleSecondaries(const Vertex_t& vertex)
 
   // If the primary doesn't end here
   size_t primiG4 = DetermineG4Id(primTrkId);
-  if ((vertex.p+1) < NTrTrajPts[0]) visSec.push_back(primiG4);
+  if ((vertex.point+1) < NTrTrajPts[0]) visSec.push_back(primiG4);
 
   // Fill inelastic scattering angles for all relevant daughters
   for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
@@ -570,7 +579,7 @@ void vertexStudy::VertexStudy(const Vertex_t& vertex)
   TVector3 posHere = vertex.position;
 
   // First subtract out ides which belong to primary or single secondary
-  SubtractIdes(vertex.p);
+  SubtractIdes(vertex.point);
 
   if (nTotalEvents == 1)
   {
@@ -764,6 +773,11 @@ void MakePlots()
   hMCInelasticConeAngle->Write();
   hMCElasticConeAngle->Write();
 
+  myRootFile.cd();
+  myRootFile.mkdir("reco/");
+  myRootFile.cd("reco/");
+  hRecoHitsXvsZ->Write();
+
   myRootFile.Close();
 }
 
@@ -812,6 +826,40 @@ int vertexStudy::ConvertToPrimaryPoint(const TVector3& position)
     if ( (testPosition-position).Mag() < 0.01 ) return iPt;
   }
   return 0;
+}
+
+/**
+ * @brief Convert integer to string
+ * 
+ * @note This is not consistent in AnaTree_module
+ * 
+ * @param p The process Id
+ * @return std::string The process name
+ */
+std::string IntProcessToString(const int& p)
+{	 
+  std::string process("unknown");
+  switch (p)
+  {
+    case 0:  {process = "primary";break;}
+    case 1:  {process = "pi-Inelastic";break;}
+    case 2:  {process = "neutronInelastic";break;}
+    case 3:  {process = "hadElastic";break;}
+    case 4:  {process = "nCapture";break;}
+    case 5:  {process = "CHIPSNuclearCaptureAtRest";break;}
+    case 6:  {process = "Decay";break;}
+    case 7:  {process = "KaonZeroLInelastic";break;}
+    case 8:  {process = "CoulombScat";break;}
+    case 9:  {process = "mu-CaptureAtRest";break;}
+    case 10: {process = "protonInelastic";break;}
+    case 11: {process = "Kaon+Inelastic";break;}
+    case 12: {process = "Kaon-Inelastic";break;}
+    case 13: {process = "protonInelastic";break;}
+    case 14: {process = "pi+Inelastic";break;}
+    default: {process = "unknown";break;}
+  }
+  if (process == "unknown") std::cout << "Warning: Unknown process type! " << p << "\n";
+  return process;
 }
 
 

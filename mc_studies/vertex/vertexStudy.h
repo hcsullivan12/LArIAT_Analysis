@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Mon Jul 22 15:34:04 2019 by ROOT version 6.10/04
+// Mon Jul 29 21:55:14 2019 by ROOT version 6.10/04
 // from TTree anatree/analysis tree
 // found on file: piminusanatree.root
 //////////////////////////////////////////////////////////
@@ -18,6 +18,8 @@
 #include "vector"
 #include "vector"
 
+
+
 /// Stucture for IDE
 struct TrackIde_t
 {
@@ -34,17 +36,16 @@ struct TrackIde_t
 struct Vertex_t
 {
   Vertex_t(int primP, std::string proc, TVector3 pos)
-   : p(primP), process(proc), position(pos)
+   : point(primP), process(proc), position(pos)
    {}
 
-  int         p;        // int of primary vertex
+  int         point;    // int of primary vertex
   std::string process;  // the process
   TVector3    position; // 3D point
 };
 
 
 class vertexStudy {
-
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -59,77 +60,77 @@ public :
    Double_t        efield[3];
    Int_t           t0;
    Int_t           nclus;
-   Double_t        clustertwire[1];   //[nclus]
-   Double_t        clusterttick[1];   //[nclus]
-   Double_t        cluendwire[1];   //[nclus]
-   Double_t        cluendtick[1];   //[nclus]
-   Int_t           cluplane[1];   //[nclus]
+   Double_t        clustertwire[132];   //[nclus]
+   Double_t        clusterttick[132];   //[nclus]
+   Double_t        cluendwire[132];   //[nclus]
+   Double_t        cluendtick[132];   //[nclus]
+   Int_t           cluplane[132];   //[nclus]
    Int_t           ntracks_reco;
-   Double_t        trkvtxx[1];   //[ntracks_reco]
-   Double_t        trkvtxy[1];   //[ntracks_reco]
-   Double_t        trkvtxz[1];   //[ntracks_reco]
-   Double_t        trkendx[1];   //[ntracks_reco]
-   Double_t        trkendy[1];   //[ntracks_reco]
-   Double_t        trkendz[1];   //[ntracks_reco]
-   Double_t        trkstartdcosx[1];   //[ntracks_reco]
-   Double_t        trkstartdcosy[1];   //[ntracks_reco]
-   Double_t        trkstartdcosz[1];   //[ntracks_reco]
-   Double_t        trkenddcosx[1];   //[ntracks_reco]
-   Double_t        trkenddcosy[1];   //[ntracks_reco]
-   Double_t        trkenddcosz[1];   //[ntracks_reco]
-   Int_t           trkWCtoTPCMatch[1];   //[ntracks_reco]
-   Double_t        trklength[1];   //[ntracks_reco]
-   Double_t        trkmomrange[1];   //[ntracks_reco]
-   Double_t        trkmommschi2[1];   //[ntracks_reco]
-   Double_t        trkmommsllhd[1];   //[ntracks_reco]
-   Int_t           ntrkhits[1];   //[ntracks_reco]
-   Double_t        trkx[1][1000];   //[ntracks_reco]
-   Double_t        trky[1][1000];   //[ntracks_reco]
-   Double_t        trkz[1][1000];   //[ntracks_reco]
-   Double_t        trkpitch[1][2];   //[ntracks_reco]
-   Int_t           trkhits[1][2];   //[ntracks_reco]
-   Double_t        trkdedx[1][2][1000];   //[ntracks_reco]
-   Double_t        trkdqdx[1][2][1000];   //[ntracks_reco]
-   Double_t        trkrr[1][2][1000];   //[ntracks_reco]
-   Double_t        trkpitchhit[1][2][1000];   //[ntracks_reco]
-   Double_t        trkxyz[1][2][1000][3];   //[ntracks_reco]
-   Double_t        trkke[1][2];   //[ntracks_reco]
-   Double_t        trkpida[1][2];   //[ntracks_reco]
-   Int_t           nTrajPoint[1];   //[ntracks_reco]
-   Double_t        pHat0_X[1][1000];   //[ntracks_reco]
-   Double_t        pHat0_Y[1][1000];   //[ntracks_reco]
-   Double_t        pHat0_Z[1][1000];   //[ntracks_reco]
-   Double_t        trjPt_X[1][1000];   //[ntracks_reco]
-   Double_t        trjPt_Y[1][1000];   //[ntracks_reco]
-   Double_t        trjPt_Z[1][1000];   //[ntracks_reco]
-   Int_t           trkg4id[1];   //[ntracks_reco]
+   Double_t        trkvtxx[34];   //[ntracks_reco]
+   Double_t        trkvtxy[34];   //[ntracks_reco]
+   Double_t        trkvtxz[34];   //[ntracks_reco]
+   Double_t        trkendx[34];   //[ntracks_reco]
+   Double_t        trkendy[34];   //[ntracks_reco]
+   Double_t        trkendz[34];   //[ntracks_reco]
+   Double_t        trkstartdcosx[34];   //[ntracks_reco]
+   Double_t        trkstartdcosy[34];   //[ntracks_reco]
+   Double_t        trkstartdcosz[34];   //[ntracks_reco]
+   Double_t        trkenddcosx[34];   //[ntracks_reco]
+   Double_t        trkenddcosy[34];   //[ntracks_reco]
+   Double_t        trkenddcosz[34];   //[ntracks_reco]
+   Int_t           trkWCtoTPCMatch[34];   //[ntracks_reco]
+   Double_t        trklength[34];   //[ntracks_reco]
+   Double_t        trkmomrange[34];   //[ntracks_reco]
+   Double_t        trkmommschi2[34];   //[ntracks_reco]
+   Double_t        trkmommsllhd[34];   //[ntracks_reco]
+   Int_t           ntrkhits[34];   //[ntracks_reco]
+   Double_t        trkx[34][1000];   //[ntracks_reco]
+   Double_t        trky[34][1000];   //[ntracks_reco]
+   Double_t        trkz[34][1000];   //[ntracks_reco]
+   Double_t        trkpitch[34][2];   //[ntracks_reco]
+   Int_t           trkhits[34][2];   //[ntracks_reco]
+   Double_t        trkdedx[34][2][1000];   //[ntracks_reco]
+   Double_t        trkdqdx[34][2][1000];   //[ntracks_reco]
+   Double_t        trkrr[34][2][1000];   //[ntracks_reco]
+   Double_t        trkpitchhit[34][2][1000];   //[ntracks_reco]
+   Double_t        trkxyz[34][2][1000][3];   //[ntracks_reco]
+   Double_t        trkke[34][2];   //[ntracks_reco]
+   Double_t        trkpida[34][2];   //[ntracks_reco]
+   Int_t           nTrajPoint[34];   //[ntracks_reco]
+   Double_t        pHat0_X[34][1000];   //[ntracks_reco]
+   Double_t        pHat0_Y[34][1000];   //[ntracks_reco]
+   Double_t        pHat0_Z[34][1000];   //[ntracks_reco]
+   Double_t        trjPt_X[34][1000];   //[ntracks_reco]
+   Double_t        trjPt_Y[34][1000];   //[ntracks_reco]
+   Double_t        trjPt_Z[34][1000];   //[ntracks_reco]
+   Int_t           trkg4id[34];   //[ntracks_reco]
    Int_t           primarytrkkey;
    Int_t           nhits;
-   Int_t           hit_plane[1];   //[nhits]
-   Int_t           hit_wire[1];   //[nhits]
-   Int_t           hit_channel[1];   //[nhits]
-   Double_t        hit_peakT[1];   //[nhits]
-   Double_t        hit_charge[1];   //[nhits]
-   Double_t        hit_ph[1];   //[nhits]
-   Double_t        hit_tstart[1];   //[nhits]
-   Double_t        hit_tend[1];   //[nhits]
-   Int_t           hit_trkid[1];   //[nhits]
-   Int_t           hit_trkkey[1];   //[nhits]
-   Int_t           hit_clukey[1];   //[nhits]
-   Int_t           hit_pk[1];   //[nhits]
-   Int_t           hit_t[1];   //[nhits]
-   Int_t           hit_ch[1];   //[nhits]
-   Int_t           hit_fwhh[1];   //[nhits]
-   Double_t        hit_rms[1];   //[nhits]
-   Double_t        hit_nelec[1];   //[nhits]
-   Double_t        hit_energy[1];   //[nhits]
-   Float_t         hit_dQds[1];   //[nhits]
-   Float_t         hit_dEds[1];   //[nhits]
-   Float_t         hit_ds[1];   //[nhits]
-   Float_t         hit_resrange[1];   //[nhits]
-   Float_t         hit_x[1];   //[nhits]
-   Float_t         hit_y[1];   //[nhits]
-   Float_t         hit_z[1];   //[nhits]
+   Int_t           hit_plane[1130];   //[nhits]
+   Int_t           hit_wire[1130];   //[nhits]
+   Int_t           hit_channel[1130];   //[nhits]
+   Double_t        hit_peakT[1130];   //[nhits]
+   Double_t        hit_charge[1130];   //[nhits]
+   Double_t        hit_ph[1130];   //[nhits]
+   Double_t        hit_tstart[1130];   //[nhits]
+   Double_t        hit_tend[1130];   //[nhits]
+   Int_t           hit_trkid[1130];   //[nhits]
+   Int_t           hit_trkkey[1130];   //[nhits]
+   Int_t           hit_clukey[1130];   //[nhits]
+   Int_t           hit_pk[1130];   //[nhits]
+   Int_t           hit_t[1130];   //[nhits]
+   Int_t           hit_ch[1130];   //[nhits]
+   Int_t           hit_fwhh[1130];   //[nhits]
+   Double_t        hit_rms[1130];   //[nhits]
+   Double_t        hit_nelec[1130];   //[nhits]
+   Double_t        hit_energy[1130];   //[nhits]
+   Float_t         hit_dQds[1130];   //[nhits]
+   Float_t         hit_dEds[1130];   //[nhits]
+   Float_t         hit_ds[1130];   //[nhits]
+   Float_t         hit_resrange[1130];   //[nhits]
+   Float_t         hit_x[1130];   //[nhits]
+   Float_t         hit_y[1130];   //[nhits]
+   Float_t         hit_z[1130];   //[nhits]
    Int_t           nwctrks;
    Double_t        wctrk_XFaceCoor[1];   //[nwctrks]
    Double_t        wctrk_YFaceCoor[1];   //[nwctrks]
@@ -185,26 +186,26 @@ public :
    vector<int>     *IDETrackId;
    Int_t           no_primaries;
    Int_t           geant_list_size;
-   Int_t           pdg[294];   //[geant_list_size]
-   Double_t        Eng[294];   //[geant_list_size]
-   Double_t        Px[294];   //[geant_list_size]
-   Double_t        Py[294];   //[geant_list_size]
-   Double_t        Pz[294];   //[geant_list_size]
-   Double_t        EndEng[294];   //[geant_list_size]
-   Double_t        EndPx[294];   //[geant_list_size]
-   Double_t        EndPy[294];   //[geant_list_size]
-   Double_t        EndPz[294];   //[geant_list_size]
-   Double_t        StartPointx[294];   //[geant_list_size]
-   Double_t        StartPointy[294];   //[geant_list_size]
-   Double_t        StartPointz[294];   //[geant_list_size]
-   Double_t        EndPointx[294];   //[geant_list_size]
-   Double_t        EndPointy[294];   //[geant_list_size]
-   Double_t        EndPointz[294];   //[geant_list_size]
-   vector<string>  *Process;
-   Int_t           NumberDaughters[294];   //[geant_list_size]
-   Int_t           Mother[294];   //[geant_list_size]
-   Int_t           TrackId[294];   //[geant_list_size]
-   Int_t           process_primary[294];   //[geant_list_size]
+   Int_t           pdg[302];   //[geant_list_size]
+   Double_t        Eng[302];   //[geant_list_size]
+   Double_t        Px[302];   //[geant_list_size]
+   Double_t        Py[302];   //[geant_list_size]
+   Double_t        Pz[302];   //[geant_list_size]
+   Double_t        EndEng[302];   //[geant_list_size]
+   Double_t        EndPx[302];   //[geant_list_size]
+   Double_t        EndPy[302];   //[geant_list_size]
+   Double_t        EndPz[302];   //[geant_list_size]
+   Double_t        StartPointx[302];   //[geant_list_size]
+   Double_t        StartPointy[302];   //[geant_list_size]
+   Double_t        StartPointz[302];   //[geant_list_size]
+   Double_t        EndPointx[302];   //[geant_list_size]
+   Double_t        EndPointy[302];   //[geant_list_size]
+   Double_t        EndPointz[302];   //[geant_list_size]
+   Int_t           Process[302];   //[geant_list_size]
+   Int_t           NumberDaughters[302];   //[geant_list_size]
+   Int_t           Mother[302];   //[geant_list_size]
+   Int_t           TrackId[302];   //[geant_list_size]
+   Int_t           process_primary[302];   //[geant_list_size]
    vector<string>  *G4Process;
    vector<string>  *G4FinalProcess;
    Int_t           NTrTrajPts[1];   //[no_primaries]
@@ -215,8 +216,7 @@ public :
    Double_t        MidPy[1][5000];   //[no_primaries]
    Double_t        MidPz[1][5000];   //[no_primaries]
    vector<int>     *InteractionPoint;
-   vector<string>  *InteractionPointType;
-   vector<string>  *InteractionPointSubType;
+   vector<int>     *InteractionPointType;
    Int_t           no_mcshowers;
    Double_t        mcshwr_origin[1];   //[no_mcshowers]
    Double_t        mcshwr_pdg[1];   //[no_mcshowers]
@@ -430,7 +430,6 @@ public :
    TBranch        *b_MidPz;   //!
    TBranch        *b_InteractionPoint;   //!
    TBranch        *b_InteractionPointType;   //!
-   TBranch        *b_InteractionPointSubType;   //!
    TBranch        *b_no_mcshowers;   //!
    TBranch        *b_mcshwr_origin;   //!
    TBranch        *b_mcshwr_pdg;   //!
@@ -495,6 +494,8 @@ public :
    int DetermineG4Id(const int& tid);
    void SubtractIdes(const int& p);
    void CheckVicinity(TrackIde_t& tide, const int& p);
+   void IdentifyVisibleSecondaries(const Vertex_t& vertex);
+   int ConvertToPrimaryPoint(const TVector3& position);
 };
 
 #endif
@@ -555,12 +556,10 @@ void vertexStudy::Init(TTree *tree)
    IDEEnergy = 0;
    IDEPos = 0;
    IDETrackId = 0;
-   Process = 0;
    G4Process = 0;
    G4FinalProcess = 0;
    InteractionPoint = 0;
    InteractionPointType = 0;
-   InteractionPointSubType = 0;
    // Set branch addresses and branch pointers
    if (!tree) return;
    fChain = tree;
@@ -574,77 +573,77 @@ void vertexStudy::Init(TTree *tree)
    fChain->SetBranchAddress("efield", efield, &b_efield);
    fChain->SetBranchAddress("t0", &t0, &b_t0);
    fChain->SetBranchAddress("nclus", &nclus, &b_nclus);
-   fChain->SetBranchAddress("clustertwire", &clustertwire, &b_clustertwire);
-   fChain->SetBranchAddress("clusterttick", &clusterttick, &b_clusterttick);
-   fChain->SetBranchAddress("cluendwire", &cluendwire, &b_cluendwire);
-   fChain->SetBranchAddress("cluendtick", &cluendtick, &b_cluendtick);
-   fChain->SetBranchAddress("cluplane", &cluplane, &b_cluplane);
+   fChain->SetBranchAddress("clustertwire", clustertwire, &b_clustertwire);
+   fChain->SetBranchAddress("clusterttick", clusterttick, &b_clusterttick);
+   fChain->SetBranchAddress("cluendwire", cluendwire, &b_cluendwire);
+   fChain->SetBranchAddress("cluendtick", cluendtick, &b_cluendtick);
+   fChain->SetBranchAddress("cluplane", cluplane, &b_cluplane);
    fChain->SetBranchAddress("ntracks_reco", &ntracks_reco, &b_ntracks_reco);
-   fChain->SetBranchAddress("trkvtxx", &trkvtxx, &b_trkvtxx);
-   fChain->SetBranchAddress("trkvtxy", &trkvtxy, &b_trkvtxy);
-   fChain->SetBranchAddress("trkvtxz", &trkvtxz, &b_trkvtxz);
-   fChain->SetBranchAddress("trkendx", &trkendx, &b_trkendx);
-   fChain->SetBranchAddress("trkendy", &trkendy, &b_trkendy);
-   fChain->SetBranchAddress("trkendz", &trkendz, &b_trkendz);
-   fChain->SetBranchAddress("trkstartdcosx", &trkstartdcosx, &b_trkstartdcosx);
-   fChain->SetBranchAddress("trkstartdcosy", &trkstartdcosy, &b_trkstartdcosy);
-   fChain->SetBranchAddress("trkstartdcosz", &trkstartdcosz, &b_trkstartdcosz);
-   fChain->SetBranchAddress("trkenddcosx", &trkenddcosx, &b_trkenddcosx);
-   fChain->SetBranchAddress("trkenddcosy", &trkenddcosy, &b_trkenddcosy);
-   fChain->SetBranchAddress("trkenddcosz", &trkenddcosz, &b_trkenddcosz);
-   fChain->SetBranchAddress("trkWCtoTPCMatch", &trkWCtoTPCMatch, &b_trkWCtoTPCMatch);
-   fChain->SetBranchAddress("trklength", &trklength, &b_trklength);
-   fChain->SetBranchAddress("trkmomrange", &trkmomrange, &b_trkmomrange);
-   fChain->SetBranchAddress("trkmommschi2", &trkmommschi2, &b_trkmommschi2);
-   fChain->SetBranchAddress("trkmommsllhd", &trkmommsllhd, &b_trkmommsllhd);
-   fChain->SetBranchAddress("ntrkhits", &ntrkhits, &b_ntrkhits);
-   fChain->SetBranchAddress("trkx", &trkx, &b_trkx);
-   fChain->SetBranchAddress("trky", &trky, &b_trky);
-   fChain->SetBranchAddress("trkz", &trkz, &b_trkz);
-   fChain->SetBranchAddress("trkpitch", &trkpitch, &b_trkpitch);
-   fChain->SetBranchAddress("trkhits", &trkhits, &b_trkhits);
-   fChain->SetBranchAddress("trkdedx", &trkdedx, &b_trkdedx);
-   fChain->SetBranchAddress("trkdqdx", &trkdqdx, &b_trkdqdx);
-   fChain->SetBranchAddress("trkrr", &trkrr, &b_trkrr);
-   fChain->SetBranchAddress("trkpitchhit", &trkpitchhit, &b_trkpitchhit);
-   fChain->SetBranchAddress("trkxyz", &trkxyz, &b_trkxyz);
-   fChain->SetBranchAddress("trkke", &trkke, &b_trkke);
-   fChain->SetBranchAddress("trkpida", &trkpida, &b_trkpida);
-   fChain->SetBranchAddress("nTrajPoint", &nTrajPoint, &b_nTrajPoint);
-   fChain->SetBranchAddress("pHat0_X", &pHat0_X, &b_pHat0_X);
-   fChain->SetBranchAddress("pHat0_Y", &pHat0_Y, &b_pHat0_Y);
-   fChain->SetBranchAddress("pHat0_Z", &pHat0_Z, &b_pHat0_Z);
-   fChain->SetBranchAddress("trjPt_X", &trjPt_X, &b_trjPt_X);
-   fChain->SetBranchAddress("trjPt_Y", &trjPt_Y, &b_trjPt_Y);
-   fChain->SetBranchAddress("trjPt_Z", &trjPt_Z, &b_trjPt_Z);
-   fChain->SetBranchAddress("trkg4id", &trkg4id, &b_trkg4id);
+   fChain->SetBranchAddress("trkvtxx", trkvtxx, &b_trkvtxx);
+   fChain->SetBranchAddress("trkvtxy", trkvtxy, &b_trkvtxy);
+   fChain->SetBranchAddress("trkvtxz", trkvtxz, &b_trkvtxz);
+   fChain->SetBranchAddress("trkendx", trkendx, &b_trkendx);
+   fChain->SetBranchAddress("trkendy", trkendy, &b_trkendy);
+   fChain->SetBranchAddress("trkendz", trkendz, &b_trkendz);
+   fChain->SetBranchAddress("trkstartdcosx", trkstartdcosx, &b_trkstartdcosx);
+   fChain->SetBranchAddress("trkstartdcosy", trkstartdcosy, &b_trkstartdcosy);
+   fChain->SetBranchAddress("trkstartdcosz", trkstartdcosz, &b_trkstartdcosz);
+   fChain->SetBranchAddress("trkenddcosx", trkenddcosx, &b_trkenddcosx);
+   fChain->SetBranchAddress("trkenddcosy", trkenddcosy, &b_trkenddcosy);
+   fChain->SetBranchAddress("trkenddcosz", trkenddcosz, &b_trkenddcosz);
+   fChain->SetBranchAddress("trkWCtoTPCMatch", trkWCtoTPCMatch, &b_trkWCtoTPCMatch);
+   fChain->SetBranchAddress("trklength", trklength, &b_trklength);
+   fChain->SetBranchAddress("trkmomrange", trkmomrange, &b_trkmomrange);
+   fChain->SetBranchAddress("trkmommschi2", trkmommschi2, &b_trkmommschi2);
+   fChain->SetBranchAddress("trkmommsllhd", trkmommsllhd, &b_trkmommsllhd);
+   fChain->SetBranchAddress("ntrkhits", ntrkhits, &b_ntrkhits);
+   fChain->SetBranchAddress("trkx", trkx, &b_trkx);
+   fChain->SetBranchAddress("trky", trky, &b_trky);
+   fChain->SetBranchAddress("trkz", trkz, &b_trkz);
+   fChain->SetBranchAddress("trkpitch", trkpitch, &b_trkpitch);
+   fChain->SetBranchAddress("trkhits", trkhits, &b_trkhits);
+   fChain->SetBranchAddress("trkdedx", trkdedx, &b_trkdedx);
+   fChain->SetBranchAddress("trkdqdx", trkdqdx, &b_trkdqdx);
+   fChain->SetBranchAddress("trkrr", trkrr, &b_trkrr);
+   fChain->SetBranchAddress("trkpitchhit", trkpitchhit, &b_trkpitchhit);
+   fChain->SetBranchAddress("trkxyz", trkxyz, &b_trkxyz);
+   fChain->SetBranchAddress("trkke", trkke, &b_trkke);
+   fChain->SetBranchAddress("trkpida", trkpida, &b_trkpida);
+   fChain->SetBranchAddress("nTrajPoint", nTrajPoint, &b_nTrajPoint);
+   fChain->SetBranchAddress("pHat0_X", pHat0_X, &b_pHat0_X);
+   fChain->SetBranchAddress("pHat0_Y", pHat0_Y, &b_pHat0_Y);
+   fChain->SetBranchAddress("pHat0_Z", pHat0_Z, &b_pHat0_Z);
+   fChain->SetBranchAddress("trjPt_X", trjPt_X, &b_trjPt_X);
+   fChain->SetBranchAddress("trjPt_Y", trjPt_Y, &b_trjPt_Y);
+   fChain->SetBranchAddress("trjPt_Z", trjPt_Z, &b_trjPt_Z);
+   fChain->SetBranchAddress("trkg4id", trkg4id, &b_trkg4id);
    fChain->SetBranchAddress("primarytrkkey", &primarytrkkey, &b_primarytrkkey);
    fChain->SetBranchAddress("nhits", &nhits, &b_nhits);
-   fChain->SetBranchAddress("hit_plane", &hit_plane, &b_hit_plane);
-   fChain->SetBranchAddress("hit_wire", &hit_wire, &b_hit_wire);
-   fChain->SetBranchAddress("hit_channel", &hit_channel, &b_hit_channel);
-   fChain->SetBranchAddress("hit_peakT", &hit_peakT, &b_hit_peakT);
-   fChain->SetBranchAddress("hit_charge", &hit_charge, &b_hit_charge);
-   fChain->SetBranchAddress("hit_ph", &hit_ph, &b_hit_ph);
-   fChain->SetBranchAddress("hit_tstart", &hit_tstart, &b_hit_tstart);
-   fChain->SetBranchAddress("hit_tend", &hit_tend, &b_hit_tend);
-   fChain->SetBranchAddress("hit_trkid", &hit_trkid, &b_hit_trkid);
-   fChain->SetBranchAddress("hit_trkkey", &hit_trkkey, &b_hit_trkkey);
-   fChain->SetBranchAddress("hit_clukey", &hit_clukey, &b_hit_clukey);
-   fChain->SetBranchAddress("hit_pk", &hit_pk, &b_hit_pk);
-   fChain->SetBranchAddress("hit_t", &hit_t, &b_hit_t);
-   fChain->SetBranchAddress("hit_ch", &hit_ch, &b_hit_ch);
-   fChain->SetBranchAddress("hit_fwhh", &hit_fwhh, &b_hit_fwhh);
-   fChain->SetBranchAddress("hit_rms", &hit_rms, &b_hit_rms);
-   fChain->SetBranchAddress("hit_nelec", &hit_nelec, &b_hit_nelec);
-   fChain->SetBranchAddress("hit_energy", &hit_energy, &b_hit_energy);
-   fChain->SetBranchAddress("hit_dQds", &hit_dQds, &b_hit_dQds);
-   fChain->SetBranchAddress("hit_dEds", &hit_dEds, &b_hit_dEds);
-   fChain->SetBranchAddress("hit_ds", &hit_ds, &b_hit_ds);
-   fChain->SetBranchAddress("hit_resrange", &hit_resrange, &b_hit_resrange);
-   fChain->SetBranchAddress("hit_x", &hit_x, &b_hit_x);
-   fChain->SetBranchAddress("hit_y", &hit_y, &b_hit_y);
-   fChain->SetBranchAddress("hit_z", &hit_z, &b_hit_z);
+   fChain->SetBranchAddress("hit_plane", hit_plane, &b_hit_plane);
+   fChain->SetBranchAddress("hit_wire", hit_wire, &b_hit_wire);
+   fChain->SetBranchAddress("hit_channel", hit_channel, &b_hit_channel);
+   fChain->SetBranchAddress("hit_peakT", hit_peakT, &b_hit_peakT);
+   fChain->SetBranchAddress("hit_charge", hit_charge, &b_hit_charge);
+   fChain->SetBranchAddress("hit_ph", hit_ph, &b_hit_ph);
+   fChain->SetBranchAddress("hit_tstart", hit_tstart, &b_hit_tstart);
+   fChain->SetBranchAddress("hit_tend", hit_tend, &b_hit_tend);
+   fChain->SetBranchAddress("hit_trkid", hit_trkid, &b_hit_trkid);
+   fChain->SetBranchAddress("hit_trkkey", hit_trkkey, &b_hit_trkkey);
+   fChain->SetBranchAddress("hit_clukey", hit_clukey, &b_hit_clukey);
+   fChain->SetBranchAddress("hit_pk", hit_pk, &b_hit_pk);
+   fChain->SetBranchAddress("hit_t", hit_t, &b_hit_t);
+   fChain->SetBranchAddress("hit_ch", hit_ch, &b_hit_ch);
+   fChain->SetBranchAddress("hit_fwhh", hit_fwhh, &b_hit_fwhh);
+   fChain->SetBranchAddress("hit_rms", hit_rms, &b_hit_rms);
+   fChain->SetBranchAddress("hit_nelec", hit_nelec, &b_hit_nelec);
+   fChain->SetBranchAddress("hit_energy", hit_energy, &b_hit_energy);
+   fChain->SetBranchAddress("hit_dQds", hit_dQds, &b_hit_dQds);
+   fChain->SetBranchAddress("hit_dEds", hit_dEds, &b_hit_dEds);
+   fChain->SetBranchAddress("hit_ds", hit_ds, &b_hit_ds);
+   fChain->SetBranchAddress("hit_resrange", hit_resrange, &b_hit_resrange);
+   fChain->SetBranchAddress("hit_x", hit_x, &b_hit_x);
+   fChain->SetBranchAddress("hit_y", hit_y, &b_hit_y);
+   fChain->SetBranchAddress("hit_z", hit_z, &b_hit_z);
    fChain->SetBranchAddress("nwctrks", &nwctrks, &b_nwctrks);
    fChain->SetBranchAddress("wctrk_XFaceCoor", &wctrk_XFaceCoor, &b_wctrk_XFaceCoor);
    fChain->SetBranchAddress("wctrk_YFaceCoor", &wctrk_YFaceCoor, &b_wctrk_YFaceCoor);
@@ -715,7 +714,7 @@ void vertexStudy::Init(TTree *tree)
    fChain->SetBranchAddress("EndPointx", EndPointx, &b_EndPointx);
    fChain->SetBranchAddress("EndPointy", EndPointy, &b_EndPointy);
    fChain->SetBranchAddress("EndPointz", EndPointz, &b_EndPointz);
-   fChain->SetBranchAddress("Process", &Process, &b_Process);
+   fChain->SetBranchAddress("Process", Process, &b_Process);
    fChain->SetBranchAddress("NumberDaughters", NumberDaughters, &b_NumberDaughters);
    fChain->SetBranchAddress("Mother", Mother, &b_Mother);
    fChain->SetBranchAddress("TrackId", TrackId, &b_TrackId);
@@ -731,7 +730,6 @@ void vertexStudy::Init(TTree *tree)
    fChain->SetBranchAddress("MidPz", MidPz, &b_MidPz);
    fChain->SetBranchAddress("InteractionPoint", &InteractionPoint, &b_InteractionPoint);
    fChain->SetBranchAddress("InteractionPointType", &InteractionPointType, &b_InteractionPointType);
-   fChain->SetBranchAddress("InteractionPointSubType", &InteractionPointSubType, &b_InteractionPointSubType);
    fChain->SetBranchAddress("no_mcshowers", &no_mcshowers, &b_no_mcshowers);
    fChain->SetBranchAddress("mcshwr_origin", &mcshwr_origin, &b_mcshwr_origin);
    fChain->SetBranchAddress("mcshwr_pdg", &mcshwr_pdg, &b_mcshwr_pdg);

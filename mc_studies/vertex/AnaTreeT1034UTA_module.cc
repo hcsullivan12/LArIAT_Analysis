@@ -280,9 +280,9 @@ private:
   bool              HitExist1p06_2[kMaxAG];
    
   // === Storing SimChannel Stuff ===
-  std::vector<float>              IDEEnergy;
-  std::vector<std::vector<float>> IDEPos;
-  std::vector<int>                IDETrackId;
+  std::vector<double>              IDEEnergy;
+  std::vector<std::vector<double>> IDEPos;
+  std::vector<int>                 IDETrackId;
 
   // === Storing Geant4 MC Truth Information ===
   int no_primaries;				//<---Number of primary Geant4 particles in the event
@@ -655,7 +655,7 @@ void lariat::AnaTreeT1034::analyze(art::Event const & evt)
 
           IDEEnergy.push_back(it->second.at(i).energy);
 
-          std::vector<float> pos = {it->second.at(i).x, it->second.at(i).y, it->second.at(i).z};
+          std::vector<double> pos = {it->second.at(i).x, it->second.at(i).y, it->second.at(i).z};
           IDEPos.push_back(pos);
 
           IDETrackId.push_back(it->second.at(i).trackID);
@@ -1640,95 +1640,118 @@ void lariat::AnaTreeT1034::analyze(art::Event const & evt)
 
       art::FindOne<raw::RawDigit>       ford(hitListHandle,   evt, fHitsModuleLabel);
       nhits = hitlist.size();
-      for (size_t i = 0; i<hitlist.size() && int(i)< kMaxHits; ++i){
-	cet::maybe_ref<raw::RawDigit const> rdref(ford.at(i));
-	unsigned int channel = hitlist[i]->Channel();
-	geo::WireID wireid = hitlist[i]->WireID();
-	hit_plane[i]   = wireid.Plane;
-	hit_wire[i]    = wireid.Wire;
-	hit_channel[i] = channel;
-	hit_peakT[i]   = hitlist[i]->PeakTime();
-	hit_charge[i]  = hitlist[i]->Integral();
-	hit_ph[i]      = hitlist[i]->PeakAmplitude();
-	hit_tstart[i]  = hitlist[i]->StartTick();
-	hit_tend[i]    = hitlist[i]->EndTick();
-	if (fmtk.isValid()){
-	  if (fmtk.at(i).size()!=0){
-	    hit_trkid[i] = fmtk.at(i)[0]->ID();
-	    hit_trkkey[i] = fmtk.at(i)[0].key();
-	  }
-	}
-	if (fmc.isValid()){
-	  if (fmc.at(i).size()!=0){
-	    hit_clukey[i] = fmc.at(i)[0].key();
-	  }
-	}
-	if (hit_plane[i]==1){//collection plane
-	  if( rdref.isValid() ){
-	    raw::RawDigit const& rd(rdref.ref());
-	    int dataSize = rd.Samples();
-	    short ped = rd.GetPedestal();
-	    std::vector<short> rawadc(dataSize);
-	    raw::Uncompress(rd.ADCs(),rawadc,rd.Compression());
-	    int t0 = hit_peakT[i] - 3*(hit_peakT[i]-hit_tstart[i]);
-	    if (t0<0) t0 = 0;
-	    int t1 = hit_peakT[i] + 3*(hit_peakT[i]-hit_tstart[i]);
-	    if (t1>=dataSize) t1 = dataSize-1;
-	    hit_pk[i] = -1;
-	    hit_t[i] = -1;
-	    for (int j = t0; j<=t1; ++j){
-	      if (rawadc[j]-ped>hit_pk[i]){
-		hit_pk[i] = rawadc[j]-ped;
-		hit_t[i] = j;
-	      }
-	    }
-	    hit_ch[i] = 0;
-	    hit_fwhh[i] = 0;
-	    double mean_t = 0;
-	    double mean_t2 = 0;
-	    for (int j = t0; j<=t1; ++j){
-	      if (rawadc[j]-ped>=0.5*hit_pk[i]){
-		++hit_fwhh[i];
-	      }
-	      if (rawadc[j]-ped>=0.1*hit_pk[i]){
-		hit_ch[i] += rawadc[j]-ped;
-		mean_t += j*(rawadc[j]-ped);
-		mean_t2 += j*j*(rawadc[j]-ped);
-	      }
-	    }
-	    mean_t/=hit_ch[i];
-	    mean_t2/=hit_ch[i];
-	    hit_rms[i] = sqrt(mean_t2-mean_t*mean_t);
-	    if (!evt.isRealData()){
-	      //	std::vector<sim::IDE> ides;	
-	      //	bt_serv->HitToSimIDEs(hitlist[i], ides);
-	      hit_nelec[i] = 0;
-	      hit_energy[i] = 0;
-	      //	for (size_t j = 0; j<ides.size(); ++j){
-	      //	  hit_nelec[i] += ides[j].numElectrons;
-	      //	  hit_energy[i] += ides[j].energy;
-	      //	}
-	      const sim::SimChannel* chan = 0;
-	      for(size_t sc = 0; sc < fSimChannels.size(); ++sc){
-		if(fSimChannels[sc]->Channel() == hitlist[i]->Channel()) chan = fSimChannels[sc];
-	      }
-	      if (chan){
-		const auto & tdcidemap = chan->TDCIDEMap();
-		for(auto mapitr = tdcidemap.begin(); mapitr != tdcidemap.end(); mapitr++){
-		  // loop over the vector of IDE objects.
-		  
-		  const std::vector<sim::IDE> & idevec = (*mapitr).second;
-		  
-		  for(size_t iv = 0; iv < idevec.size(); ++iv){ 
-		    
-		    hit_nelec[i] += idevec[iv].numElectrons;
-		    hit_energy[i] += idevec[iv].energy;
-		  }
-		}
-	      }
-	    }
-	  } // if cet::maybe_ref is valid
-	}
+      std::cout << "\n\nHERERERE " << nhits << std::endl;
+      for (size_t i = 0; i < hitlist.size() && int(i) < kMaxHits; ++i)
+      {
+
+        unsigned int channel = hitlist[i]->Channel();
+        geo::WireID wireid = hitlist[i]->WireID();
+        hit_plane[i] = wireid.Plane;
+        hit_wire[i] = wireid.Wire;
+        hit_channel[i] = channel;
+        hit_peakT[i] = hitlist[i]->PeakTime();
+        std::cout << hitlist[i]->Integral() << std::endl;
+        hit_charge[i] = hitlist[i]->Integral();
+        hit_ph[i] = hitlist[i]->PeakAmplitude();
+        hit_tstart[i] = hitlist[i]->StartTick();
+        hit_tend[i] = hitlist[i]->EndTick();
+        if (fmtk.isValid())
+        {
+          if (fmtk.at(i).size() != 0)
+          {
+            hit_trkid[i] = fmtk.at(i)[0]->ID();
+            hit_trkkey[i] = fmtk.at(i)[0].key();
+          }
+        }
+        if (fmc.isValid())
+        {
+          if (fmc.at(i).size() != 0)
+          {
+            hit_clukey[i] = fmc.at(i)[0].key();
+          }
+        }
+        cet::maybe_ref<raw::RawDigit const> rdref(ford.at(i));
+        if (hit_plane[i] == 1)
+        { //collection plane
+          if (rdref.isValid())
+          {
+            raw::RawDigit const &rd(rdref.ref());
+            int dataSize = rd.Samples();
+            short ped = rd.GetPedestal();
+            std::vector<short> rawadc(dataSize);
+            raw::Uncompress(rd.ADCs(), rawadc, rd.Compression());
+            int t0 = hit_peakT[i] - 3 * (hit_peakT[i] - hit_tstart[i]);
+            if (t0 < 0)
+              t0 = 0;
+            int t1 = hit_peakT[i] + 3 * (hit_peakT[i] - hit_tstart[i]);
+            if (t1 >= dataSize)
+              t1 = dataSize - 1;
+            hit_pk[i] = -1;
+            hit_t[i] = -1;
+            for (int j = t0; j <= t1; ++j)
+            {
+              if (rawadc[j] - ped > hit_pk[i])
+              {
+                hit_pk[i] = rawadc[j] - ped;
+                hit_t[i] = j;
+              }
+            }
+            hit_ch[i] = 0;
+            hit_fwhh[i] = 0;
+            double mean_t = 0;
+            double mean_t2 = 0;
+            for (int j = t0; j <= t1; ++j)
+            {
+              if (rawadc[j] - ped >= 0.5 * hit_pk[i])
+              {
+                ++hit_fwhh[i];
+              }
+              if (rawadc[j] - ped >= 0.1 * hit_pk[i])
+              {
+                hit_ch[i] += rawadc[j] - ped;
+                mean_t += j * (rawadc[j] - ped);
+                mean_t2 += j * j * (rawadc[j] - ped);
+              }
+            }
+            mean_t /= hit_ch[i];
+            mean_t2 /= hit_ch[i];
+            hit_rms[i] = sqrt(mean_t2 - mean_t * mean_t);
+            if (!evt.isRealData())
+            {
+              //	std::vector<sim::IDE> ides;
+              //	bt_serv->HitToSimIDEs(hitlist[i], ides);
+              hit_nelec[i] = 0;
+              hit_energy[i] = 0;
+              //	for (size_t j = 0; j<ides.size(); ++j){
+              //	  hit_nelec[i] += ides[j].numElectrons;
+              //	  hit_energy[i] += ides[j].energy;
+              //	}
+              const sim::SimChannel *chan = 0;
+              for (size_t sc = 0; sc < fSimChannels.size(); ++sc)
+              {
+                if (fSimChannels[sc]->Channel() == hitlist[i]->Channel())
+                  chan = fSimChannels[sc];
+              }
+              if (chan)
+              {
+                const auto &tdcidemap = chan->TDCIDEMap();
+                for (auto mapitr = tdcidemap.begin(); mapitr != tdcidemap.end(); mapitr++)
+                {
+                  // loop over the vector of IDE objects.
+
+                  const std::vector<sim::IDE> &idevec = (*mapitr).second;
+
+                  for (size_t iv = 0; iv < idevec.size(); ++iv)
+                  {
+
+                    hit_nelec[i] += idevec[iv].numElectrons;
+                    hit_energy[i] += idevec[iv].energy;
+                  }
+                }
+              }
+            }
+          } // if cet::maybe_ref is valid
+        }
       }
     }
   catch (art::Exception const&e){ }
