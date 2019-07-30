@@ -24,6 +24,7 @@
 
 #include "TVector3.h"
 #include "TH1.h"
+#include "TH2.h"
 
 #include <iostream>
 
@@ -76,6 +77,7 @@ private:
   bool inActiveRegion(const TVector3& position);
   void doAngleStudy(const sim::ParticleList& plist, const Vertex_t& vertex);
   void identifyVisibleSecondaries(const sim::ParticleList& plist, const Vertex_t& vertex);
+  double toKineticEnergy(const TVector3& mom, const double& mass);
   /// Method to check if charged
   inline bool isCharged(int const& pdg) 
   { 
@@ -96,13 +98,23 @@ private:
 
   const float SECONDARY_LENGTH_CUT = 2.0;
 
-  TH1D* hMCSecondaryTrkLength    = nullptr;
-  TH1D* hMCElasticAngle          = nullptr;
-  TH1D* hMCInelasticAngle        = nullptr;
-  TH1D* hMCInelasticOneVisDAngle = nullptr;
-  TH1D* hMCElasticConeAngle      = nullptr;
-  TH1D* hMCInelasticConeAngle    = nullptr;
-  TH1D* hMCSecondaries           = nullptr;
+  TH1D* hMCSecondaryTrkLength      = nullptr;
+  TH1D* hMCElasticAngle            = nullptr;
+  TH1D* hMCInelasticAngle          = nullptr;
+  TH1D* hMCInelasticOneVisDAngle   = nullptr;
+
+  TH1D* hMCElasticConeAngle        = nullptr;
+  TH1D* hMCInelasticConeAngle      = nullptr;
+
+  TH2D* hMCKeVsElasticAngle        = nullptr;
+  TH2D* hMCKeVsInelasticAngle      = nullptr;
+  TH2D* hMCKeVsInelasticOneVisDAngle  = nullptr;
+
+  TH2D* hMCTrkLenVsElasticAngle        = nullptr;
+  TH2D* hMCTrkLenVsInelasticAngle      = nullptr;
+  TH2D* hMCTrkLthVsInelasticOneVisDAngle = nullptr;
+
+  TH1S* hMCSecondaries             = nullptr;
 
 };
 
@@ -116,6 +128,11 @@ AngleStudy::AngleStudy(fhicl::ParameterSet const & p)
 //----------------------------------------------------------------------------------
 void AngleStudy::analyze(art::Event const & e)
 {
+  if (fVerbose)
+  {
+    std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+    std::cout << "AngleStudy processing event #" << e.id().event() << "\n";
+  }
   art::ServiceHandle<cheat::ParticleInventoryService> pi_serv;
   const sim::ParticleList& plist = pi_serv->ParticleList();
 
@@ -175,18 +192,17 @@ void AngleStudy::analyze(art::Event const & e)
   if (!fVertices.size()) return;
 
   // Get first interaction in TPC
-  std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-  if (fVerbose) std::cout << "Getting first interaction in TPC...\n";
+  if (fVerbose) std::cout << "\nGetting first interaction in TPC...\n";
   std::sort(fVertices.begin(), fVertices.end(), [](const auto& l, const auto& r) { return l.position.Z() < r.position.Z(); });
   Vertex_t firstVertexInTpc = fVertices[0];
 
-  std::cout << "This primary underwent the following processes...\n";
+  std::cout << "\nThis primary underwent the following processes...\n";
   for (const auto& v : fVertices) std::cout << v.process << std::endl;
-  std::cout << "First vertex in TPC:\n";
+  std::cout << "\nFirst vertex in TPC:\n";
   firstVertexInTpc.Print();
 
   // Begin study
-  if (fVerbose) std::cout << "\nFilling track lengths...";
+  if (fVerbose) std::cout << "\nFilling track lengths...\n";
   // Make distribution of secondary track lengths
   for (size_t iG4 = 0; iG4 < plist.size(); iG4++)   
   {
@@ -203,7 +219,7 @@ void AngleStudy::analyze(art::Event const & e)
   }
 
   // Angle study
-  if (fVerbose) std::cout << "\nStarting angle study...";
+  if (fVerbose) std::cout << "\nStarting angle study...\n";
   doAngleStudy(plist, firstVertexInTpc);
 }
 
@@ -211,13 +227,25 @@ void AngleStudy::analyze(art::Event const & e)
 void AngleStudy::beginJob()
 {
   art::ServiceHandle<art::TFileService> tfs;
-  hMCSecondaryTrkLength    = tfs->make<TH1D>("hMCSecondaryTrkLength", "Secondary Track Lengths", 100, 0, 50);
-  hMCElasticAngle          = tfs->make<TH1D>("hMCElasticAngle", "Elastic Scattering Angle of Primary", 180, 0, 180);
-  hMCInelasticAngle        = tfs->make<TH1D>("hMCInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 180, 0, 180);
-  hMCInelasticOneVisDAngle = tfs->make<TH1D>("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
-  hMCElasticConeAngle      = tfs->make<TH1D>("hMCElasticConeAngle", "Cone Angle Between Single Visible Secondary and Primary for Elastic", 90, 0, 90);
-  hMCInelasticConeAngle    = tfs->make<TH1D>("hMCInelasticConeAngle", "Cone Angle Between Single Visible Secondary and Primary for Inelastic", 90, 0, 90);
-  hMCSecondaries           = tfs->make<TH1D>("hMCSecondaries",     "True number of tracks leaving vertex", 10, 0, 10);
+  hMCSecondaryTrkLength    = tfs->make<TH1D>("hMCSecondaryTrkLength",    "Secondary Track Lengths",                                               100, 0, 50);
+  hMCElasticAngle          = tfs->make<TH1D>("hMCElasticAngle",          "Elastic Scattering Angle of Primary",                                   180, 0, 180);
+  hMCInelasticAngle        = tfs->make<TH1D>("hMCInelasticAngle",        "Angle Between Secondaries and Primary for Inelastic",                   180, 0, 180);
+  hMCInelasticOneVisDAngle = tfs->make<TH1D>("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic",      180, 0, 180);
+  hMCElasticConeAngle      = tfs->make<TH1D>("hMCElasticConeAngle",      "Cone Angle Between Single Visible Secondary and Primary for Elastic",    90, 0, 90);
+  hMCInelasticConeAngle    = tfs->make<TH1D>("hMCInelasticConeAngle",    "Cone Angle Between Single Visible Secondary and Primary for Inelastic",  90, 0, 90);
+  hMCSecondaries           = tfs->make<TH1S>("hMCSecondaries",           "True number of tracks leaving vertex",                                   10, 0, 10);
+  
+  hMCKeVsElasticAngle          = tfs->make<TH2D>("hMCKeVsElasticAngle"  ,        "Kinetic energy vs Elastic Angle",                 90, 0, 90, 300, 0, 1200);
+  hMCKeVsInelasticAngle        = tfs->make<TH2D>("hMCKeVsInelasticAngle",        "Kinetic energy vs Inelastic Angle",               90, 0, 90, 300, 0, 1200);
+  hMCKeVsInelasticOneVisDAngle = tfs->make<TH2D>("hMCKeVsInelasticOneVisDAngle", "Kinetic energy vs Inelastic Angle One Secondary", 90, 0, 90, 300, 0, 1200);
+  hMCKeVsElasticConeAngle      = tfs->make<TH2D>("hMCKeVsElasticConeAngle",      "Kinetic energy vs Elastic Cone Angle",            90, 0, 90, 300, 0, 1200);
+  hMCKeVsInelasticConeAngle    = tfs->make<TH2D>("hMCKeVsInelasticConeAngle",    "Kinetic energy vs Inelastic Cone Angle",          90, 0, 90, 300, 0, 1200);
+
+  hMCTrkLenVsElasticAngle          = tfs->make<TH2D>("hMCTrkLenVsElasticAngle",          "Track length vs Elastic Cone Angle",   90, 0, 90, 90, 0, 90);
+  hMCTrkLenVsInelasticAngle        = tfs->make<TH2D>("hMCTrkLenVsInelasticAngle",        "Track length vs Inelastic Cone Angle", 90, 0, 90, 90, 0, 90);
+  hMCTrkLthVsInelasticOneVisDAngle = tfs->make<TH2D>("hMCTrkLthVsInelasticOneVisDAngle", "Track length vs Inelastic Cone Angle", 90, 0, 90, 90, 0, 90);
+  hMCTrkLthVsElasticConeAngle      = tfs->make<TH2D>("hMCTrkLthVsElasticConeAngle",      "Track length vs Elastic Cone Angle",   90, 0, 90, 90, 0, 90);
+  hMCTrkLthVsInelasticConeAngle    = tfs->make<TH2D>("hMCTrkLthVsInelasticConeAngle",    "Track length vs Inelastic Cone Angle", 90, 0, 90, 90, 0, 90);
 }
 
 //----------------------------------------------------------------------------------
@@ -268,7 +296,6 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
   // Only looking at elastic or inelastic
   if (!isElastic && !isInelastic) return;
 
-  // Get the trj point here and before here
   int primId(0); 
   for (size_t iG4 = 0; iG4 < plist.size(); iG4++)
   {
@@ -281,25 +308,39 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
   }
   auto primMcParticle = plist.Particle(primId);
 
-  TVector3 primIncDir = primMcParticle->Momentum(vertex.point-1).Vect();
+  TVector3 primIncMom = primMcParticle->Momentum(vertex.point-1).Vect();
+  double   primIncKe  = toKineticEnergy(1000*primIncMom, 1000*primMcParticle->Mass());
+  TVector3 primFirstTpcPoint = vertex.position;
+  getFirstTpcPoint(primMcParticle, primFirstTpcPoint);
+  double   primTrkLength = (vertex.position-primFirstTpcPoint).Mag();
 
   // If the primary doesn't end here
-  if ( (vertex.point+1) < (int)primMcParticle->NumberTrajectoryPoints())
+  if ( (vertex.point+1) < (int)(primMcParticle->NumberTrajectoryPoints()-1) )
   {
-    auto trailDir = primMcParticle->Momentum(vertex.point).Vect().Unit();
-    double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(trailDir.Unit()) );
+    auto trailMom = primMcParticle->Momentum(vertex.point).Vect().Unit();
+    double theta  = (180/TMath::Pi())*std::acos( primIncMom.Unit().Dot(trailMom.Unit()) );
     
-    if (isElastic)        hMCElasticAngle->Fill(theta);
-    else if (isInelastic) hMCInelasticAngle->Fill(theta);
+    if (isElastic)        
+    {
+      hMCElasticAngle->Fill(theta);
+      hMCKeVsElasticAngle->Fill(theta, primIncKe);
+      hMCTrkLenVsElasticAngle->Fill(theta, primTrkLength);
+    }
+    else if (isInelastic) 
+    {
+      hMCInelasticAngle->Fill(theta);
+      hMCKeVsInelasticAngle->Fill(theta, primIncKe);
+      hMCTrkLenVsInelasticAngle->Fill(theta, primTrkLength);
+    }
 
     if (fVerbose) 
     {
-      primIncDir.Unit().Print();
-      trailDir.Unit().Print();
-      std::cout << "Theta " << theta << std::endl;
+      primIncMom.Unit().Print();
+      trailMom.Unit().Print();
+      std::cout << "Theta " << theta << "   KE " << primIncKe << "  track length " << primTrkLength << std::endl;
     }   
   }
-  
+
   // Fill inelastic scattering angles for all relevant daughters
   if (isInelastic)
   {
@@ -311,8 +352,10 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
       TVector3 dMom0 = plist.Particle(iG4)->Momentum().Vect();
 
       // Compute angle between daughter and incoming primary
-      double theta = (180/TMath::Pi())*std::acos( primIncDir.Unit().Dot(dMom0.Unit()) );
+      double theta = (180/TMath::Pi())*std::acos( primIncMom.Unit().Dot(dMom0.Unit()) );
       hMCInelasticAngle->Fill(theta);
+      hMCKeVsInelasticAngle->Fill(theta, primIncKe);
+      hMCTrkLenVsInelasticAngle->Fill(theta, primTrkLength);
     }//<-- End loop over visible particles
   }//<--End if inelastic
 
@@ -324,19 +367,21 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
     if (fVisSec.size() == 1)
     {
       int iG4 = fVisSec[0];
-      TVector3 trailDir = primIncDir;
+      TVector3 trailMom = primIncMom;
 
-      if (iG4 == primId) trailDir  = plist.Particle(iG4)->Momentum(vertex.point).Vect();
-      else               trailDir  = plist.Particle(iG4)->Momentum().Vect();
+      if (iG4 == primId) trailMom  = plist.Particle(iG4)->Momentum(vertex.point).Vect();
+      else               trailMom  = plist.Particle(iG4)->Momentum().Vect();
 
-      double theta = (180 / TMath::Pi()) * std::acos(primIncDir.Unit().Dot(trailDir.Unit()));
+      double theta = (180 / TMath::Pi()) * std::acos(primIncMom.Unit().Dot(trailMom.Unit()));
       hMCInelasticOneVisDAngle->Fill(theta);
+      hMCKeVsInelasticOneVisDAngle->Fill(theta, primIncKe);
+      hMCTrkLenVsInelasticOneVisDAngle->Fill(theta, primTrkLength);
 
       if (fVerbose) 
       {
-        primIncDir.Unit().Print();
-        trailDir.Unit().Print();
-        std::cout << "Theta " << theta << std::endl;
+        primIncMom.Unit().Print();
+        trailMom.Unit().Print();
+        std::cout << "Theta " << theta << "  KE " << primIncKe << std::endl;
       } 
     }//<-- End if one visible daughter
   }//<-- End if is inelastic
@@ -345,18 +390,27 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
   if (fVisSec.size() == 1)
   {
     int iG4 = fVisSec[0];
-    TVector3 trailDir = primIncDir;
+    TVector3 trailMom = primIncMom;
 
-    if (iG4 == primId) trailDir  = plist.Particle(iG4)->Momentum(vertex.point).Vect();
-    else               trailDir  = plist.Particle(iG4)->Momentum().Vect(); 
+    if (iG4 == primId) trailMom  = plist.Particle(iG4)->Momentum(vertex.point).Vect();
+    else               trailMom  = plist.Particle(iG4)->Momentum().Vect(); 
     
-    auto resultant = primIncDir + trailDir;
-    double theta   = (180 / TMath::Pi()) * std::acos(primIncDir.Unit().Dot(resultant.Unit()));
+    auto resultant = primIncMom + trailMom;
+    double theta   = (180 / TMath::Pi()) * std::acos(primIncMom.Unit().Dot(resultant.Unit()));
       
-         if (isElastic)   hMCElasticConeAngle->Fill(theta);
-    else if (isInelastic) hMCInelasticConeAngle->Fill(theta);
+    if (isElastic)   
+    {
+      hMCElasticConeAngle->Fill(theta);
+      hMCKeVsElasticConeAngle->Fill(theta, primIncKe);
+      hMCTrkLthVsElasticConeAngle->Fill(theta, primTrkLength);
+    }
+    else if (isInelastic) 
+    {
+      hMCInelasticConeAngle->Fill(theta);
+      hMCKeVsInelasticConeAngle->Fill(theta, primIncKe);
+      hMCTrkLthVsInelasticConeAngle->Fill(theta, primTrkLength);
+    }
   }//<-- End if one visible daughter
-
 
   // Sanity checks
   if (isElastic && fVisSec.size() != 1) 
@@ -409,6 +463,27 @@ void AngleStudy::identifyVisibleSecondaries(const sim::ParticleList& plist, cons
     // This particle needs to be attached to the vertex
     if ((vertex.position-dPos0).Mag() < 0.01) fVisSec.push_back(iG4);
   }//<-- End loop over G4 particles
+}
+
+/**
+ * @brief Get the primary's first point in the tpc
+ * 
+ */
+void AngleStudy::getFirstTpcPoint(const sim::McParticle& mcPrimary, TVector3& position)
+{
+  for (int iPt = 0; iPt < (int)mcPrimary->NumberTrajectoryPoints(); iPt++)
+  {
+    auto primPos = mcPrimary->Position(iPt).Vect();
+    if (primPos < FV_Z_BOUND[0]) continue;
+    position = primPos;
+    return;
+  }
+}
+
+/// Compute kinetic energy
+double AngleStudy::toKineticEnergy(const TVector3& mom, const double& mass)
+{
+  return std::sqrt( mom.Mag()*mom.Mag() + mass*mass ) - mass;
 }
 
 

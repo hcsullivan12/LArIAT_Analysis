@@ -171,17 +171,19 @@ void vertexStudy::Loop(int inDebug)
 
     // Filling primary information 
     primTrkId = -1;
+    int nPrimaries = 0;
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
       // If this is not a primary, skip it
-      if (process_primary[iG4] == 0) continue;
-      primTrkId = TrackId[iG4];
+      if (process_primary->at(iG4) == 0) continue;
+      primTrkId = TrackId->at(iG4);
+      nPrimaries++;
 
       // ### Store the positions and momentum 
-      TVector3 g4PrimaryPos0( StartPointx[iG4], StartPointy[iG4], StartPointz[iG4] );
-      TVector3 g4PrimaryPosf( EndPointx[iG4],   EndPointy[iG4],   EndPointz[iG4] );
-      TVector3 g4PrimaryMom0(1000*Px[iG4],    1000*Py[iG4],    1000*Pz[iG4]);
-      TVector3 g4PrimaryMomf(1000*EndPx[iG4], 1000*EndPy[iG4], 1000*EndPz[iG4]);
+      TVector3 g4PrimaryPos0( StartPointx->at(iG4), StartPointy->at(iG4), StartPointz->at(iG4) );
+      TVector3 g4PrimaryPosf( EndPointx  ->at(iG4), EndPointy  ->at(iG4), EndPointz  ->at(iG4) );
+      TVector3 g4PrimaryMom0(1000*Px   ->at(iG4), 1000*Py   ->at(iG4), 1000*Pz   ->at(iG4));
+      TVector3 g4PrimaryMomf(1000*EndPx->at(iG4), 1000*EndPy->at(iG4), 1000*EndPz->at(iG4));
 
       // Fill momentum histos
       hMCPrimaryPx->Fill(g4PrimaryMom0.X());
@@ -201,21 +203,22 @@ void vertexStudy::Loop(int inDebug)
       hMCPrimaryProjZ0->Fill( g4PrimaryProjPos0.Z() );
     }//<--- End loop over G4 particles
     if (primTrkId != 1) std::cout << "WARNING! Check the primary track ID!\n";
+    if (nPrimaries > 1) std::cout << "WARNING! Check the number of primaries!\n";
     
     // Check if entered TPC
     bool isGoodEvent(false);
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
       // If this is not a primary, skip it
-      if (process_primary[iG4] == 0) continue;
+      if (process_primary->at(iG4) == 0) continue;
       
       // only look if a primary entered the tpc
-      if ( EndPointz[iG4] > 0 ) isGoodEvent = true;
+      if ( EndPointz->at(iG4) > 0 ) isGoodEvent = true;
       if ( !isGoodEvent ) 
       {
-        hMCPrimaryMissedTpcX->Fill(EndPointx[iG4]);
-        hMCPrimaryMissedTpcY->Fill(EndPointy[iG4]);
-        hMCPrimaryMissedTpcZ->Fill(EndPointz[iG4]);
+        hMCPrimaryMissedTpcX->Fill( EndPointx->at(iG4) );
+        hMCPrimaryMissedTpcY->Fill( EndPointy->at(iG4) );
+        hMCPrimaryMissedTpcZ->Fill( EndPointz->at(iG4) );
         continue;
       }
 
@@ -223,15 +226,15 @@ void vertexStudy::Loop(int inDebug)
       // calculate energy loss
       float energyLoss(0);
       // loop over trj points for this primary
-      for (size_t iPoint = 0; iPoint < NTrTrajPts[iG4]; iPoint++)
+      for (size_t iPoint = 0; iPoint < NTrTrajPts->at(iG4); iPoint++)
       {
         // only look at the upstream portion
-        if ( MidPosZ[iG4][iPoint] > 0 ) break;
+        if ( MidPosZ->at(iG4)[iPoint] > 0 ) break;
 
         // ignore last point
-        if ( (iPoint+1) >= NTrTrajPts[iG4] ) break;
-        TVector3 mom1Vec(MidPx[iG4][iPoint], MidPy[iG4][iPoint], MidPz[iG4][iPoint]);
-        TVector3 mom2Vec(MidPx[iG4][iPoint+1], MidPy[iG4][iPoint+1], MidPz[iG4][iPoint+1]);
+        if ( (iPoint+1) >= NTrTrajPts->at(iG4) ) break;
+        TVector3 mom1Vec( MidPx->at(iG4)[iPoint],   MidPy->at(iG4)[iPoint],   MidPz->at(iG4)[iPoint]  );
+        TVector3 mom2Vec( MidPx->at(iG4)[iPoint+1], MidPy->at(iG4)[iPoint+1], MidPz->at(iG4)[iPoint+1]);
 
         float energy1 = std::sqrt( mom1Vec.Mag()*mom1Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS );
         float energy2 = std::sqrt( mom2Vec.Mag()*mom2Vec.Mag() + PARTICLE_MASS*PARTICLE_MASS ); 
@@ -242,30 +245,44 @@ void vertexStudy::Loop(int inDebug)
     if (!isGoodEvent) continue;
     nGoodMCEvents++;
 
-    if (nTotalEvents == 1)
-    {
-      for (int iIDE = 0; iIDE < IDETrackId->size(); iIDE++) 
-      {
-        auto xBin = hMCIdesXvsZ->GetXaxis()->FindBin(IDEPos->at(iIDE)[2]);
-        auto yBin = hMCIdesXvsZ->GetYaxis()->FindBin(IDEPos->at(iIDE)[0]);
-        hMCIdesXvsZ->SetBinContent(xBin, yBin, IDEEnergy->at(iIDE));
-      }
-    }
-
     //if (nTotalEvents == 1)
+    //{
+    //  for (int iIDE = 0; iIDE < IDETrackId->size(); iIDE++) 
+    //  {
+    //    auto xBin = hMCIdesXvsZ->GetXaxis()->FindBin(IDEPos->at(iIDE)[2]);
+    //    auto yBin = hMCIdesXvsZ->GetYaxis()->FindBin(IDEPos->at(iIDE)[0]);
+    //    hMCIdesXvsZ->SetBinContent(xBin, yBin, IDEEnergy->at(iIDE));
+    //  }
+    //}
+
+    if (nTotalEvents == 1)
     {
       for (int iPt = 0; iPt < nhits; iPt++)
       {
-        if (hit_charge[iPt] > -90000) std::cout << hit_charge[iPt] << endl;
-        auto xBin = hRecoHitsXvsZ->GetXaxis()->FindBin(hit_z[iPt]);
-        auto yBin = hRecoHitsXvsZ->GetYaxis()->FindBin(hit_x[iPt]);
-        //hRecoHitsXvsZ->SetBinContent(xBin, yBin, hit_charge[iPt]);
+        if (hit_charge[iPt] < -90000) continue;
+        auto xBin = hRecoHitsXvsZ->GetXaxis()->FindBin(hit_z->at(iPt));
+        auto yBin = hRecoHitsXvsZ->GetYaxis()->FindBin(hit_x->at(iPt));
+        hRecoHitsXvsZ->SetBinContent(xBin, yBin, hit_charge->at(iPt));
       }
     }
   
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Begin study
+
+    if (IN_DEBUG) std::cout << "\nFilling track lengths...";
+    // Make distribution of secondary track lengths
+    for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
+    {
+      // Only look at daughters of primary
+      if (Mother->at(iG4) != primTrkId) continue;
+  
+      // Make sure she's charged
+      if ( !isCharged(std::abs(mcParticle->PdgCode())) ) continue;
+      TVector3 startPoint = mcParticle->Position().Vect();
+      TVector3 endPoint   = mcParticle->EndPosition().Vect();
+      hMCSecondaryTrkLength->Fill((startPoint-endPoint).Mag());
+    }
 
     // Get first interaction in TPC
     if (IN_DEBUG) std::cout << "Getting first interaction in TPC...\n";
@@ -282,6 +299,7 @@ void vertexStudy::Loop(int inDebug)
     if (IN_DEBUG) std::cout << "Starting angle study...\n";
     bool isElasticLike(false);
     AngleStudy(firstVertexInTpc, isElasticLike);
+    hMCFirstInteractionInTpcZ->Fill(firstVertexInTpc.position.Z());
 
     // Option to only do events for which there is only one elastic like interaction in TPC
     // Is we have something other than elastic, CoulombScat, or pi-Inelastic, skip
@@ -337,25 +355,25 @@ void vertexStudy::Loop(int inDebug)
       for (const auto& p : *InteractionPointType) std::cout << p << endl;
     }
 
-    // Vertex study for elastic like events
-    if (isElasticLike) 
-    {
-      hMCNumInteractions->Fill(vertices.size());
-
-      ides.clear();
-      ides.reserve(IDETrackId->size());
-      for (int iIDE = 0; iIDE < IDETrackId->size(); iIDE++) 
-      {
-        TrackIde_t tide( (*IDETrackId)[iIDE],
-                         DetermineG4Id(tide.trackId),
-                         (*IDEEnergy)[iIDE], 
-                         TVector3( (*IDEPos)[iIDE][0], (*IDEPos)[iIDE][1], (*IDEPos)[iIDE][2] ) );
-        ides.push_back(tide);
-      }
-     
-      if (IN_DEBUG) std::cout << "Starting vertex study...\n";
-      VertexStudy(firstVertexInTpc);
-    }
+    //// Vertex study for elastic like events
+    //if (isElasticLike) 
+    //{
+    //  hMCNumInteractions->Fill(vertices.size());
+    //
+    //  ides.clear();
+    //  ides.reserve(IDETrackId->size());
+    //  for (int iIDE = 0; iIDE < IDETrackId->size(); iIDE++) 
+    //  {
+    //    TrackIde_t tide( (*IDETrackId)[iIDE],
+    //                     DetermineG4Id(tide.trackId),
+    //                     (*IDEEnergy)[iIDE], 
+    //                     TVector3( (*IDEPos)[iIDE][0], (*IDEPos)[iIDE][1], (*IDEPos)[iIDE][2] ) );
+    //    ides.push_back(tide);
+    //  }
+    // 
+    //  if (IN_DEBUG) std::cout << "Starting vertex study...\n";
+    //  VertexStudy(firstVertexInTpc);
+    //}
 
 // End study
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -394,7 +412,6 @@ void vertexStudy::Loop(int inDebug)
  */
 void vertexStudy::GetFirstInteractionInTPC(Vertex_t& point)
 {
-  // Check Interactionxxx just in case
   for (int iPt = 0; iPt < InteractionPoint->size(); iPt++)
   {
     Vertex_t thisVertex( InteractionPoint->at(iPt),
@@ -426,7 +443,7 @@ int vertexStudy::DetermineG4Id(const int& tid)
 {
   for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
   {
-    if (TrackId[iG4] == tid) return iG4;
+    if (TrackId->at(iG4 == tid) return iG4;
   }
   return -999;
 } 
@@ -449,12 +466,12 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
   if (!isElastic && !isInelastic) return;
 
   // Get incident momentum
-  TVector3 primIncMom( MidPx[0][vertex.point-1], MidPy[0][vertex.point-1], MidPz[0][vertex.point-1] );
+  TVector3 primIncMom( MidPx->at(0)[vertex.point-1], MidPy->at(0)[vertex.point-1], MidPz->at(0)[vertex.point-1] );
 
   // If the primary doesn't end here
-  if ( (vertex.point+1) < NTrTrajPts[0] ) 
+  if ( (vertex.point+1) < (NTrTrajPts[0]-1) ) 
   {
-    TVector3 trailMom( MidPx[0][vertex.point], MidPy[0][vertex.point], MidPz[0][vertex.point] );
+    TVector3 trailMom( MidPx->at(0)[vertex.point], MidPy->at(0)[vertex.point], MidPz->at(0)[vertex.point] );
     double theta = (180/TMath::Pi())*std::acos( primIncMom.Unit().Dot(trailMom.Unit()) );
     if (isElastic)   
     {
@@ -472,7 +489,7 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
       if (iG4 == DetermineG4Id(primTrkId)) continue;
 
       // This is a charged daughter
-      TVector3 dMom0(Px[iG4], Py[iG4], Pz[iG4]);
+      TVector3 dMom0(Px->at(iG4), Py->at(iG4), Pz->at(iG4));
 
       // Compute angle between daughter and incoming primary
       double theta = (180/TMath::Pi())*std::acos( primIncMom.Unit().Dot(dMom0.Unit()) );
@@ -492,8 +509,8 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
       TVector3 trailMom = primIncMom;
 
       // If this visible secondary is the primary
-      if (iG4 == DetermineG4Id(primTrkId)) trailMom = TVector3( MidPx[0][vertex.point], MidPy[0][vertex.point], MidPz[0][vertex.point] );
-      else                                 trailMom = TVector3( Px[iG4], Py[iG4], Pz[iG4] );
+      if (iG4 == DetermineG4Id(primTrkId)) trailMom = TVector3( MidPx->at(0)[vertex.point], MidPy->at(0)[vertex.point], MidPz->at(0)[vertex.point] );
+      else                                 trailMom = TVector3( Px->at(iG4), Py->at(iG4), Pz->at(iG4) );
     
       double theta = (180 / TMath::Pi()) * std::acos(primIncMom.Unit().Dot(trailMom.Unit()));
       hMCInelasticOneVisDAngle->Fill(theta);
@@ -508,8 +525,8 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
     TVector3 trailMom = primIncMom;
 
     // If this visible secondary is the primary
-    if (iG4 == DetermineG4Id(primTrkId)) trailMom = TVector3( MidPx[0][vertex.point], MidPy[0][vertex.point], MidPz[0][vertex.point] );
-    else                                 trailMom = TVector3( Px[iG4], Py[iG4], Pz[iG4] );
+    if (iG4 == DetermineG4Id(primTrkId)) trailMom = TVector3( MidPx->at(0)[vertex.point], MidPy->at(0)[vertex.point], MidPz->at(0)[vertex.point] );
+    else                                 trailMom = TVector3( Px->at(iG4), Py->at(iG4), Pz->at(iG4) );
     
     auto resultant = primIncMom + trailMom;
     double theta = (180 / TMath::Pi()) * std::acos(primIncMom.Unit().Dot(resultant.Unit()));
@@ -537,20 +554,20 @@ void vertexStudy::IdentifyVisibleSecondaries(const Vertex_t& vertex)
 
   // If the primary doesn't end here
   size_t primiG4 = DetermineG4Id(primTrkId);
-  if ((vertex.point+1) < NTrTrajPts[0]) visSec.push_back(primiG4);
+  if ( (vertex.point+1) < (NTrTrajPts->at(0)-1) ) visSec.push_back(primiG4);
 
   // Fill inelastic scattering angles for all relevant daughters
   for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
   {
     // @todo Take absolute value here?
-    if (Mother[iG4] != primTrkId) continue;
+    if (Mother.at(iG4) != primTrkId) continue;
 
     // Make sure she is charged 
-    if ( !IsCharged(std::abs(pdg[iG4])) ) continue;
+    if ( !IsCharged(std::abs(pdg->at(iG4))) ) continue;
 
     // This is a charged daughter
-    TVector3 dPos0(StartPointx[iG4], StartPointy[iG4], StartPointz[iG4]);
-    TVector3 dPosf(EndPointx[iG4], EndPointy[iG4], EndPointz[iG4]);
+    TVector3 dPos0(StartPointx->at(iG4), StartPointy->at(iG4), StartPointz->at(iG4));
+    TVector3 dPosf(EndPointx  ->at(iG4), EndPointy  ->at(iG4), EndPointz  ->at(iG4));
 
     // Check track length
     // @todo Do we need this cut?

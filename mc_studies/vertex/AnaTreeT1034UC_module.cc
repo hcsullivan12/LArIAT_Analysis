@@ -191,8 +191,8 @@ private:
   std::vector<double> hit_amp;
   std::vector<double> hit_charge;
 
-  std::vector<int>    InteractionPoint;         //<---Geant 4 Primary Trj Point Corresponding to the Interaction
-  std::vector<int>    InteractionPointType;     //<---Geant 4 Primary Interaction Type
+  std::vector<int>         InteractionPoint;         //<---Geant 4 Primary Trj Point Corresponding to the Interaction
+  std::vector<std::string> InteractionPointType;     //<---Geant 4 Primary Interaction Type
 
 
   // === Storing Geant4 MC Truth Information ===
@@ -218,14 +218,7 @@ private:
   std::vector<double> EndPy;
   std::vector<double> EndPz;
 
-  std::vector<int> Process;
-  // ### Recording the process as a integer ###
-	  // 0 = primary
-	  // 3 = hadElastic
-	  // 8 = CoulombScat
-	  //10 = ProtonInelastic
-
-
+  std::vector<std::string> Process;
 
   std::vector<int> NumberDaughters;
   std::vector<int> TrackId;
@@ -512,9 +505,6 @@ void lariat::AnaTreeT1034UC::analyze(art::Event const & evt)
     
     // ### Setting a string for primary ###
     std::string pri("primary");
-    std::string hadElastic("hadElastic");
-    std::string CoulombScat("CoulombScat");
-    std::string ProtonInelastic("protonInelastic");
     
     int primary=0;
     int geant_particle=0;
@@ -541,20 +531,11 @@ void lariat::AnaTreeT1034UC::analyze(art::Event const & evt)
     for(unsigned int i = 0; i < geant_part.size(); ++i)
       {
 	  if(geant_part[i]->Process()==pri){process_primary.push_back(1);}
-	  else                             {process_primary.push_back(10);}
-           
-	  // ### Recording the process as a integer ###
-	  // 0 = primary
-	  // 3 = hadElastic
-	  // 8 = CoulombScat
-	  //10 = ProtonInelastic
+	  else                             {process_primary.push_back(0);}
 	   
-	  if(geant_part[i]->Process() == pri)            {Process.push_back(0);}
-	  if(geant_part[i]->Process() == hadElastic)     {Process.push_back(3);}
-	  if(geant_part[i]->Process() == CoulombScat)	 {Process.push_back(8);}
-	  if(geant_part[i]->Process() == ProtonInelastic){Process.push_back(10);}
-
-	  // ### Saving other info ###
+	  Process.push_back(geant_part[i]->Process());
+	  
+      // ### Saving other info ###
       PDG.push_back(geant_part[i]->PdgCode());
       Mother.push_back(geant_part[i]->Mother());
       TrackId.push_back(geant_part[i]->TrackId());
@@ -741,12 +722,6 @@ void lariat::AnaTreeT1034UC::analyze(art::Event const & evt)
         slabx.clear(); slaby.clear(); slabz.clear();
         slabn.clear(); slabe.clear();
 	    
-	    // ### Recording the process as a integer ###
-	    // 0 = NoInteractionNodaughters, thought going
-	    // 3 = hadElastic
-	    // 8 = CoulombScat
-	    //10 = ProtonInelastic
-	    //13 = protonInelastic
 	    auto thisTracjectoryProcessMap =  truetraj.TrajectoryProcesses();
 	    // Ok, if the size of the map is 0, all the action might happen at the end of the track
 	    // So we check the daugthers:
@@ -767,14 +742,22 @@ void lariat::AnaTreeT1034UC::analyze(art::Event const & evt)
 	          {
 	          if(geant_part[iD]->TrackId() == thePrimaryDaughterID) 
 	     	    {		      
-	     	    if(geant_part[iD]->Process() == hadElastic)	    {InteractionPointType.push_back(3);}
-	     	    if(geant_part[iD]->Process() == CoulombScat)	{InteractionPointType.push_back(8);}
-	     	    if(geant_part[iD]->Process() == ProtonInelastic){InteractionPointType.push_back(10);}
+              auto proc = geant_part[iD]->Process();
+              if (proc.find("Decay")        != std::string::npos)              InteractionPointType.push_back(proc);
+              if (proc.find("hadElastic")   != std::string::npos)              InteractionPointType.push_back(proc);
+              if (proc.find("pi-Inelastic") != std::string::npos)              InteractionPointType.push_back(proc);
+              if (proc.find("pi+Inelastic") != std::string::npos)              InteractionPointType.push_back(proc);
+              if (proc.find("CHIPSNuclearCaptureAtRest") != std::string::npos) InteractionPointType.push_back(proc);
+              if (proc.find("muMinusCaptureAtRest") != std::string::npos)      InteractionPointType.push_back(proc);
+              if (proc.find("protonInelastic") != std::string::npos)           InteractionPointType.push_back(proc);
+              if (proc.find("hBertiniCaptureAtRest") != std::string::npos)     InteractionPointType.push_back(proc);
+              if (proc.find("kaon+Inelastic") != std::string::npos)            InteractionPointType.push_back(proc);
+              if (proc.find("kaon-Inelastic") != std::string::npos)            InteractionPointType.push_back(proc);
 	     	    }//<--- End if is daughter(0)
 	          }//<--- End particle loop
 	        }//<--- End if there are daughters
           else
-	        {InteractionPointType.push_back(0);}
+	        {InteractionPointType.push_back("none");}
 	      }
           else
 	        {
@@ -783,26 +766,15 @@ void lariat::AnaTreeT1034UC::analyze(art::Event const & evt)
 	          {
 	          int interestingPoint = (int) couple.first;
 	          InteractionPoint.push_back(interestingPoint);         	   
-	          if ((truetraj.KeyToProcess(couple.second)).find("hadElastic")      != std::string::npos) InteractionPointType.push_back(3);           
-	          if ((truetraj.KeyToProcess(couple.second)).find("pi-Inelastic")    != std::string::npos) InteractionPointType.push_back(1);           
-	          if ((truetraj.KeyToProcess(couple.second)).find("pi+Inelastic")    != std::string::npos) InteractionPointType.push_back(14);           
-	          if ((truetraj.KeyToProcess(couple.second)).find("kaon-Inelastic")  != std::string::npos) InteractionPointType.push_back(12);           
-	          if ((truetraj.KeyToProcess(couple.second)).find("kaon+Inelastic")  != std::string::npos) InteractionPointType.push_back(11);           
-	          if ((truetraj.KeyToProcess(couple.second)).find("protonInelastic") != std::string::npos) InteractionPointType.push_back(13);           
-	          if ((truetraj.KeyToProcess(couple.second)).find("neutronInelastic")!= std::string::npos) InteractionPointType.push_back(2);           
-                
-              //std::cout << std::endl;
-              //std::cout << "                interaction point pt  : " << (int)couple.first << std::endl;
-              //std::cout << "                interaction point P   : " << sqrt(   pow(1000*truetraj.Px((int)couple.first), 2) 
-              //                                                                 + pow(1000*truetraj.Py((int)couple.first), 2) 
-              //                                                                 + pow(1000*truetraj.Pz((int)couple.first), 2) ) << std::endl;
-              //std::cout << "                interaction point P-1 : " << sqrt(   pow(1000*truetraj.Px((int)couple.first-1), 2) 
-              //                                                                 + pow(1000*truetraj.Py((int)couple.first-1), 2) 
-              //                                                                 + pow(1000*truetraj.Pz((int)couple.first-1), 2) ) << std::endl;
-              //
-              //std::cout << std::endl;
+	          InteractionPointType.push_back((truetraj.KeyToProcess(couple.second)));           
 	          }
-	        }	
+	        }
+
+          std::cout << "\nInteractions..." << std::endl;
+          for (int iPt = 0; iPt < (int)InteractionPoint.size(); iPt++)
+          {
+            std::cout << "Interaction at " << geant_part[i]->Position(InteractionPoint[iPt]).Vect().Z() << " was " << InteractionPointType[iPt] << std::endl;
+          }
    
 	    iPrim++;
 	    }//<--End if primary
