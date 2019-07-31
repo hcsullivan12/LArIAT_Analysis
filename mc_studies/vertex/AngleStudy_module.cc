@@ -99,23 +99,23 @@ private:
   const float SECONDARY_LENGTH_CUT = 2.0;
 
   TH1D* hMCSecondaryTrkLength      = nullptr;
-  TH1D* hMCElasticAngle            = nullptr;
-  TH1D* hMCInelasticAngle          = nullptr;
-  TH1D* hMCInelasticOneVisDAngle   = nullptr;
-
-  TH1D* hMCElasticConeAngle        = nullptr;
-  TH1D* hMCInelasticConeAngle      = nullptr;
-
-  TH2D* hMCKeVsElasticAngle        = nullptr;
-  TH2D* hMCKeVsInelasticAngle      = nullptr;
-  TH2D* hMCKeVsInelasticOneVisDAngle  = nullptr;
-
-  TH2D* hMCTrkLenVsElasticAngle        = nullptr;
-  TH2D* hMCTrkLenVsInelasticAngle      = nullptr;
-  TH2D* hMCTrkLthVsInelasticOneVisDAngle = nullptr;
-
   TH1S* hMCSecondaries             = nullptr;
 
+  TH1D* hMCElasticAngle             = nullptr;
+  TH1D* hMCElasticConeAngle         = nullptr;
+  TH2D* hMCKeVsElasticAngle         = nullptr;
+  TH2D* hMCKeVsElasticConeAngle     = nullptr;
+  TH2D* hMCTrkLenVsElasticAngle     = nullptr;
+  TH2D* hMCTrkLenVsElasticConeAngle = nullptr;
+
+  TH1D* hMCInelasticAngle           = nullptr;
+
+  TH1D* hMCInelasticAngleOneVisD             = nullptr;
+  TH1D* hMCInelasticConeAngleOneVisD         = nullptr;
+  TH2D* hMCKeVsInelasticAngleOneVisD         = nullptr;
+  TH2D* hMCKeVsInelasticConeAngleOneVisD     = nullptr;
+  TH2D* hMCTrkLenVsInelasticAngleOneVisD     = nullptr;
+  TH2D* hMCTrkLenVsInelasticConeAngleOneVisD = nullptr;
 };
 
 //----------------------------------------------------------------------------------
@@ -227,25 +227,27 @@ void AngleStudy::analyze(art::Event const & e)
 void AngleStudy::beginJob()
 {
   art::ServiceHandle<art::TFileService> tfs;
-  hMCSecondaryTrkLength    = tfs->make<TH1D>("hMCSecondaryTrkLength",    "Secondary Track Lengths",                                               100, 0, 50);
-  hMCElasticAngle          = tfs->make<TH1D>("hMCElasticAngle",          "Elastic Scattering Angle of Primary",                                   180, 0, 180);
-  hMCInelasticAngle        = tfs->make<TH1D>("hMCInelasticAngle",        "Angle Between Secondaries and Primary for Inelastic",                   180, 0, 180);
-  hMCInelasticOneVisDAngle = tfs->make<TH1D>("hMCInelasticOneVisDAngle", "Angle Between Single Visible Secondary and Primary for Inelastic",      180, 0, 180);
-  hMCElasticConeAngle      = tfs->make<TH1D>("hMCElasticConeAngle",      "Cone Angle Between Single Visible Secondary and Primary for Elastic",    90, 0, 90);
-  hMCInelasticConeAngle    = tfs->make<TH1D>("hMCInelasticConeAngle",    "Cone Angle Between Single Visible Secondary and Primary for Inelastic",  90, 0, 90);
-  hMCSecondaries           = tfs->make<TH1S>("hMCSecondaries",           "True number of tracks leaving vertex",                                   10, 0, 10);
-  
-  hMCKeVsElasticAngle          = tfs->make<TH2D>("hMCKeVsElasticAngle"  ,        "Kinetic energy vs Elastic Angle",                 90, 0, 90, 300, 0, 1200);
-  hMCKeVsInelasticAngle        = tfs->make<TH2D>("hMCKeVsInelasticAngle",        "Kinetic energy vs Inelastic Angle",               90, 0, 90, 300, 0, 1200);
-  hMCKeVsInelasticOneVisDAngle = tfs->make<TH2D>("hMCKeVsInelasticOneVisDAngle", "Kinetic energy vs Inelastic Angle One Secondary", 90, 0, 90, 300, 0, 1200);
-  hMCKeVsElasticConeAngle      = tfs->make<TH2D>("hMCKeVsElasticConeAngle",      "Kinetic energy vs Elastic Cone Angle",            90, 0, 90, 300, 0, 1200);
-  hMCKeVsInelasticConeAngle    = tfs->make<TH2D>("hMCKeVsInelasticConeAngle",    "Kinetic energy vs Inelastic Cone Angle",          90, 0, 90, 300, 0, 1200);
+  hMCSecondaryTrkLength    = tfs->make<TH1D>("hMCSecondaryTrkLength",    "Secondary Track Lengths",               100, 0, 50);
+  hMCSecondaries           = tfs->make<TH1S>("hMCSecondaries",           "True number of tracks leaving vertex",  10, 0, 10);
 
-  hMCTrkLenVsElasticAngle          = tfs->make<TH2D>("hMCTrkLenVsElasticAngle",          "Track length vs Elastic Cone Angle",   90, 0, 90, 90, 0, 90);
-  hMCTrkLenVsInelasticAngle        = tfs->make<TH2D>("hMCTrkLenVsInelasticAngle",        "Track length vs Inelastic Cone Angle", 90, 0, 90, 90, 0, 90);
-  hMCTrkLthVsInelasticOneVisDAngle = tfs->make<TH2D>("hMCTrkLthVsInelasticOneVisDAngle", "Track length vs Inelastic Cone Angle", 90, 0, 90, 90, 0, 90);
-  hMCTrkLthVsElasticConeAngle      = tfs->make<TH2D>("hMCTrkLthVsElasticConeAngle",      "Track length vs Elastic Cone Angle",   90, 0, 90, 90, 0, 90);
-  hMCTrkLthVsInelasticConeAngle    = tfs->make<TH2D>("hMCTrkLthVsInelasticConeAngle",    "Track length vs Inelastic Cone Angle", 90, 0, 90, 90, 0, 90);
+  // should all have one secondary
+  hMCElasticAngle              = tfs->make<TH1D>("hMCElasticAngle",             "Elastic Scattering Angle of Primary",                                   180, 0, 180);
+  hMCElasticConeAngle          = tfs->make<TH1D>("hMCElasticConeAngle",         "Cone Angle Between Single Visible Secondary and Primary for Elastic",    90, 0, 90);
+  hMCKeVsElasticAngle          = tfs->make<TH2D>("hMCKeVsElasticAngle"  ,       "Kinetic energy vs Elastic Angle",      90, 0, 90, 300, 0, 1200);
+  hMCKeVsElasticConeAngle      = tfs->make<TH2D>("hMCKeVsElasticConeAngle",     "Kinetic energy vs Elastic Cone Angle", 90, 0, 90, 300, 0, 1200);
+  hMCTrkLenVsElasticAngle      = tfs->make<TH2D>("hMCTrkLenVsElasticAngle",     "Track length vs Elastic Cone Angle",   90, 0, 90, 90, 0, 90);
+  hMCTrkLenVsElasticConeAngle  = tfs->make<TH2D>("hMCTrkLenVsElasticConeAngle", "Track length vs Elastic Cone Angle",   90, 0, 90, 90, 0, 90);
+
+  // general inelastic
+  hMCInelasticAngle              = tfs->make<TH1D>("hMCInelasticAngle", "Angle Between Secondaries and Primary for Inelastic", 180, 0, 180);
+
+  // inelastic one visible daughter
+  hMCInelasticAngleOneVisD             = tfs->make<TH1D>("hMCInelasticAngleOneVisD",      "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
+  hMCInelasticConeAngleOneVisD         = tfs->make<TH1D>("hMCInelasticConeAngleOneVisD",  "Angle Between Single Visible Secondary and Primary for Inelastic", 180, 0, 180);
+  hMCKeVsInelasticAngleOneVisD         = tfs->make<TH2D>("hMCKeVsInelasticAngleOneVisD",         "Kinetic energy vs Inelastic Angle Single Visible Secondary",       90, 0, 90, 300, 0, 1200);
+  hMCKeVsInelasticConeAngleOneVisD     = tfs->make<TH2D>("hMCKeVsInelasticConeAngleOneVisD",     "Kinetic energy vs Inelastic Cone Angle Single Visible Secondary",  90, 0, 90, 300, 0, 1200);
+  hMCTrkLenVsInelasticAngleOneVisD     = tfs->make<TH2D>("hMCTrkLenVsInelasticAngleOneVisD",     "Track length vs Inelastic Cone Angle Single Visible Secondary", 90, 0, 90, 90, 0, 90);
+  hMCTrkLenVsInelasticConeAngleOneVisD = tfs->make<TH2D>("hMCTrkLenVsInelasticConeAngleOneVisD", "Track length vs Inelastic Cone Angle Single Visible Secondary", 90, 0, 90, 90, 0, 90);
 }
 
 //----------------------------------------------------------------------------------
@@ -328,9 +330,8 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
     }
     else if (isInelastic) 
     {
+      // Only filling general inelastic
       hMCInelasticAngle->Fill(theta);
-      hMCKeVsInelasticAngle->Fill(theta, primIncKe);
-      hMCTrkLenVsInelasticAngle->Fill(theta, primTrkLength);
     }
 
     if (fVerbose) 
@@ -354,8 +355,6 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
       // Compute angle between daughter and incoming primary
       double theta = (180/TMath::Pi())*std::acos( primIncMom.Unit().Dot(dMom0.Unit()) );
       hMCInelasticAngle->Fill(theta);
-      hMCKeVsInelasticAngle->Fill(theta, primIncKe);
-      hMCTrkLenVsInelasticAngle->Fill(theta, primTrkLength);
     }//<-- End loop over visible particles
   }//<--End if inelastic
 
@@ -373,9 +372,9 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
       else               trailMom  = plist.Particle(iG4)->Momentum().Vect();
 
       double theta = (180 / TMath::Pi()) * std::acos(primIncMom.Unit().Dot(trailMom.Unit()));
-      hMCInelasticOneVisDAngle->Fill(theta);
-      hMCKeVsInelasticOneVisDAngle->Fill(theta, primIncKe);
-      hMCTrkLenVsInelasticOneVisDAngle->Fill(theta, primTrkLength);
+      hMCInelasticAngleOneVisD->Fill(theta);
+      hMCKeVsInelasticAngleOneVisD->Fill(theta, primIncKe);
+      hMCTrkLenVsInelasticAngleOneVisD->Fill(theta, primTrkLength);
 
       if (fVerbose) 
       {
@@ -402,13 +401,13 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
     {
       hMCElasticConeAngle->Fill(theta);
       hMCKeVsElasticConeAngle->Fill(theta, primIncKe);
-      hMCTrkLthVsElasticConeAngle->Fill(theta, primTrkLength);
+      hMCTrkLenVsElasticConeAngle->Fill(theta, primTrkLength);
     }
     else if (isInelastic) 
     {
-      hMCInelasticConeAngle->Fill(theta);
-      hMCKeVsInelasticConeAngle->Fill(theta, primIncKe);
-      hMCTrkLthVsInelasticConeAngle->Fill(theta, primTrkLength);
+      hMCInelasticConeAngleOneVisD->Fill(theta);
+      hMCKeVsInelasticConeAngleOneVisD->Fill(theta, primIncKe);
+      hMCTrkLenVsInelasticConeAngleOneVisD->Fill(theta, primTrkLength);
     }
   }//<-- End if one visible daughter
 
@@ -469,7 +468,7 @@ void AngleStudy::identifyVisibleSecondaries(const sim::ParticleList& plist, cons
  * @brief Get the primary's first point in the tpc
  * 
  */
-void AngleStudy::getFirstTpcPoint(const sim::McParticle& mcPrimary, TVector3& position)
+void AngleStudy::getFirstTpcPoint(const sim::MCParticle& mcPrimary, TVector3& position)
 {
   for (int iPt = 0; iPt < (int)mcPrimary->NumberTrajectoryPoints(); iPt++)
   {
