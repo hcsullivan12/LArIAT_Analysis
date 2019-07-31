@@ -78,6 +78,8 @@ private:
   void doAngleStudy(const sim::ParticleList& plist, const Vertex_t& vertex);
   void identifyVisibleSecondaries(const sim::ParticleList& plist, const Vertex_t& vertex);
   double toKineticEnergy(const TVector3& mom, const double& mass);
+  void getFirstTpcPoint(const simb::MCParticle& mcPrimary, TVector3& position);
+
   /// Method to check if charged
   inline bool isCharged(int const& pdg) 
   { 
@@ -313,7 +315,7 @@ void AngleStudy::doAngleStudy(const sim::ParticleList& plist, const Vertex_t& ve
   TVector3 primIncMom = primMcParticle->Momentum(vertex.point-1).Vect();
   double   primIncKe  = toKineticEnergy(1000*primIncMom, 1000*primMcParticle->Mass());
   TVector3 primFirstTpcPoint = vertex.position;
-  getFirstTpcPoint(primMcParticle, primFirstTpcPoint);
+  getFirstTpcPoint(*primMcParticle, primFirstTpcPoint);
   double   primTrkLength = (vertex.position-primFirstTpcPoint).Mag();
 
   // If the primary doesn't end here
@@ -468,12 +470,13 @@ void AngleStudy::identifyVisibleSecondaries(const sim::ParticleList& plist, cons
  * @brief Get the primary's first point in the tpc
  * 
  */
-void AngleStudy::getFirstTpcPoint(const sim::MCParticle& mcPrimary, TVector3& position)
+void AngleStudy::getFirstTpcPoint(const simb::MCParticle& mcPrimary, TVector3& position)
 {
-  for (int iPt = 0; iPt < (int)mcPrimary->NumberTrajectoryPoints(); iPt++)
+  for (int iPt = 0; iPt < (int)mcPrimary.NumberTrajectoryPoints(); iPt++)
   {
-    auto primPos = mcPrimary->Position(iPt).Vect();
-    if (primPos < FV_Z_BOUND[0]) continue;
+    auto primPos = mcPrimary.Position(iPt).Vect();
+    if (primPos.Z() < FV_Z_BOUND[0]) continue;
+    if (!inActiveRegion(primPos)) continue;
     position = primPos;
     return;
   }

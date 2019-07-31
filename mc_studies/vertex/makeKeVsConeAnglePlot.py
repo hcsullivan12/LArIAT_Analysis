@@ -4,54 +4,38 @@ from matplotlib  import cm
 
 f = ROOT.TFile.Open('anaTree.root')
 
+hElasticHists = [0 for x in range(0, 6)]
+hInelasticHists = [0 for x in range(0, 6)]
+
+hElasticAngle            = f.Get('angleana/hMCElasticAngle')
+hElasticConeAngle        = f.Get('angleana/hMCElasticConeAngle')
+hKeVsElasticAngle        = f.Get('angleana/hMCKeVsElasticAngle')
 hKeVsElasticConeAngle    = f.Get('angleana/hMCKeVsElasticConeAngle')
-hKeVsInelasticConeAngle  = f.Get('angleana/hMCKeVsInelasticConeAngle')
+TrkLenVsElasticAngle     = f.Get('angleana/hMCTrkLenVsElasticAngle')
+TrkLenVsElasticConeAngle = f.Get('angleana/hMCTrkLenVsElasticConeAngle')
 
-el_x, el_y, el_z = [], [], []
-in_x, in_y, in_z = [], [], []
+hInelasticAngle            = f.Get('angleana/hMCInelasticAngle')
 
-nXbins = hKeVsElasticConeAngle.GetNbinsX()
-nYbins = hKeVsInelasticConeAngle.GetNbinsY()
-for xBin in range(1, nXbins+1):
-    for yBin in range(1, nYbins+1):
-        x = hKeVsElasticConeAngle.GetXaxis().GetBinCenter(xBin)
-        y = hKeVsElasticConeAngle.GetYaxis().GetBinCenter(yBin)
-
-        elContent = hKeVsElasticConeAngle.GetBinContent(xBin, yBin)
-        inContent = hKeVsInelasticConeAngle.GetBinContent(xBin, yBin)
-
-        if elContent != 0:
-            el_x.append(x)
-            el_y.append(y)
-            el_z.append(elContent)
-        if inContent != 0:
-            in_x.append(x)
-            in_y.append(y)
-            in_z.append(inContent)
+hInelasticAngleOneVisD             = f.Get('angleana/hMCInelasticAngleOneVisD')
+hInelasticConeAngleOneVisD         = f.Get('angleana/hMCInelasticConeAngleOneVisD')
+hKeVsInelasticAngleOneVisD         = f.Get('angleana/hMCKeVsInelasticAngleOneVisD')
+hKeVsInelasticConeAngleOneVisD     = f.Get('angleana/hMCKeVsInelasticConeAngleOneVisD')
+hTrkLenVsInelasticAngleOneVisD     = f.Get('angleana/hMCTrkLenVsInelasticAngleOneVisD')
+hTrkLenVsInelasticConeAngleOneVisD = f.Get('angleana/hMCTrkLenVsInelasticConeAngleOneVisD')
 
 elEntries = hKeVsElasticConeAngle.GetEntries()
 inEntries = hKeVsInelasticConeAngle.GetEntries()
-#hKeVsElasticConeAngle.Scale(1/elEntries)
-#hKeVsInelasticConeAngle.Scale(1/inEntries)
-
-
-#for xBin in range(1, nXbins+1):
-#    for yBin in range(1, nYbins+1):
-#        hKeVsElasticConeAngle.SetBinContent(xBin, yBin, hKeVsElasticConeAngle.GetBinContent(xBin, yBin)/elEntries)
-#        hKeVsInelasticConeAngle.SetBinContent(xBin, yBin, hKeVsInelasticConeAngle.GetBinContent(xBin, yBin)/inEntries)
-
-#plt.scatter(in_x, in_y, c=in_z, s=20, marker='o', cmap=cm.hot)
-#plt.scatter(el_x, el_y, c=el_z, s=20, marker='o', cmap=cm.jet)
-#plt.hist2d(in_x, in_y, in_z, cmap=plt.cm.Reds)
-#plt.show()
 
 hKeVsInelasticConeAngle.SetMarkerColor(ROOT.kOrange+8)
 hKeVsInelasticConeAngle.SetMarkerSize(0.7)
 hKeVsInelasticConeAngle.SetMarkerStyle(8)
+hKeVsInelasticConeAngle.GetXaxis().SetTitle('Angle [degrees]')
+hKeVsInelasticConeAngle.GetYaxis().SetTitle('KE[MeV]')
 hKeVsElasticConeAngle.SetMarkerColor(ROOT.kBlue)
 hKeVsElasticConeAngle.SetMarkerSize(0.7)
 hKeVsElasticConeAngle.SetMarkerStyle(8)
-
+hKeVsElasticConeAngle.GetXaxis().SetTitle('Angle [degrees]')
+hKeVsElasticConeAngle.GetYaxis().SetTitle('KE[MeV]')
 
 
 ROOT.gStyle.SetPalette(ROOT.kBlueRedYellow)
