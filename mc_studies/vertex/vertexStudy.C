@@ -51,8 +51,9 @@ struct PdgCodes_t
 };
 PdgCodes_t pdgcodes;
 /// Method to check if charged
-inline bool IsCharged(int const& pdg) 
+inline bool IsCharged(int const& p) 
 { 
+  int pdg = std::abs(p);
   return (pdg == pdgcodes.kElectron || pdg == pdgcodes.kMuon || 
           pdg == pdgcodes.kPion     || pdg == pdgcodes.kKaon || 
           pdg == pdgcodes.kProton);
@@ -127,9 +128,8 @@ TH2D* hMCIdeVertexInelastic = new TH2D("hMCIdeVertexInelastic", "IDEs versus bub
 TH2D* hMCIdesXvsZ = new TH2D("hMCIdesXvsZ", "IDEs for X vs Z ", 200, 0, 100, 100, 0, 50);
 TH2D* hMCIdesSubXvsZ = new TH2D("hMCIdesSubXvsZ", "IDEs subtracted for X vs Z ", 200, 0, 100, 100, 0, 50);
 TH1I* hMCNumInteractions = new TH1I("hMCNumInteractions", "Number of interactions in TPC for elastic like", 5, 0, 5);
-
-/// reco
-TH2D* hRecoHitsXvsZ = new TH2D("hRecoHitsXvsZ", "Hits for X vs Z ", 200, 0, 100, 100, 0, 50);
+TH2D* hMCXvsZ = new TH2D("hMCXvsZ", "X vs Z ", 200, 0, 100, 100, 0, 50);
+TH1D* hMCFirstInteractionInTpcZ = new TH1D("hMCFirstInteractionInTpcZ", "First interaction Z point in TPC", 100, 0, 100);
 
 /// @}
 
@@ -174,6 +174,7 @@ void vertexStudy::Loop(int inDebug)
     int nPrimaries = 0;
     for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
     {
+      if (TrackId->at(iG4) == 0) std::cout << "TRACK ID = 0\n";
       // If this is not a primary, skip it
       if (process_primary->at(iG4) == 0) continue;
       primTrkId = TrackId->at(iG4);
@@ -182,7 +183,7 @@ void vertexStudy::Loop(int inDebug)
       // ### Store the positions and momentum 
       TVector3 g4PrimaryPos0( StartPointx->at(iG4), StartPointy->at(iG4), StartPointz->at(iG4) );
       TVector3 g4PrimaryPosf( EndPointx  ->at(iG4), EndPointy  ->at(iG4), EndPointz  ->at(iG4) );
-      TVector3 g4PrimaryMom0(1000*Px   ->at(iG4), 1000*Py   ->at(iG4), 1000*Pz   ->at(iG4));
+      TVector3 g4PrimaryMom0(1000*StartPx->at(iG4), 1000*StartPy->at(iG4), 1000*StartPz->at(iG4));
       TVector3 g4PrimaryMomf(1000*EndPx->at(iG4), 1000*EndPy->at(iG4), 1000*EndPz->at(iG4));
 
       // Fill momentum histos
@@ -257,12 +258,21 @@ void vertexStudy::Loop(int inDebug)
 
     if (nTotalEvents == 1)
     {
-      for (int iPt = 0; iPt < nhits; iPt++)
+      for (int iPt = 0; iPt < NTrTrajPts->at(0); iPt++)
       {
-        if (hit_charge[iPt] < -90000) continue;
-        auto xBin = hRecoHitsXvsZ->GetXaxis()->FindBin(hit_z->at(iPt));
-        auto yBin = hRecoHitsXvsZ->GetYaxis()->FindBin(hit_x->at(iPt));
-        hRecoHitsXvsZ->SetBinContent(xBin, yBin, hit_charge->at(iPt));
+        auto xBin = hMCXvsZ->GetXaxis()->FindBin(MidPosZ->at(0)[iPt]);
+        auto yBin = hMCXvsZ->GetYaxis()->FindBin(MidPosX->at(0)[iPt]);
+        hMCXvsZ->SetBinContent(xBin, yBin, 10);
+      }
+      for (size_t iDtr = 0; iDtr < NDTrTrajPts->size(); iDtr++)
+      {
+        if (!IsCharged(DPdgCode->at(iDtr))) continue;
+        for (int iPt = 0; iPt < NTrTrajPts->at(iDtr); iPt++)
+        {
+          auto xBin = hMCXvsZ->GetXaxis()->FindBin(DMidPosZ->at(iDtr)[iPt]);
+          auto yBin = hMCXvsZ->GetYaxis()->FindBin(DMidPosX->at(iDtr)[iPt]);
+          hMCXvsZ->SetBinContent(xBin, yBin, 10);
+        }
       }
     }
   
@@ -278,9 +288,9 @@ void vertexStudy::Loop(int inDebug)
       if (Mother->at(iG4) != primTrkId) continue;
   
       // Make sure she's charged
-      if ( !isCharged(std::abs(mcParticle->PdgCode())) ) continue;
-      TVector3 startPoint = mcParticle->Position().Vect();
-      TVector3 endPoint   = mcParticle->EndPosition().Vect();
+      if ( !IsCharged(PDG->at(iG4)) ) continue;
+      TVector3 startPoint(StartPointx->at(iG4), StartPointy->at(iG4), StartPointz->at(iG4)); 
+      TVector3 endPoint(EndPointx->at(iG4), EndPointy->at(iG4), EndPointz->at(iG4));
       hMCSecondaryTrkLength->Fill((startPoint-endPoint).Mag());
     }
 
@@ -344,7 +354,7 @@ void vertexStudy::Loop(int inDebug)
     if (IN_DEBUG) 
     {
       std::cout << "\njEntry                 = " << jentry 
-                << "\nFirst int point in TPC = " << MidPosZ[0][firstVertexInTpc.point]
+                << "\nFirst int point in TPC = " << MidPosZ->at(0)[firstVertexInTpc.point]
                 << "\nFirst process in TPC   = " << firstVertexInTpc.process
                 << "\nIs elastic like        = ";
       if (isElasticLike) std::cout << "yes" << std::endl;
@@ -415,8 +425,8 @@ void vertexStudy::GetFirstInteractionInTPC(Vertex_t& point)
   for (int iPt = 0; iPt < InteractionPoint->size(); iPt++)
   {
     Vertex_t thisVertex( InteractionPoint->at(iPt),
-                         IntProcessToString(InteractionPointType->at(iPt)),
-                         TVector3(MidPosX[0][InteractionPoint->at(iPt)], MidPosY[0][InteractionPoint->at(iPt)], MidPosZ[0][InteractionPoint->at(iPt)]) );
+                         InteractionPointType->at(iPt),
+                         TVector3(MidPosX->at(0)[InteractionPoint->at(iPt)], MidPosY->at(0)[InteractionPoint->at(iPt)], MidPosZ->at(0)[InteractionPoint->at(iPt)]) );
     // Check if in FV
     if (!InActiveRegion(thisVertex.position)) continue;
 
@@ -443,7 +453,7 @@ int vertexStudy::DetermineG4Id(const int& tid)
 {
   for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
   {
-    if (TrackId->at(iG4 == tid) return iG4;
+    if (TrackId->at(iG4 == tid)) return iG4;
   }
   return -999;
 } 
@@ -469,7 +479,7 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
   TVector3 primIncMom( MidPx->at(0)[vertex.point-1], MidPy->at(0)[vertex.point-1], MidPz->at(0)[vertex.point-1] );
 
   // If the primary doesn't end here
-  if ( (vertex.point+1) < (NTrTrajPts[0]-1) ) 
+  if ( (vertex.point+1) < (NTrTrajPts->at(0)-1) ) 
   {
     TVector3 trailMom( MidPx->at(0)[vertex.point], MidPy->at(0)[vertex.point], MidPz->at(0)[vertex.point] );
     double theta = (180/TMath::Pi())*std::acos( primIncMom.Unit().Dot(trailMom.Unit()) );
@@ -489,7 +499,7 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
       if (iG4 == DetermineG4Id(primTrkId)) continue;
 
       // This is a charged daughter
-      TVector3 dMom0(Px->at(iG4), Py->at(iG4), Pz->at(iG4));
+      TVector3 dMom0(StartPx->at(iG4), StartPy->at(iG4), StartPz->at(iG4));
 
       // Compute angle between daughter and incoming primary
       double theta = (180/TMath::Pi())*std::acos( primIncMom.Unit().Dot(dMom0.Unit()) );
@@ -510,7 +520,7 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
 
       // If this visible secondary is the primary
       if (iG4 == DetermineG4Id(primTrkId)) trailMom = TVector3( MidPx->at(0)[vertex.point], MidPy->at(0)[vertex.point], MidPz->at(0)[vertex.point] );
-      else                                 trailMom = TVector3( Px->at(iG4), Py->at(iG4), Pz->at(iG4) );
+      else                                 trailMom = TVector3( StartPx->at(iG4), StartPy->at(iG4), StartPz->at(iG4) );
     
       double theta = (180 / TMath::Pi()) * std::acos(primIncMom.Unit().Dot(trailMom.Unit()));
       hMCInelasticOneVisDAngle->Fill(theta);
@@ -526,7 +536,7 @@ void vertexStudy::AngleStudy(const Vertex_t& vertex, bool& isElasticLike)
 
     // If this visible secondary is the primary
     if (iG4 == DetermineG4Id(primTrkId)) trailMom = TVector3( MidPx->at(0)[vertex.point], MidPy->at(0)[vertex.point], MidPz->at(0)[vertex.point] );
-    else                                 trailMom = TVector3( Px->at(iG4), Py->at(iG4), Pz->at(iG4) );
+    else                                 trailMom = TVector3( StartPx->at(iG4), StartPy->at(iG4), StartPz->at(iG4) );
     
     auto resultant = primIncMom + trailMom;
     double theta = (180 / TMath::Pi()) * std::acos(primIncMom.Unit().Dot(resultant.Unit()));
@@ -560,10 +570,10 @@ void vertexStudy::IdentifyVisibleSecondaries(const Vertex_t& vertex)
   for (size_t iG4 = 0; iG4 < geant_list_size; iG4++)
   {
     // @todo Take absolute value here?
-    if (Mother.at(iG4) != primTrkId) continue;
+    if (Mother->at(iG4) != primTrkId) continue;
 
     // Make sure she is charged 
-    if ( !IsCharged(std::abs(pdg->at(iG4))) ) continue;
+    if ( !IsCharged(PDG->at(iG4)) ) continue;
 
     // This is a charged daughter
     TVector3 dPos0(StartPointx->at(iG4), StartPointy->at(iG4), StartPointz->at(iG4));
@@ -639,7 +649,7 @@ void vertexStudy::SubtractIdes(const int& p)
   for (auto& tide : ides)
   {
     // If this is the primary or the single secondary set the energy to zero
-    if (TrackId[tide.g4Id] == primTrkId || tide.g4Id == visSec[0]) tide.energy = 0;
+    if (TrackId->at(tide.g4Id) == primTrkId || tide.g4Id == visSec[0]) tide.energy = 0;
    
     // Check vicinity to tracks
     CheckVicinity(tide, p);
@@ -789,11 +799,7 @@ void MakePlots()
   hMCNumInteractions->Write();
   hMCInelasticConeAngle->Write();
   hMCElasticConeAngle->Write();
-
-  myRootFile.cd();
-  myRootFile.mkdir("reco/");
-  myRootFile.cd("reco/");
-  hRecoHitsXvsZ->Write();
+  hMCXvsZ->Write();
 
   myRootFile.Close();
 }

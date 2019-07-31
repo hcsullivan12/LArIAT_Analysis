@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Mon Jul 29 21:55:14 2019 by ROOT version 6.10/04
-// from TTree anatree/analysis tree
+// Wed Jul 31 12:16:42 2019 by ROOT version 6.10/04
+// from TTree anatree/anatree
 // found on file: piminusanatree.root
 //////////////////////////////////////////////////////////
 
@@ -17,7 +17,7 @@
 #include "vector"
 #include "vector"
 #include "vector"
-
+#include "vector"
 
 
 /// Stucture for IDE
@@ -44,7 +44,6 @@ struct Vertex_t
   TVector3    position; // 3D point
 };
 
-
 class vertexStudy {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
@@ -59,211 +58,128 @@ public :
    Double_t        evttime;
    Double_t        efield[3];
    Int_t           t0;
-   Int_t           nclus;
-   Double_t        clustertwire[132];   //[nclus]
-   Double_t        clusterttick[132];   //[nclus]
-   Double_t        cluendwire[132];   //[nclus]
-   Double_t        cluendtick[132];   //[nclus]
-   Int_t           cluplane[132];   //[nclus]
    Int_t           ntracks_reco;
-   Double_t        trkvtxx[34];   //[ntracks_reco]
-   Double_t        trkvtxy[34];   //[ntracks_reco]
-   Double_t        trkvtxz[34];   //[ntracks_reco]
-   Double_t        trkendx[34];   //[ntracks_reco]
-   Double_t        trkendy[34];   //[ntracks_reco]
-   Double_t        trkendz[34];   //[ntracks_reco]
-   Double_t        trkstartdcosx[34];   //[ntracks_reco]
-   Double_t        trkstartdcosy[34];   //[ntracks_reco]
-   Double_t        trkstartdcosz[34];   //[ntracks_reco]
-   Double_t        trkenddcosx[34];   //[ntracks_reco]
-   Double_t        trkenddcosy[34];   //[ntracks_reco]
-   Double_t        trkenddcosz[34];   //[ntracks_reco]
-   Int_t           trkWCtoTPCMatch[34];   //[ntracks_reco]
-   Double_t        trklength[34];   //[ntracks_reco]
-   Double_t        trkmomrange[34];   //[ntracks_reco]
-   Double_t        trkmommschi2[34];   //[ntracks_reco]
-   Double_t        trkmommsllhd[34];   //[ntracks_reco]
-   Int_t           ntrkhits[34];   //[ntracks_reco]
-   Double_t        trkx[34][1000];   //[ntracks_reco]
-   Double_t        trky[34][1000];   //[ntracks_reco]
-   Double_t        trkz[34][1000];   //[ntracks_reco]
-   Double_t        trkpitch[34][2];   //[ntracks_reco]
-   Int_t           trkhits[34][2];   //[ntracks_reco]
-   Double_t        trkdedx[34][2][1000];   //[ntracks_reco]
-   Double_t        trkdqdx[34][2][1000];   //[ntracks_reco]
-   Double_t        trkrr[34][2][1000];   //[ntracks_reco]
-   Double_t        trkpitchhit[34][2][1000];   //[ntracks_reco]
-   Double_t        trkxyz[34][2][1000][3];   //[ntracks_reco]
-   Double_t        trkke[34][2];   //[ntracks_reco]
-   Double_t        trkpida[34][2];   //[ntracks_reco]
-   Int_t           nTrajPoint[34];   //[ntracks_reco]
-   Double_t        pHat0_X[34][1000];   //[ntracks_reco]
-   Double_t        pHat0_Y[34][1000];   //[ntracks_reco]
-   Double_t        pHat0_Z[34][1000];   //[ntracks_reco]
-   Double_t        trjPt_X[34][1000];   //[ntracks_reco]
-   Double_t        trjPt_Y[34][1000];   //[ntracks_reco]
-   Double_t        trjPt_Z[34][1000];   //[ntracks_reco]
-   Int_t           trkg4id[34];   //[ntracks_reco]
-   Int_t           primarytrkkey;
+   vector<int>     *track_WC2TPC_match;
+   vector<int>     *track_primary;
+   vector<double>  *track_start_x;
+   vector<double>  *track_start_y;
+   vector<double>  *track_start_z;
+   vector<double>  *track_end_x;
+   vector<double>  *track_end_y;
+   vector<double>  *track_end_z;
+   vector<double>  *track_length;
+   vector<int>     *ntrack_hits;
+   vector<vector<double> > *track_xpos;
+   vector<vector<double> > *track_ypos;
+   vector<vector<double> > *track_zpos;
+   vector<vector<int> > *nhit_ids;
+   Double_t        track_spt_idarr[32][1000][100];   //[ntracks_reco]
+   Double_t        track_spt_earr[32][1000][100];   //[ntracks_reco]
+   vector<int>     *ind_track_hits;
+   vector<double>  *ind_track_ke;
+   vector<vector<double> > *ind_track_wire;
+   vector<vector<double> > *ind_track_dedx;
+   vector<vector<double> > *ind_track_dqdx;
+   vector<vector<double> > *ind_track_rr;
+   vector<vector<double> > *ind_track_pitch_hit;
+   vector<int>     *col_track_hits;
+   vector<double>  *col_track_ke;
+   vector<vector<double> > *col_track_x;
+   vector<vector<double> > *col_track_y;
+   vector<vector<double> > *col_track_z;
+   vector<vector<double> > *col_track_wire;
+   vector<vector<double> > *col_track_dedx;
+   vector<vector<double> > *col_track_dqdx;
+   vector<vector<double> > *col_track_rr;
+   vector<vector<double> > *col_track_pitch_hit;
    Int_t           nhits;
-   Int_t           hit_plane[1130];   //[nhits]
-   Int_t           hit_wire[1130];   //[nhits]
-   Int_t           hit_channel[1130];   //[nhits]
-   Double_t        hit_peakT[1130];   //[nhits]
-   Double_t        hit_charge[1130];   //[nhits]
-   Double_t        hit_ph[1130];   //[nhits]
-   Double_t        hit_tstart[1130];   //[nhits]
-   Double_t        hit_tend[1130];   //[nhits]
-   Int_t           hit_trkid[1130];   //[nhits]
-   Int_t           hit_trkkey[1130];   //[nhits]
-   Int_t           hit_clukey[1130];   //[nhits]
-   Int_t           hit_pk[1130];   //[nhits]
-   Int_t           hit_t[1130];   //[nhits]
-   Int_t           hit_ch[1130];   //[nhits]
-   Int_t           hit_fwhh[1130];   //[nhits]
-   Double_t        hit_rms[1130];   //[nhits]
-   Double_t        hit_nelec[1130];   //[nhits]
-   Double_t        hit_energy[1130];   //[nhits]
-   Float_t         hit_dQds[1130];   //[nhits]
-   Float_t         hit_dEds[1130];   //[nhits]
-   Float_t         hit_ds[1130];   //[nhits]
-   Float_t         hit_resrange[1130];   //[nhits]
-   Float_t         hit_x[1130];   //[nhits]
-   Float_t         hit_y[1130];   //[nhits]
-   Float_t         hit_z[1130];   //[nhits]
-   Int_t           nwctrks;
-   Double_t        wctrk_XFaceCoor[1];   //[nwctrks]
-   Double_t        wctrk_YFaceCoor[1];   //[nwctrks]
-   Double_t        wctrk_momentum[1];   //[nwctrks]
-   Double_t        wctrk_theta[1];   //[nwctrks]
-   Double_t        wctrk_phi[1];   //[nwctrks]
-   Double_t        wctrk_XDist[1];   //[nwctrks]
-   Double_t        wctrk_YDist[1];   //[nwctrks]
-   Double_t        wctrk_ZDist[1];   //[nwctrks]
-   Double_t        XWireHist[1][1000];   //[nwctrks]
-   Double_t        YWireHist[1][1000];   //[nwctrks]
-   Double_t        XAxisHist[1][1000];   //[nwctrks]
-   Double_t        YAxisHist[1][1000];   //[nwctrks]
-   Double_t        Y_Kink[1];   //[nwctrks]
-   Float_t         WC1xPos[1];   //[nwctrks]
-   Float_t         WC1yPos[1];   //[nwctrks]
-   Float_t         WC1zPos[1];   //[nwctrks]
-   Float_t         WC2xPos[1];   //[nwctrks]
-   Float_t         WC2yPos[1];   //[nwctrks]
-   Float_t         WC2zPos[1];   //[nwctrks]
-   Float_t         WC3xPos[1];   //[nwctrks]
-   Float_t         WC3yPos[1];   //[nwctrks]
-   Float_t         WC3zPos[1];   //[nwctrks]
-   Float_t         WC4xPos[1];   //[nwctrks]
-   Float_t         WC4yPos[1];   //[nwctrks]
-   Float_t         WC4zPos[1];   //[nwctrks]
-   Float_t         WCTrackResidual[1];   //[nwctrks]
-   Int_t           WCTrackWCMissed[1];   //[nwctrks]
-   Int_t           ntof;
-   Double_t        tofObject[1];   //[ntof]
-   Float_t         wcP[1];   //[nwctrks]
-   Float_t         wcPx[1];   //[nwctrks]
-   Float_t         wcPy[1];   //[nwctrks]
-   Float_t         wcPz[1];   //[nwctrks]
-   Double_t        tof_timestamp[1];   //[ntof]
-   Float_t         cTOF[1];   //[ntof]
-   Float_t         mass;
-   Int_t           nAG;
-   Double_t        HitTimeStamp1p10_1[1];   //[nAG]
-   Double_t        HitTimeStamp1p10_2[1];   //[nAG]
-   Double_t        HitTimeStamp1p06_1[1];   //[nAG]
-   Double_t        HitTimeStamp1p06_2[1];   //[nAG]
-   Float_t         HitPulseArea1p10_1[1];   //[nAG]
-   Float_t         HitPulseArea1p10_2[1];   //[nAG]
-   Float_t         HitPulseArea1p06_1[1];   //[nAG]
-   Float_t         HitPulseArea1p06_2[1];   //[nAG]
-   Bool_t          HitExist1p10_1[1];   //[nAG]
-   Bool_t          HitExist1p10_2[1];   //[nAG]
-   Bool_t          HitExist1p06_1[1];   //[nAG]
-   Bool_t          HitExist1p06_2[1];   //[nAG]
-   vector<double>  *IDEEnergy;
-   vector<vector<double> > *IDEPos;
-   vector<int>     *IDETrackId;
+   vector<double>  *hit_time;
+   vector<double>  *hit_amp;
+   vector<double>  *hit_wire;
+   vector<double>  *hit_view;
+   vector<double>  *hit_charge;
    Int_t           no_primaries;
    Int_t           geant_list_size;
-   Int_t           pdg[302];   //[geant_list_size]
-   Double_t        Eng[302];   //[geant_list_size]
-   Double_t        Px[302];   //[geant_list_size]
-   Double_t        Py[302];   //[geant_list_size]
-   Double_t        Pz[302];   //[geant_list_size]
-   Double_t        EndEng[302];   //[geant_list_size]
-   Double_t        EndPx[302];   //[geant_list_size]
-   Double_t        EndPy[302];   //[geant_list_size]
-   Double_t        EndPz[302];   //[geant_list_size]
-   Double_t        StartPointx[302];   //[geant_list_size]
-   Double_t        StartPointy[302];   //[geant_list_size]
-   Double_t        StartPointz[302];   //[geant_list_size]
-   Double_t        EndPointx[302];   //[geant_list_size]
-   Double_t        EndPointy[302];   //[geant_list_size]
-   Double_t        EndPointz[302];   //[geant_list_size]
-   Int_t           Process[302];   //[geant_list_size]
-   Int_t           NumberDaughters[302];   //[geant_list_size]
-   Int_t           Mother[302];   //[geant_list_size]
-   Int_t           TrackId[302];   //[geant_list_size]
-   Int_t           process_primary[302];   //[geant_list_size]
+   Double_t        primary_p;
+   vector<int>     *PDG;
+   vector<double>  *StartKE;
+   vector<double>  *LastKE;
+   vector<double>  *StartEnergy;
+   vector<double>  *StartPx;
+   vector<double>  *StartPy;
+   vector<double>  *StartPz;
+   vector<double>  *EndEnergy;
+   vector<double>  *EndPx;
+   vector<double>  *EndPy;
+   vector<double>  *EndPz;
+   vector<double>  *StartPointx;
+   vector<double>  *StartPointy;
+   vector<double>  *StartPointz;
+   vector<double>  *EndPointx;
+   vector<double>  *EndPointy;
+   vector<double>  *EndPointz;
+   vector<string>  *Process;
+   vector<int>     *NumberDaughters;
+   vector<int>     *Mother;
+   vector<int>     *TrackId;
+   vector<int>     *process_primary;
    vector<string>  *G4Process;
    vector<string>  *G4FinalProcess;
-   Int_t           NTrTrajPts[1];   //[no_primaries]
-   Double_t        MidPosX[1][5000];   //[no_primaries]
-   Double_t        MidPosY[1][5000];   //[no_primaries]
-   Double_t        MidPosZ[1][5000];   //[no_primaries]
-   Double_t        MidPx[1][5000];   //[no_primaries]
-   Double_t        MidPy[1][5000];   //[no_primaries]
-   Double_t        MidPz[1][5000];   //[no_primaries]
+   vector<int>     *NTrTrajPts;
+   Int_t           NProtonDaughters;
+   Int_t           NNeutronDaughters;
+   vector<double>  *NDTrTrajPts;
+   vector<int>     *DTrackId;
+   vector<int>     *DPdgCode;
+   vector<double>  *DStartEnergy;
+   vector<double>  *DStartP;
+   vector<vector<double> > *MidPosX;
+   vector<vector<double> > *MidPosY;
+   vector<vector<double> > *MidPosZ;
+   vector<vector<double> > *MidPx;
+   vector<vector<double> > *MidPy;
+   vector<vector<double> > *MidPz;
+   vector<double>  *SlabX;
+   vector<double>  *SlabY;
+   vector<double>  *SlabZ;
+   vector<double>  *SlapX;
+   vector<double>  *SlapY;
+   vector<double>  *SlapZ;
+   vector<int>     *SlabN;
+   vector<double>  *SlabE;
+   Int_t           LastSlabInt;
+   vector<vector<double> > *DMidPosX;
+   vector<vector<double> > *DMidPosY;
+   vector<vector<double> > *DMidPosZ;
    vector<int>     *InteractionPoint;
-   vector<int>     *InteractionPointType;
-   Int_t           no_mcshowers;
-   Double_t        mcshwr_origin[1];   //[no_mcshowers]
-   Double_t        mcshwr_pdg[1];   //[no_mcshowers]
-   Int_t           mcshwr_TrackId[1];   //[no_mcshowers]
-   Double_t        mcshwr_startX[1];   //[no_mcshowers]
-   Double_t        mcshwr_startY[1];   //[no_mcshowers]
-   Double_t        mcshwr_startZ[1];   //[no_mcshowers]
-   Double_t        mcshwr_endX[1];   //[no_mcshowers]
-   Double_t        mcshwr_endY[1];   //[no_mcshowers]
-   Double_t        mcshwr_endZ[1];   //[no_mcshowers]
-   Double_t        mcshwr_CombEngX[1];   //[no_mcshowers]
-   Double_t        mcshwr_CombEngY[1];   //[no_mcshowers]
-   Double_t        mcshwr_CombEngZ[1];   //[no_mcshowers]
-   Double_t        mcshwr_CombEngPx[1];   //[no_mcshowers]
-   Double_t        mcshwr_CombEngPy[1];   //[no_mcshowers]
-   Double_t        mcshwr_CombEngPz[1];   //[no_mcshowers]
-   Double_t        mcshwr_CombEngE[1];   //[no_mcshowers]
-   Double_t        mcshwr_dEdx[1];   //[no_mcshowers]
-   Double_t        mcshwr_StartDirX[1];   //[no_mcshowers]
-   Double_t        mcshwr_StartDirY[1];   //[no_mcshowers]
-   Double_t        mcshwr_StartDirZ[1];   //[no_mcshowers]
-   Int_t           mcshwr_isEngDeposited[1];   //[no_mcshowers]
-   Int_t           mcshwr_Motherpdg[1];   //[no_mcshowers]
-   Int_t           mcshwr_MotherTrkId[1];   //[no_mcshowers]
-   Int_t           mcshwr_MotherstartX[1];   //[no_mcshowers]
-   Int_t           mcshwr_MotherstartY[1];   //[no_mcshowers]
-   Int_t           mcshwr_MotherstartZ[1];   //[no_mcshowers]
-   Int_t           mcshwr_MotherendX[1];   //[no_mcshowers]
-   Int_t           mcshwr_MotherendY[1];   //[no_mcshowers]
-   Int_t           mcshwr_MotherendZ[1];   //[no_mcshowers]
-   Int_t           mcshwr_Ancestorpdg[1];   //[no_mcshowers]
-   Int_t           mcshwr_AncestorTrkId[1];   //[no_mcshowers]
-   Int_t           mcshwr_AncestorstartX[1];   //[no_mcshowers]
-   Int_t           mcshwr_AncestorstartY[1];   //[no_mcshowers]
-   Int_t           mcshwr_AncestorstartZ[1];   //[no_mcshowers]
-   Int_t           mcshwr_AncestorendX[1];   //[no_mcshowers]
-   Int_t           mcshwr_AncestorendY[1];   //[no_mcshowers]
-   Int_t           mcshwr_AncestorendZ[1];   //[no_mcshowers]
-   Int_t           nshowers;
-   Int_t           shwID[1];   //[nshowers]
-   Int_t           BestPlaneShw[1];   //[nshowers]
-   Double_t        LengthShw[1];   //[nshowers]
-   Double_t        CosStartShw[3][1000];
-   Double_t        CosStartXYZShw[3][1000];
-   Double_t        TotalEShw[2][1000];
-   Double_t        dEdxPerPlaneShw[2][1000];
-   Double_t        TotalMIPEShw[2][1000];
+   vector<string>  *InteractionPointType;
+   Int_t           num_tof_objects;
+   Double_t        tofObject[1];   //[num_tof_objects]
+   Int_t           num_wctracks;
+   Double_t        wctrk_momentum[1];   //[num_wctracks]
+   Double_t        wctrk_XFace[1];   //[num_wctracks]
+   Double_t        wctrk_YFace[1];   //[num_wctracks]
+   Double_t        wctrk_theta[1];   //[num_wctracks]
+   Double_t        wctrk_phi[1];   //[num_wctracks]
+   Int_t           wctrk_missed[1];   //[num_wctracks]
+   Int_t           wctrk_picky[1];   //[num_wctracks]
+   Int_t           wctrk_quality[1];   //[num_wctracks]
+   Double_t        wctrk_x_proj_3cm[1];   //[num_wctracks]
+   Double_t        wctrk_y_proj_3cm[1];   //[num_wctracks]
+   Double_t        wctrk_z_proj_3cm[1];   //[num_wctracks]
+   Double_t        wctrk_wc1_x[1];   //[num_wctracks]
+   Double_t        wctrk_wc1_y[1];   //[num_wctracks]
+   Double_t        wctrk_wc1_z[1];   //[num_wctracks]
+   Double_t        wctrk_wc2_x[1];   //[num_wctracks]
+   Double_t        wctrk_wc2_y[1];   //[num_wctracks]
+   Double_t        wctrk_wc2_z[1];   //[num_wctracks]
+   Double_t        wctrk_wc3_x[1];   //[num_wctracks]
+   Double_t        wctrk_wc3_y[1];   //[num_wctracks]
+   Double_t        wctrk_wc3_z[1];   //[num_wctracks]
+   Double_t        wctrk_wc4_x[1];   //[num_wctracks]
+   Double_t        wctrk_wc4_y[1];   //[num_wctracks]
+   Double_t        wctrk_wc4_z[1];   //[num_wctracks]
+   Double_t        electron_lifetime;
 
    // List of branches
    TBranch        *b_run;   //!
@@ -272,139 +188,57 @@ public :
    TBranch        *b_evttime;   //!
    TBranch        *b_efield;   //!
    TBranch        *b_t0;   //!
-   TBranch        *b_nclus;   //!
-   TBranch        *b_clustertwire;   //!
-   TBranch        *b_clusterttick;   //!
-   TBranch        *b_cluendwire;   //!
-   TBranch        *b_cluendtick;   //!
-   TBranch        *b_cluplane;   //!
    TBranch        *b_ntracks_reco;   //!
-   TBranch        *b_trkvtxx;   //!
-   TBranch        *b_trkvtxy;   //!
-   TBranch        *b_trkvtxz;   //!
-   TBranch        *b_trkendx;   //!
-   TBranch        *b_trkendy;   //!
-   TBranch        *b_trkendz;   //!
-   TBranch        *b_trkstartdcosx;   //!
-   TBranch        *b_trkstartdcosy;   //!
-   TBranch        *b_trkstartdcosz;   //!
-   TBranch        *b_trkenddcosx;   //!
-   TBranch        *b_trkenddcosy;   //!
-   TBranch        *b_trkenddcosz;   //!
-   TBranch        *b_trkWCtoTPCMatch;   //!
-   TBranch        *b_trklength;   //!
-   TBranch        *b_trkmomrange;   //!
-   TBranch        *b_trkmommschi2;   //!
-   TBranch        *b_trkmommsllhd;   //!
-   TBranch        *b_ntrkhits;   //!
-   TBranch        *b_trkx;   //!
-   TBranch        *b_trky;   //!
-   TBranch        *b_trkz;   //!
-   TBranch        *b_trkpitch;   //!
-   TBranch        *b_trkhits;   //!
-   TBranch        *b_trkdedx;   //!
-   TBranch        *b_trkdqdx;   //!
-   TBranch        *b_trkrr;   //!
-   TBranch        *b_trkpitchhit;   //!
-   TBranch        *b_trkxyz;   //!
-   TBranch        *b_trkke;   //!
-   TBranch        *b_trkpida;   //!
-   TBranch        *b_nTrajPoint;   //!
-   TBranch        *b_pHat0_X;   //!
-   TBranch        *b_pHat0_Y;   //!
-   TBranch        *b_pHat0_Z;   //!
-   TBranch        *b_trjPt_X;   //!
-   TBranch        *b_trjPt_Y;   //!
-   TBranch        *b_trjPt_Z;   //!
-   TBranch        *b_trkg4id;   //!
-   TBranch        *b_primarytrkkey;   //!
+   TBranch        *b_track_WC2TPC_match;   //!
+   TBranch        *b_track_primary;   //!
+   TBranch        *b_track_start_x;   //!
+   TBranch        *b_track_start_y;   //!
+   TBranch        *b_track_start_z;   //!
+   TBranch        *b_track_end_x;   //!
+   TBranch        *b_track_end_y;   //!
+   TBranch        *b_track_end_z;   //!
+   TBranch        *b_track_length;   //!
+   TBranch        *b_ntrack_hits;   //!
+   TBranch        *b_track_xpos;   //!
+   TBranch        *b_track_ypos;   //!
+   TBranch        *b_track_zpos;   //!
+   TBranch        *b_nhit_ids;   //!
+   TBranch        *b_track_spt_idarr;   //!
+   TBranch        *b_track_spt_earr;   //!
+   TBranch        *b_ind_track_hits;   //!
+   TBranch        *b_ind_track_ke;   //!
+   TBranch        *b_ind_track_wire;   //!
+   TBranch        *b_ind_track_dedx;   //!
+   TBranch        *b_ind_track_dqdx;   //!
+   TBranch        *b_ind_track_rr;   //!
+   TBranch        *b_ind_track_pitch_hit;   //!
+   TBranch        *b_col_track_hits;   //!
+   TBranch        *b_col_track_ke;   //!
+   TBranch        *b_col_track_x;   //!
+   TBranch        *b_col_track_y;   //!
+   TBranch        *b_col_track_z;   //!
+   TBranch        *b_col_track_wire;   //!
+   TBranch        *b_col_track_dedx;   //!
+   TBranch        *b_col_track_dqdx;   //!
+   TBranch        *b_col_track_rr;   //!
+   TBranch        *b_col_track_pitch_hit;   //!
    TBranch        *b_nhits;   //!
-   TBranch        *b_hit_plane;   //!
+   TBranch        *b_hit_time;   //!
+   TBranch        *b_hit_amp;   //!
    TBranch        *b_hit_wire;   //!
-   TBranch        *b_hit_channel;   //!
-   TBranch        *b_hit_peakT;   //!
+   TBranch        *b_hit_view;   //!
    TBranch        *b_hit_charge;   //!
-   TBranch        *b_hit_ph;   //!
-   TBranch        *b_hit_tstart;   //!
-   TBranch        *b_hit_tend;   //!
-   TBranch        *b_hit_trkid;   //!
-   TBranch        *b_hit_trkkey;   //!
-   TBranch        *b_hit_clukey;   //!
-   TBranch        *b_hit_pk;   //!
-   TBranch        *b_hit_t;   //!
-   TBranch        *b_hit_ch;   //!
-   TBranch        *b_hit_fwhh;   //!
-   TBranch        *b_hit_rms;   //!
-   TBranch        *b_hit_nelec;   //!
-   TBranch        *b_hit_energy;   //!
-   TBranch        *b_hit_dQds;   //!
-   TBranch        *b_hit_dEds;   //!
-   TBranch        *b_hit_ds;   //!
-   TBranch        *b_hit_resrange;   //!
-   TBranch        *b_hit_x;   //!
-   TBranch        *b_hit_y;   //!
-   TBranch        *b_hit_z;   //!
-   TBranch        *b_nwctrks;   //!
-   TBranch        *b_wctrk_XFaceCoor;   //!
-   TBranch        *b_wctrk_YFaceCoor;   //!
-   TBranch        *b_wctrk_momentum;   //!
-   TBranch        *b_wctrk_theta;   //!
-   TBranch        *b_wctrk_phi;   //!
-   TBranch        *b_wctrk_XDist;   //!
-   TBranch        *b_wctrk_YDist;   //!
-   TBranch        *b_wctrk_ZDist;   //!
-   TBranch        *b_XWireHist;   //!
-   TBranch        *b_YWireHist;   //!
-   TBranch        *b_XAxisHist;   //!
-   TBranch        *b_YAxisHist;   //!
-   TBranch        *b_Y_Kink;   //!
-   TBranch        *b_WC1xPos;   //!
-   TBranch        *b_WC1yPos;   //!
-   TBranch        *b_WC1zPos;   //!
-   TBranch        *b_WC2xPos;   //!
-   TBranch        *b_WC2yPos;   //!
-   TBranch        *b_WC2zPos;   //!
-   TBranch        *b_WC3xPos;   //!
-   TBranch        *b_WC3yPos;   //!
-   TBranch        *b_WC3zPos;   //!
-   TBranch        *b_WC4xPos;   //!
-   TBranch        *b_WC4yPos;   //!
-   TBranch        *b_WC4zPos;   //!
-   TBranch        *b_WCTrackResidual;   //!
-   TBranch        *b_WCTrackWCMissed;   //!
-   TBranch        *b_ntof;   //!
-   TBranch        *b_tofObject;   //!
-   TBranch        *b_wcP;   //!
-   TBranch        *b_wcPx;   //!
-   TBranch        *b_wcPy;   //!
-   TBranch        *b_wcPz;   //!
-   TBranch        *b_tof_timestamp;   //!
-   TBranch        *b_cTOF;   //!
-   TBranch        *b_massObj;   //!
-   TBranch        *b_nAG;   //!
-   TBranch        *b_HitTimeStamp1p10_1;   //!
-   TBranch        *b_HitTimeStamp1p10_2;   //!
-   TBranch        *b_HitTimeStamp1p06_1;   //!
-   TBranch        *b_HitTimeStamp1p06_2;   //!
-   TBranch        *b_HitPulseArea1p10_1;   //!
-   TBranch        *b_HitPulseArea1p10_2;   //!
-   TBranch        *b_HitPulseArea1p06_1;   //!
-   TBranch        *b_HitPulseArea1p06_2;   //!
-   TBranch        *b_HitExist1p10_1;   //!
-   TBranch        *b_HitExist1p10_2;   //!
-   TBranch        *b_HitExist1p06_1;   //!
-   TBranch        *b_HitExist1p06_2;   //!
-   TBranch        *b_IDEEnergy;   //!
-   TBranch        *b_IDEPos;   //!
-   TBranch        *b_IDETrackId;   //!
    TBranch        *b_no_primaries;   //!
    TBranch        *b_geant_list_size;   //!
-   TBranch        *b_pdg;   //!
-   TBranch        *b_Eng;   //!
-   TBranch        *b_Px;   //!
-   TBranch        *b_Py;   //!
-   TBranch        *b_Pz;   //!
-   TBranch        *b_EndEng;   //!
+   TBranch        *b_primary;   //!
+   TBranch        *b_PDG;   //!
+   TBranch        *b_StartKE;   //!
+   TBranch        *b_LastKE;   //!
+   TBranch        *b_StartEnergy;   //!
+   TBranch        *b_StartPx;   //!
+   TBranch        *b_StartPy;   //!
+   TBranch        *b_StartPz;   //!
+   TBranch        *b_EndEnergy;   //!
    TBranch        *b_EndPx;   //!
    TBranch        *b_EndPy;   //!
    TBranch        *b_EndPz;   //!
@@ -422,61 +256,60 @@ public :
    TBranch        *b_G4Process;   //!
    TBranch        *b_G4FinalProcess;   //!
    TBranch        *b_NTrTrajPts;   //!
+   TBranch        *b_NProtonDaughters;   //!
+   TBranch        *b_NNeutronDaughters;   //!
+   TBranch        *b_NDTrTrajPts;   //!
+   TBranch        *b_DTrackId;   //!
+   TBranch        *b_DPdgCode;   //!
+   TBranch        *b_DStartEnergy;   //!
+   TBranch        *b_DStartP;   //!
    TBranch        *b_MidPosX;   //!
    TBranch        *b_MidPosY;   //!
    TBranch        *b_MidPosZ;   //!
    TBranch        *b_MidPx;   //!
    TBranch        *b_MidPy;   //!
    TBranch        *b_MidPz;   //!
+   TBranch        *b_SlabX;   //!
+   TBranch        *b_SlabY;   //!
+   TBranch        *b_SlabZ;   //!
+   TBranch        *b_SlapX;   //!
+   TBranch        *b_SlapY;   //!
+   TBranch        *b_SlapZ;   //!
+   TBranch        *b_SlabN;   //!
+   TBranch        *b_SlabE;   //!
+   TBranch        *b_LastSlabInt;   //!
+   TBranch        *b_DMidPosX;   //!
+   TBranch        *b_DMidPosY;   //!
+   TBranch        *b_DMidPosZ;   //!
    TBranch        *b_InteractionPoint;   //!
    TBranch        *b_InteractionPointType;   //!
-   TBranch        *b_no_mcshowers;   //!
-   TBranch        *b_mcshwr_origin;   //!
-   TBranch        *b_mcshwr_pdg;   //!
-   TBranch        *b_mcshwr_TrackId;   //!
-   TBranch        *b_mcshwr_startX;   //!
-   TBranch        *b_mcshwr_startY;   //!
-   TBranch        *b_mcshwr_startZ;   //!
-   TBranch        *b_mcshwr_endX;   //!
-   TBranch        *b_mcshwr_endY;   //!
-   TBranch        *b_mcshwr_endZ;   //!
-   TBranch        *b_mcshwr_CombEngX;   //!
-   TBranch        *b_mcshwr_CombEngY;   //!
-   TBranch        *b_mcshwr_CombEngZ;   //!
-   TBranch        *b_mcshwr_CombEngPx;   //!
-   TBranch        *b_mcshwr_CombEngPy;   //!
-   TBranch        *b_mcshwr_CombEngPz;   //!
-   TBranch        *b_mcshwr_CombEngE;   //!
-   TBranch        *b_mcshwr_dEdx;   //!
-   TBranch        *b_mcshwr_StartDirX;   //!
-   TBranch        *b_mcshwr_StartDirY;   //!
-   TBranch        *b_mcshwr_StartDirZ;   //!
-   TBranch        *b_mcshwr_isEngDeposited;   //!
-   TBranch        *b_mcshwr_Motherpdg;   //!
-   TBranch        *b_mcshwr_MotherTrkId;   //!
-   TBranch        *b_mcshwr_MotherstartX;   //!
-   TBranch        *b_mcshwr_MotherstartY;   //!
-   TBranch        *b_mcshwr_MotherstartZ;   //!
-   TBranch        *b_mcshwr_MotherendX;   //!
-   TBranch        *b_mcshwr_MotherendY;   //!
-   TBranch        *b_mcshwr_MotherendZ;   //!
-   TBranch        *b_mcshwr_Ancestorpdg;   //!
-   TBranch        *b_mcshwr_AncestorTrkId;   //!
-   TBranch        *b_mcshwr_AncestorstartX;   //!
-   TBranch        *b_mcshwr_AncestorstartY;   //!
-   TBranch        *b_mcshwr_AncestorstartZ;   //!
-   TBranch        *b_mcshwr_AncestorendX;   //!
-   TBranch        *b_mcshwr_AncestorendY;   //!
-   TBranch        *b_mcshwr_AncestorendZ;   //!
-   TBranch        *b_nshowers;   //!
-   TBranch        *b_shwID;   //!
-   TBranch        *b_BestPlaneShw;   //!
-   TBranch        *b_LengthShw;   //!
-   TBranch        *b_CosStartShw;   //!
-   TBranch        *b_CosStartXYZShw;   //!
-   TBranch        *b_TotalEShw;   //!
-   TBranch        *b_dEdxPerPlaneShw;   //!
-   TBranch        *b_TotalMIPEShw;   //!
+   TBranch        *b_num_tof_objects;   //!
+   TBranch        *b_tofObject;   //!
+   TBranch        *b_num_wctracks;   //!
+   TBranch        *b_wctrk_momentum;   //!
+   TBranch        *b_wctrk_XFace;   //!
+   TBranch        *b_wctrk_YFace;   //!
+   TBranch        *b_wctrk_theta;   //!
+   TBranch        *b_wctrk_phi;   //!
+   TBranch        *b_wctrk_missed;   //!
+   TBranch        *b_wctrk_picky;   //!
+   TBranch        *b_wctrk_quality;   //!
+   TBranch        *b_wctrk_x_proj_3cm;   //!
+   TBranch        *b_wctrk_y_proj_3cm;   //!
+   TBranch        *b_wctrk_z_proj_3cm;   //!
+   TBranch        *b_wctrk_wc1_x;   //!
+   TBranch        *b_wctrk_wc1_y;   //!
+   TBranch        *b_wctrk_wc1_z;   //!
+   TBranch        *b_wctrk_wc2_x;   //!
+   TBranch        *b_wctrk_wc2_y;   //!
+   TBranch        *b_wctrk_wc2_z;   //!
+   TBranch        *b_wctrk_wc3_x;   //!
+   TBranch        *b_wctrk_wc3_y;   //!
+   TBranch        *b_wctrk_wc3_z;   //!
+   TBranch        *b_wctrk_wc4_x;   //!
+   TBranch        *b_wctrk_wc4_y;   //!
+   TBranch        *b_wctrk_wc4_z;   //!
+   TBranch        *b_electron_lifetime;   //!
 
    vertexStudy(TTree *tree=0);
    virtual ~vertexStudy();
@@ -553,11 +386,89 @@ void vertexStudy::Init(TTree *tree)
    // (once per file to be processed).
 
    // Set object pointer
-   IDEEnergy = 0;
-   IDEPos = 0;
-   IDETrackId = 0;
+   track_WC2TPC_match = 0;
+   track_primary = 0;
+   track_start_x = 0;
+   track_start_y = 0;
+   track_start_z = 0;
+   track_end_x = 0;
+   track_end_y = 0;
+   track_end_z = 0;
+   track_length = 0;
+   ntrack_hits = 0;
+   track_xpos = 0;
+   track_ypos = 0;
+   track_zpos = 0;
+   nhit_ids = 0;
+   ind_track_hits = 0;
+   ind_track_ke = 0;
+   ind_track_wire = 0;
+   ind_track_dedx = 0;
+   ind_track_dqdx = 0;
+   ind_track_rr = 0;
+   ind_track_pitch_hit = 0;
+   col_track_hits = 0;
+   col_track_ke = 0;
+   col_track_x = 0;
+   col_track_y = 0;
+   col_track_z = 0;
+   col_track_wire = 0;
+   col_track_dedx = 0;
+   col_track_dqdx = 0;
+   col_track_rr = 0;
+   col_track_pitch_hit = 0;
+   hit_time = 0;
+   hit_amp = 0;
+   hit_wire = 0;
+   hit_view = 0;
+   hit_charge = 0;
+   PDG = 0;
+   StartKE = 0;
+   LastKE = 0;
+   StartEnergy = 0;
+   StartPx = 0;
+   StartPy = 0;
+   StartPz = 0;
+   EndEnergy = 0;
+   EndPx = 0;
+   EndPy = 0;
+   EndPz = 0;
+   StartPointx = 0;
+   StartPointy = 0;
+   StartPointz = 0;
+   EndPointx = 0;
+   EndPointy = 0;
+   EndPointz = 0;
+   Process = 0;
+   NumberDaughters = 0;
+   Mother = 0;
+   TrackId = 0;
+   process_primary = 0;
    G4Process = 0;
    G4FinalProcess = 0;
+   NTrTrajPts = 0;
+   NDTrTrajPts = 0;
+   DTrackId = 0;
+   DPdgCode = 0;
+   DStartEnergy = 0;
+   DStartP = 0;
+   MidPosX = 0;
+   MidPosY = 0;
+   MidPosZ = 0;
+   MidPx = 0;
+   MidPy = 0;
+   MidPz = 0;
+   SlabX = 0;
+   SlabY = 0;
+   SlabZ = 0;
+   SlapX = 0;
+   SlapY = 0;
+   SlapZ = 0;
+   SlabN = 0;
+   SlabE = 0;
+   DMidPosX = 0;
+   DMidPosY = 0;
+   DMidPosZ = 0;
    InteractionPoint = 0;
    InteractionPointType = 0;
    // Set branch addresses and branch pointers
@@ -572,211 +483,128 @@ void vertexStudy::Init(TTree *tree)
    fChain->SetBranchAddress("evttime", &evttime, &b_evttime);
    fChain->SetBranchAddress("efield", efield, &b_efield);
    fChain->SetBranchAddress("t0", &t0, &b_t0);
-   fChain->SetBranchAddress("nclus", &nclus, &b_nclus);
-   fChain->SetBranchAddress("clustertwire", clustertwire, &b_clustertwire);
-   fChain->SetBranchAddress("clusterttick", clusterttick, &b_clusterttick);
-   fChain->SetBranchAddress("cluendwire", cluendwire, &b_cluendwire);
-   fChain->SetBranchAddress("cluendtick", cluendtick, &b_cluendtick);
-   fChain->SetBranchAddress("cluplane", cluplane, &b_cluplane);
    fChain->SetBranchAddress("ntracks_reco", &ntracks_reco, &b_ntracks_reco);
-   fChain->SetBranchAddress("trkvtxx", trkvtxx, &b_trkvtxx);
-   fChain->SetBranchAddress("trkvtxy", trkvtxy, &b_trkvtxy);
-   fChain->SetBranchAddress("trkvtxz", trkvtxz, &b_trkvtxz);
-   fChain->SetBranchAddress("trkendx", trkendx, &b_trkendx);
-   fChain->SetBranchAddress("trkendy", trkendy, &b_trkendy);
-   fChain->SetBranchAddress("trkendz", trkendz, &b_trkendz);
-   fChain->SetBranchAddress("trkstartdcosx", trkstartdcosx, &b_trkstartdcosx);
-   fChain->SetBranchAddress("trkstartdcosy", trkstartdcosy, &b_trkstartdcosy);
-   fChain->SetBranchAddress("trkstartdcosz", trkstartdcosz, &b_trkstartdcosz);
-   fChain->SetBranchAddress("trkenddcosx", trkenddcosx, &b_trkenddcosx);
-   fChain->SetBranchAddress("trkenddcosy", trkenddcosy, &b_trkenddcosy);
-   fChain->SetBranchAddress("trkenddcosz", trkenddcosz, &b_trkenddcosz);
-   fChain->SetBranchAddress("trkWCtoTPCMatch", trkWCtoTPCMatch, &b_trkWCtoTPCMatch);
-   fChain->SetBranchAddress("trklength", trklength, &b_trklength);
-   fChain->SetBranchAddress("trkmomrange", trkmomrange, &b_trkmomrange);
-   fChain->SetBranchAddress("trkmommschi2", trkmommschi2, &b_trkmommschi2);
-   fChain->SetBranchAddress("trkmommsllhd", trkmommsllhd, &b_trkmommsllhd);
-   fChain->SetBranchAddress("ntrkhits", ntrkhits, &b_ntrkhits);
-   fChain->SetBranchAddress("trkx", trkx, &b_trkx);
-   fChain->SetBranchAddress("trky", trky, &b_trky);
-   fChain->SetBranchAddress("trkz", trkz, &b_trkz);
-   fChain->SetBranchAddress("trkpitch", trkpitch, &b_trkpitch);
-   fChain->SetBranchAddress("trkhits", trkhits, &b_trkhits);
-   fChain->SetBranchAddress("trkdedx", trkdedx, &b_trkdedx);
-   fChain->SetBranchAddress("trkdqdx", trkdqdx, &b_trkdqdx);
-   fChain->SetBranchAddress("trkrr", trkrr, &b_trkrr);
-   fChain->SetBranchAddress("trkpitchhit", trkpitchhit, &b_trkpitchhit);
-   fChain->SetBranchAddress("trkxyz", trkxyz, &b_trkxyz);
-   fChain->SetBranchAddress("trkke", trkke, &b_trkke);
-   fChain->SetBranchAddress("trkpida", trkpida, &b_trkpida);
-   fChain->SetBranchAddress("nTrajPoint", nTrajPoint, &b_nTrajPoint);
-   fChain->SetBranchAddress("pHat0_X", pHat0_X, &b_pHat0_X);
-   fChain->SetBranchAddress("pHat0_Y", pHat0_Y, &b_pHat0_Y);
-   fChain->SetBranchAddress("pHat0_Z", pHat0_Z, &b_pHat0_Z);
-   fChain->SetBranchAddress("trjPt_X", trjPt_X, &b_trjPt_X);
-   fChain->SetBranchAddress("trjPt_Y", trjPt_Y, &b_trjPt_Y);
-   fChain->SetBranchAddress("trjPt_Z", trjPt_Z, &b_trjPt_Z);
-   fChain->SetBranchAddress("trkg4id", trkg4id, &b_trkg4id);
-   fChain->SetBranchAddress("primarytrkkey", &primarytrkkey, &b_primarytrkkey);
+   fChain->SetBranchAddress("track_WC2TPC_match", &track_WC2TPC_match, &b_track_WC2TPC_match);
+   fChain->SetBranchAddress("track_primary", &track_primary, &b_track_primary);
+   fChain->SetBranchAddress("track_start_x", &track_start_x, &b_track_start_x);
+   fChain->SetBranchAddress("track_start_y", &track_start_y, &b_track_start_y);
+   fChain->SetBranchAddress("track_start_z", &track_start_z, &b_track_start_z);
+   fChain->SetBranchAddress("track_end_x", &track_end_x, &b_track_end_x);
+   fChain->SetBranchAddress("track_end_y", &track_end_y, &b_track_end_y);
+   fChain->SetBranchAddress("track_end_z", &track_end_z, &b_track_end_z);
+   fChain->SetBranchAddress("track_length", &track_length, &b_track_length);
+   fChain->SetBranchAddress("ntrack_hits", &ntrack_hits, &b_ntrack_hits);
+   fChain->SetBranchAddress("track_xpos", &track_xpos, &b_track_xpos);
+   fChain->SetBranchAddress("track_ypos", &track_ypos, &b_track_ypos);
+   fChain->SetBranchAddress("track_zpos", &track_zpos, &b_track_zpos);
+   fChain->SetBranchAddress("nhit_ids", &nhit_ids, &b_nhit_ids);
+   fChain->SetBranchAddress("track_spt_idarr", track_spt_idarr, &b_track_spt_idarr);
+   fChain->SetBranchAddress("track_spt_earr", track_spt_earr, &b_track_spt_earr);
+   fChain->SetBranchAddress("ind_track_hits", &ind_track_hits, &b_ind_track_hits);
+   fChain->SetBranchAddress("ind_track_ke", &ind_track_ke, &b_ind_track_ke);
+   fChain->SetBranchAddress("ind_track_wire", &ind_track_wire, &b_ind_track_wire);
+   fChain->SetBranchAddress("ind_track_dedx", &ind_track_dedx, &b_ind_track_dedx);
+   fChain->SetBranchAddress("ind_track_dqdx", &ind_track_dqdx, &b_ind_track_dqdx);
+   fChain->SetBranchAddress("ind_track_rr", &ind_track_rr, &b_ind_track_rr);
+   fChain->SetBranchAddress("ind_track_pitch_hit", &ind_track_pitch_hit, &b_ind_track_pitch_hit);
+   fChain->SetBranchAddress("col_track_hits", &col_track_hits, &b_col_track_hits);
+   fChain->SetBranchAddress("col_track_ke", &col_track_ke, &b_col_track_ke);
+   fChain->SetBranchAddress("col_track_x", &col_track_x, &b_col_track_x);
+   fChain->SetBranchAddress("col_track_y", &col_track_y, &b_col_track_y);
+   fChain->SetBranchAddress("col_track_z", &col_track_z, &b_col_track_z);
+   fChain->SetBranchAddress("col_track_wire", &col_track_wire, &b_col_track_wire);
+   fChain->SetBranchAddress("col_track_dedx", &col_track_dedx, &b_col_track_dedx);
+   fChain->SetBranchAddress("col_track_dqdx", &col_track_dqdx, &b_col_track_dqdx);
+   fChain->SetBranchAddress("col_track_rr", &col_track_rr, &b_col_track_rr);
+   fChain->SetBranchAddress("col_track_pitch_hit", &col_track_pitch_hit, &b_col_track_pitch_hit);
    fChain->SetBranchAddress("nhits", &nhits, &b_nhits);
-   fChain->SetBranchAddress("hit_plane", hit_plane, &b_hit_plane);
-   fChain->SetBranchAddress("hit_wire", hit_wire, &b_hit_wire);
-   fChain->SetBranchAddress("hit_channel", hit_channel, &b_hit_channel);
-   fChain->SetBranchAddress("hit_peakT", hit_peakT, &b_hit_peakT);
-   fChain->SetBranchAddress("hit_charge", hit_charge, &b_hit_charge);
-   fChain->SetBranchAddress("hit_ph", hit_ph, &b_hit_ph);
-   fChain->SetBranchAddress("hit_tstart", hit_tstart, &b_hit_tstart);
-   fChain->SetBranchAddress("hit_tend", hit_tend, &b_hit_tend);
-   fChain->SetBranchAddress("hit_trkid", hit_trkid, &b_hit_trkid);
-   fChain->SetBranchAddress("hit_trkkey", hit_trkkey, &b_hit_trkkey);
-   fChain->SetBranchAddress("hit_clukey", hit_clukey, &b_hit_clukey);
-   fChain->SetBranchAddress("hit_pk", hit_pk, &b_hit_pk);
-   fChain->SetBranchAddress("hit_t", hit_t, &b_hit_t);
-   fChain->SetBranchAddress("hit_ch", hit_ch, &b_hit_ch);
-   fChain->SetBranchAddress("hit_fwhh", hit_fwhh, &b_hit_fwhh);
-   fChain->SetBranchAddress("hit_rms", hit_rms, &b_hit_rms);
-   fChain->SetBranchAddress("hit_nelec", hit_nelec, &b_hit_nelec);
-   fChain->SetBranchAddress("hit_energy", hit_energy, &b_hit_energy);
-   fChain->SetBranchAddress("hit_dQds", hit_dQds, &b_hit_dQds);
-   fChain->SetBranchAddress("hit_dEds", hit_dEds, &b_hit_dEds);
-   fChain->SetBranchAddress("hit_ds", hit_ds, &b_hit_ds);
-   fChain->SetBranchAddress("hit_resrange", hit_resrange, &b_hit_resrange);
-   fChain->SetBranchAddress("hit_x", hit_x, &b_hit_x);
-   fChain->SetBranchAddress("hit_y", hit_y, &b_hit_y);
-   fChain->SetBranchAddress("hit_z", hit_z, &b_hit_z);
-   fChain->SetBranchAddress("nwctrks", &nwctrks, &b_nwctrks);
-   fChain->SetBranchAddress("wctrk_XFaceCoor", &wctrk_XFaceCoor, &b_wctrk_XFaceCoor);
-   fChain->SetBranchAddress("wctrk_YFaceCoor", &wctrk_YFaceCoor, &b_wctrk_YFaceCoor);
-   fChain->SetBranchAddress("wctrk_momentum", &wctrk_momentum, &b_wctrk_momentum);
-   fChain->SetBranchAddress("wctrk_theta", &wctrk_theta, &b_wctrk_theta);
-   fChain->SetBranchAddress("wctrk_phi", &wctrk_phi, &b_wctrk_phi);
-   fChain->SetBranchAddress("wctrk_XDist", &wctrk_XDist, &b_wctrk_XDist);
-   fChain->SetBranchAddress("wctrk_YDist", &wctrk_YDist, &b_wctrk_YDist);
-   fChain->SetBranchAddress("wctrk_ZDist", &wctrk_ZDist, &b_wctrk_ZDist);
-   fChain->SetBranchAddress("XWireHist", &XWireHist, &b_XWireHist);
-   fChain->SetBranchAddress("YWireHist", &YWireHist, &b_YWireHist);
-   fChain->SetBranchAddress("XAxisHist", &XAxisHist, &b_XAxisHist);
-   fChain->SetBranchAddress("YAxisHist", &YAxisHist, &b_YAxisHist);
-   fChain->SetBranchAddress("Y_Kink", &Y_Kink, &b_Y_Kink);
-   fChain->SetBranchAddress("WC1xPos", &WC1xPos, &b_WC1xPos);
-   fChain->SetBranchAddress("WC1yPos", &WC1yPos, &b_WC1yPos);
-   fChain->SetBranchAddress("WC1zPos", &WC1zPos, &b_WC1zPos);
-   fChain->SetBranchAddress("WC2xPos", &WC2xPos, &b_WC2xPos);
-   fChain->SetBranchAddress("WC2yPos", &WC2yPos, &b_WC2yPos);
-   fChain->SetBranchAddress("WC2zPos", &WC2zPos, &b_WC2zPos);
-   fChain->SetBranchAddress("WC3xPos", &WC3xPos, &b_WC3xPos);
-   fChain->SetBranchAddress("WC3yPos", &WC3yPos, &b_WC3yPos);
-   fChain->SetBranchAddress("WC3zPos", &WC3zPos, &b_WC3zPos);
-   fChain->SetBranchAddress("WC4xPos", &WC4xPos, &b_WC4xPos);
-   fChain->SetBranchAddress("WC4yPos", &WC4yPos, &b_WC4yPos);
-   fChain->SetBranchAddress("WC4zPos", &WC4zPos, &b_WC4zPos);
-   fChain->SetBranchAddress("WCTrackResidual", &WCTrackResidual, &b_WCTrackResidual);
-   fChain->SetBranchAddress("WCTrackWCMissed", &WCTrackWCMissed, &b_WCTrackWCMissed);
-   fChain->SetBranchAddress("ntof", &ntof, &b_ntof);
-   fChain->SetBranchAddress("tofObject", &tofObject, &b_tofObject);
-   fChain->SetBranchAddress("wcP", &wcP, &b_wcP);
-   fChain->SetBranchAddress("wcPx", &wcPx, &b_wcPx);
-   fChain->SetBranchAddress("wcPy", &wcPy, &b_wcPy);
-   fChain->SetBranchAddress("wcPz", &wcPz, &b_wcPz);
-   fChain->SetBranchAddress("tof_timestamp", &tof_timestamp, &b_tof_timestamp);
-   fChain->SetBranchAddress("cTOF", &cTOF, &b_cTOF);
-   fChain->SetBranchAddress("mass", &mass, &b_massObj);
-   fChain->SetBranchAddress("nAG", &nAG, &b_nAG);
-   fChain->SetBranchAddress("HitTimeStamp1p10_1", &HitTimeStamp1p10_1, &b_HitTimeStamp1p10_1);
-   fChain->SetBranchAddress("HitTimeStamp1p10_2", &HitTimeStamp1p10_2, &b_HitTimeStamp1p10_2);
-   fChain->SetBranchAddress("HitTimeStamp1p06_1", &HitTimeStamp1p06_1, &b_HitTimeStamp1p06_1);
-   fChain->SetBranchAddress("HitTimeStamp1p06_2", &HitTimeStamp1p06_2, &b_HitTimeStamp1p06_2);
-   fChain->SetBranchAddress("HitPulseArea1p10_1", &HitPulseArea1p10_1, &b_HitPulseArea1p10_1);
-   fChain->SetBranchAddress("HitPulseArea1p10_2", &HitPulseArea1p10_2, &b_HitPulseArea1p10_2);
-   fChain->SetBranchAddress("HitPulseArea1p06_1", &HitPulseArea1p06_1, &b_HitPulseArea1p06_1);
-   fChain->SetBranchAddress("HitPulseArea1p06_2", &HitPulseArea1p06_2, &b_HitPulseArea1p06_2);
-   fChain->SetBranchAddress("HitExist1p10_1", &HitExist1p10_1, &b_HitExist1p10_1);
-   fChain->SetBranchAddress("HitExist1p10_2", &HitExist1p10_2, &b_HitExist1p10_2);
-   fChain->SetBranchAddress("HitExist1p06_1", &HitExist1p06_1, &b_HitExist1p06_1);
-   fChain->SetBranchAddress("HitExist1p06_2", &HitExist1p06_2, &b_HitExist1p06_2);
-   fChain->SetBranchAddress("IDEEnergy", &IDEEnergy, &b_IDEEnergy);
-   fChain->SetBranchAddress("IDEPos", &IDEPos, &b_IDEPos);
-   fChain->SetBranchAddress("IDETrackId", &IDETrackId, &b_IDETrackId);
+   fChain->SetBranchAddress("hit_time", &hit_time, &b_hit_time);
+   fChain->SetBranchAddress("hit_amp", &hit_amp, &b_hit_amp);
+   fChain->SetBranchAddress("hit_wire", &hit_wire, &b_hit_wire);
+   fChain->SetBranchAddress("hit_view", &hit_view, &b_hit_view);
+   fChain->SetBranchAddress("hit_charge", &hit_charge, &b_hit_charge);
    fChain->SetBranchAddress("no_primaries", &no_primaries, &b_no_primaries);
    fChain->SetBranchAddress("geant_list_size", &geant_list_size, &b_geant_list_size);
-   fChain->SetBranchAddress("pdg", pdg, &b_pdg);
-   fChain->SetBranchAddress("Eng", Eng, &b_Eng);
-   fChain->SetBranchAddress("Px", Px, &b_Px);
-   fChain->SetBranchAddress("Py", Py, &b_Py);
-   fChain->SetBranchAddress("Pz", Pz, &b_Pz);
-   fChain->SetBranchAddress("EndEng", EndEng, &b_EndEng);
-   fChain->SetBranchAddress("EndPx", EndPx, &b_EndPx);
-   fChain->SetBranchAddress("EndPy", EndPy, &b_EndPy);
-   fChain->SetBranchAddress("EndPz", EndPz, &b_EndPz);
-   fChain->SetBranchAddress("StartPointx", StartPointx, &b_StartPointx);
-   fChain->SetBranchAddress("StartPointy", StartPointy, &b_StartPointy);
-   fChain->SetBranchAddress("StartPointz", StartPointz, &b_StartPointz);
-   fChain->SetBranchAddress("EndPointx", EndPointx, &b_EndPointx);
-   fChain->SetBranchAddress("EndPointy", EndPointy, &b_EndPointy);
-   fChain->SetBranchAddress("EndPointz", EndPointz, &b_EndPointz);
-   fChain->SetBranchAddress("Process", Process, &b_Process);
-   fChain->SetBranchAddress("NumberDaughters", NumberDaughters, &b_NumberDaughters);
-   fChain->SetBranchAddress("Mother", Mother, &b_Mother);
-   fChain->SetBranchAddress("TrackId", TrackId, &b_TrackId);
-   fChain->SetBranchAddress("process_primary", process_primary, &b_process_primary);
+   fChain->SetBranchAddress("primary_p", &primary_p, &b_primary);
+   fChain->SetBranchAddress("PDG", &PDG, &b_PDG);
+   fChain->SetBranchAddress("StartKE", &StartKE, &b_StartKE);
+   fChain->SetBranchAddress("LastKE", &LastKE, &b_LastKE);
+   fChain->SetBranchAddress("StartEnergy", &StartEnergy, &b_StartEnergy);
+   fChain->SetBranchAddress("StartPx", &StartPx, &b_StartPx);
+   fChain->SetBranchAddress("StartPy", &StartPy, &b_StartPy);
+   fChain->SetBranchAddress("StartPz", &StartPz, &b_StartPz);
+   fChain->SetBranchAddress("EndEnergy", &EndEnergy, &b_EndEnergy);
+   fChain->SetBranchAddress("EndPx", &EndPx, &b_EndPx);
+   fChain->SetBranchAddress("EndPy", &EndPy, &b_EndPy);
+   fChain->SetBranchAddress("EndPz", &EndPz, &b_EndPz);
+   fChain->SetBranchAddress("StartPointx", &StartPointx, &b_StartPointx);
+   fChain->SetBranchAddress("StartPointy", &StartPointy, &b_StartPointy);
+   fChain->SetBranchAddress("StartPointz", &StartPointz, &b_StartPointz);
+   fChain->SetBranchAddress("EndPointx", &EndPointx, &b_EndPointx);
+   fChain->SetBranchAddress("EndPointy", &EndPointy, &b_EndPointy);
+   fChain->SetBranchAddress("EndPointz", &EndPointz, &b_EndPointz);
+   fChain->SetBranchAddress("Process", &Process, &b_Process);
+   fChain->SetBranchAddress("NumberDaughters", &NumberDaughters, &b_NumberDaughters);
+   fChain->SetBranchAddress("Mother", &Mother, &b_Mother);
+   fChain->SetBranchAddress("TrackId", &TrackId, &b_TrackId);
+   fChain->SetBranchAddress("process_primary", &process_primary, &b_process_primary);
    fChain->SetBranchAddress("G4Process", &G4Process, &b_G4Process);
    fChain->SetBranchAddress("G4FinalProcess", &G4FinalProcess, &b_G4FinalProcess);
-   fChain->SetBranchAddress("NTrTrajPts", NTrTrajPts, &b_NTrTrajPts);
-   fChain->SetBranchAddress("MidPosX", MidPosX, &b_MidPosX);
-   fChain->SetBranchAddress("MidPosY", MidPosY, &b_MidPosY);
-   fChain->SetBranchAddress("MidPosZ", MidPosZ, &b_MidPosZ);
-   fChain->SetBranchAddress("MidPx", MidPx, &b_MidPx);
-   fChain->SetBranchAddress("MidPy", MidPy, &b_MidPy);
-   fChain->SetBranchAddress("MidPz", MidPz, &b_MidPz);
+   fChain->SetBranchAddress("NTrTrajPts", &NTrTrajPts, &b_NTrTrajPts);
+   fChain->SetBranchAddress("NProtonDaughters", &NProtonDaughters, &b_NProtonDaughters);
+   fChain->SetBranchAddress("NNeutronDaughters", &NNeutronDaughters, &b_NNeutronDaughters);
+   fChain->SetBranchAddress("NDTrTrajPts", &NDTrTrajPts, &b_NDTrTrajPts);
+   fChain->SetBranchAddress("DTrackId", &DTrackId, &b_DTrackId);
+   fChain->SetBranchAddress("DPdgCode", &DPdgCode, &b_DPdgCode);
+   fChain->SetBranchAddress("DStartEnergy", &DStartEnergy, &b_DStartEnergy);
+   fChain->SetBranchAddress("DStartP", &DStartP, &b_DStartP);
+   fChain->SetBranchAddress("MidPosX", &MidPosX, &b_MidPosX);
+   fChain->SetBranchAddress("MidPosY", &MidPosY, &b_MidPosY);
+   fChain->SetBranchAddress("MidPosZ", &MidPosZ, &b_MidPosZ);
+   fChain->SetBranchAddress("MidPx", &MidPx, &b_MidPx);
+   fChain->SetBranchAddress("MidPy", &MidPy, &b_MidPy);
+   fChain->SetBranchAddress("MidPz", &MidPz, &b_MidPz);
+   fChain->SetBranchAddress("SlabX", &SlabX, &b_SlabX);
+   fChain->SetBranchAddress("SlabY", &SlabY, &b_SlabY);
+   fChain->SetBranchAddress("SlabZ", &SlabZ, &b_SlabZ);
+   fChain->SetBranchAddress("SlapX", &SlapX, &b_SlapX);
+   fChain->SetBranchAddress("SlapY", &SlapY, &b_SlapY);
+   fChain->SetBranchAddress("SlapZ", &SlapZ, &b_SlapZ);
+   fChain->SetBranchAddress("SlabN", &SlabN, &b_SlabN);
+   fChain->SetBranchAddress("SlabE", &SlabE, &b_SlabE);
+   fChain->SetBranchAddress("LastSlabInt", &LastSlabInt, &b_LastSlabInt);
+   fChain->SetBranchAddress("DMidPosX", &DMidPosX, &b_DMidPosX);
+   fChain->SetBranchAddress("DMidPosY", &DMidPosY, &b_DMidPosY);
+   fChain->SetBranchAddress("DMidPosZ", &DMidPosZ, &b_DMidPosZ);
    fChain->SetBranchAddress("InteractionPoint", &InteractionPoint, &b_InteractionPoint);
    fChain->SetBranchAddress("InteractionPointType", &InteractionPointType, &b_InteractionPointType);
-   fChain->SetBranchAddress("no_mcshowers", &no_mcshowers, &b_no_mcshowers);
-   fChain->SetBranchAddress("mcshwr_origin", &mcshwr_origin, &b_mcshwr_origin);
-   fChain->SetBranchAddress("mcshwr_pdg", &mcshwr_pdg, &b_mcshwr_pdg);
-   fChain->SetBranchAddress("mcshwr_TrackId", &mcshwr_TrackId, &b_mcshwr_TrackId);
-   fChain->SetBranchAddress("mcshwr_startX", &mcshwr_startX, &b_mcshwr_startX);
-   fChain->SetBranchAddress("mcshwr_startY", &mcshwr_startY, &b_mcshwr_startY);
-   fChain->SetBranchAddress("mcshwr_startZ", &mcshwr_startZ, &b_mcshwr_startZ);
-   fChain->SetBranchAddress("mcshwr_endX", &mcshwr_endX, &b_mcshwr_endX);
-   fChain->SetBranchAddress("mcshwr_endY", &mcshwr_endY, &b_mcshwr_endY);
-   fChain->SetBranchAddress("mcshwr_endZ", &mcshwr_endZ, &b_mcshwr_endZ);
-   fChain->SetBranchAddress("mcshwr_CombEngX", &mcshwr_CombEngX, &b_mcshwr_CombEngX);
-   fChain->SetBranchAddress("mcshwr_CombEngY", &mcshwr_CombEngY, &b_mcshwr_CombEngY);
-   fChain->SetBranchAddress("mcshwr_CombEngZ", &mcshwr_CombEngZ, &b_mcshwr_CombEngZ);
-   fChain->SetBranchAddress("mcshwr_CombEngPx", &mcshwr_CombEngPx, &b_mcshwr_CombEngPx);
-   fChain->SetBranchAddress("mcshwr_CombEngPy", &mcshwr_CombEngPy, &b_mcshwr_CombEngPy);
-   fChain->SetBranchAddress("mcshwr_CombEngPz", &mcshwr_CombEngPz, &b_mcshwr_CombEngPz);
-   fChain->SetBranchAddress("mcshwr_CombEngE", &mcshwr_CombEngE, &b_mcshwr_CombEngE);
-   fChain->SetBranchAddress("mcshwr_dEdx", &mcshwr_dEdx, &b_mcshwr_dEdx);
-   fChain->SetBranchAddress("mcshwr_StartDirX", &mcshwr_StartDirX, &b_mcshwr_StartDirX);
-   fChain->SetBranchAddress("mcshwr_StartDirY", &mcshwr_StartDirY, &b_mcshwr_StartDirY);
-   fChain->SetBranchAddress("mcshwr_StartDirZ", &mcshwr_StartDirZ, &b_mcshwr_StartDirZ);
-   fChain->SetBranchAddress("mcshwr_isEngDeposited", &mcshwr_isEngDeposited, &b_mcshwr_isEngDeposited);
-   fChain->SetBranchAddress("mcshwr_Motherpdg", &mcshwr_Motherpdg, &b_mcshwr_Motherpdg);
-   fChain->SetBranchAddress("mcshwr_MotherTrkId", &mcshwr_MotherTrkId, &b_mcshwr_MotherTrkId);
-   fChain->SetBranchAddress("mcshwr_MotherstartX", &mcshwr_MotherstartX, &b_mcshwr_MotherstartX);
-   fChain->SetBranchAddress("mcshwr_MotherstartY", &mcshwr_MotherstartY, &b_mcshwr_MotherstartY);
-   fChain->SetBranchAddress("mcshwr_MotherstartZ", &mcshwr_MotherstartZ, &b_mcshwr_MotherstartZ);
-   fChain->SetBranchAddress("mcshwr_MotherendX", &mcshwr_MotherendX, &b_mcshwr_MotherendX);
-   fChain->SetBranchAddress("mcshwr_MotherendY", &mcshwr_MotherendY, &b_mcshwr_MotherendY);
-   fChain->SetBranchAddress("mcshwr_MotherendZ", &mcshwr_MotherendZ, &b_mcshwr_MotherendZ);
-   fChain->SetBranchAddress("mcshwr_Ancestorpdg", &mcshwr_Ancestorpdg, &b_mcshwr_Ancestorpdg);
-   fChain->SetBranchAddress("mcshwr_AncestorTrkId", &mcshwr_AncestorTrkId, &b_mcshwr_AncestorTrkId);
-   fChain->SetBranchAddress("mcshwr_AncestorstartX", &mcshwr_AncestorstartX, &b_mcshwr_AncestorstartX);
-   fChain->SetBranchAddress("mcshwr_AncestorstartY", &mcshwr_AncestorstartY, &b_mcshwr_AncestorstartY);
-   fChain->SetBranchAddress("mcshwr_AncestorstartZ", &mcshwr_AncestorstartZ, &b_mcshwr_AncestorstartZ);
-   fChain->SetBranchAddress("mcshwr_AncestorendX", &mcshwr_AncestorendX, &b_mcshwr_AncestorendX);
-   fChain->SetBranchAddress("mcshwr_AncestorendY", &mcshwr_AncestorendY, &b_mcshwr_AncestorendY);
-   fChain->SetBranchAddress("mcshwr_AncestorendZ", &mcshwr_AncestorendZ, &b_mcshwr_AncestorendZ);
-   fChain->SetBranchAddress("nshowers", &nshowers, &b_nshowers);
-   fChain->SetBranchAddress("shwID", &shwID, &b_shwID);
-   fChain->SetBranchAddress("BestPlaneShw", &BestPlaneShw, &b_BestPlaneShw);
-   fChain->SetBranchAddress("LengthShw", &LengthShw, &b_LengthShw);
-   fChain->SetBranchAddress("CosStartShw", CosStartShw, &b_CosStartShw);
-   fChain->SetBranchAddress("CosStartXYZShw", CosStartXYZShw, &b_CosStartXYZShw);
-   fChain->SetBranchAddress("TotalEShw", TotalEShw, &b_TotalEShw);
-   fChain->SetBranchAddress("dEdxPerPlaneShw", dEdxPerPlaneShw, &b_dEdxPerPlaneShw);
-   fChain->SetBranchAddress("TotalMIPEShw", TotalMIPEShw, &b_TotalMIPEShw);
+   fChain->SetBranchAddress("num_tof_objects", &num_tof_objects, &b_num_tof_objects);
+   fChain->SetBranchAddress("tofObject", &tofObject, &b_tofObject);
+   fChain->SetBranchAddress("num_wctracks", &num_wctracks, &b_num_wctracks);
+   fChain->SetBranchAddress("wctrk_momentum", wctrk_momentum, &b_wctrk_momentum);
+   fChain->SetBranchAddress("wctrk_XFace", wctrk_XFace, &b_wctrk_XFace);
+   fChain->SetBranchAddress("wctrk_YFace", wctrk_YFace, &b_wctrk_YFace);
+   fChain->SetBranchAddress("wctrk_theta", wctrk_theta, &b_wctrk_theta);
+   fChain->SetBranchAddress("wctrk_phi", wctrk_phi, &b_wctrk_phi);
+   fChain->SetBranchAddress("wctrk_missed", wctrk_missed, &b_wctrk_missed);
+   fChain->SetBranchAddress("wctrk_picky", wctrk_picky, &b_wctrk_picky);
+   fChain->SetBranchAddress("wctrk_quality", wctrk_quality, &b_wctrk_quality);
+   fChain->SetBranchAddress("wctrk_x_proj_3cm", wctrk_x_proj_3cm, &b_wctrk_x_proj_3cm);
+   fChain->SetBranchAddress("wctrk_y_proj_3cm", wctrk_y_proj_3cm, &b_wctrk_y_proj_3cm);
+   fChain->SetBranchAddress("wctrk_z_proj_3cm", wctrk_z_proj_3cm, &b_wctrk_z_proj_3cm);
+   fChain->SetBranchAddress("wctrk_wc1_x", wctrk_wc1_x, &b_wctrk_wc1_x);
+   fChain->SetBranchAddress("wctrk_wc1_y", wctrk_wc1_y, &b_wctrk_wc1_y);
+   fChain->SetBranchAddress("wctrk_wc1_z", wctrk_wc1_z, &b_wctrk_wc1_z);
+   fChain->SetBranchAddress("wctrk_wc2_x", wctrk_wc2_x, &b_wctrk_wc2_x);
+   fChain->SetBranchAddress("wctrk_wc2_y", wctrk_wc2_y, &b_wctrk_wc2_y);
+   fChain->SetBranchAddress("wctrk_wc2_z", wctrk_wc2_z, &b_wctrk_wc2_z);
+   fChain->SetBranchAddress("wctrk_wc3_x", wctrk_wc3_x, &b_wctrk_wc3_x);
+   fChain->SetBranchAddress("wctrk_wc3_y", wctrk_wc3_y, &b_wctrk_wc3_y);
+   fChain->SetBranchAddress("wctrk_wc3_z", wctrk_wc3_z, &b_wctrk_wc3_z);
+   fChain->SetBranchAddress("wctrk_wc4_x", wctrk_wc4_x, &b_wctrk_wc4_x);
+   fChain->SetBranchAddress("wctrk_wc4_y", wctrk_wc4_y, &b_wctrk_wc4_y);
+   fChain->SetBranchAddress("wctrk_wc4_z", wctrk_wc4_z, &b_wctrk_wc4_z);
+   fChain->SetBranchAddress("electron_lifetime", &electron_lifetime, &b_electron_lifetime);
    Notify();
 }
 
