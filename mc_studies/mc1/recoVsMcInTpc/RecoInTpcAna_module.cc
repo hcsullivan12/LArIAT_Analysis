@@ -10,12 +10,30 @@
 #include "art/Framework/Core/EDAnalyzer.h"
 #include "art/Framework/Core/ModuleMacros.h"
 #include "art/Framework/Principal/Event.h"
-#include "art/Framework/Principal/Handle.h"
+#include "fhiclcpp/ParameterSet.h"
 #include "art/Framework/Principal/Run.h"
 #include "art/Framework/Principal/SubRun.h"
-#include "art/Utilities/InputTag.h"
-#include "fhiclcpp/ParameterSet.h"
+#include "art/Framework/Principal/Handle.h"
+#include "canvas/Persistency/Common/Ptr.h"
+#include "canvas/Persistency/Common/PtrVector.h"
+#include "art/Framework/Services/Registry/ServiceHandle.h"
+#include "art/Framework/Services/Optional/TFileService.h"
+#include "art/Framework/Services/Optional/TFileDirectory.h"
+#include "canvas/Persistency/Common/FindOneP.h"
+#include "canvas/Persistency/Common/FindManyP.h"
 #include "messagefacility/MessageLogger/MessageLogger.h"
+//#include "cetlib/maybe_ref.h"
+
+#include "TH1D.h"
+#include "TVector3.h"
+
+#include "LArIATDataProducts/WCTrack.h"
+
+#include "larsim/MCCheater/BackTrackerService.h"
+#include "larsim/MCCheater/ParticleInventoryService.h"
+#include "lardataobj/AnalysisBase/Calorimetry.h"
+#include "lardataobj/RecoBase/Track.h"
+
 
 namespace piinelastic
 {
@@ -41,6 +59,7 @@ public:
   void beginJob() override;
   void endJob() override;
   void reconfigure(fhicl::ParameterSet const & p) override;
+  bool inActiveVolume( const TVector3& thePos  );
 
 private:
 
@@ -50,6 +69,24 @@ private:
   TH1D* hRecoResR        = nullptr;
   TH1D* hRecoZPos        = nullptr;
   TH1D* hRecoEnLossInTpc = nullptr;
+
+  std::string fTrackModuleLabel;
+  std::string fCalorimetryModuleLabel;
+  std::string fWCTrackLabel;
+  std::string fWC2TPCModuleLabel;
+
+  size_t nEvts;
+  size_t nMatchedTracks;
+  size_t nTracksTPCFF;
+  size_t nValidCaloOnColl;
+
+  float RANGE_TRKS_FF = 14;
+  float HIT_DEDX_THRESHOLD = 40;
+
+  /// Fiducial volume definition
+  float FV_X_BOUND[2] = {   1.0, 46.0 };
+  float FV_Y_BOUND[2] = { -18.0, 18.0 };
+  float FV_Z_BOUND[2] = {   0.0, 88.0 };
 
 };
 
@@ -62,14 +99,14 @@ RecoInTpcAna::RecoInTpcAna(fhicl::ParameterSet const & p)
 //------------------------------------------------------------------------------
 void RecoInTpcAna::reconfigure(fhicl::ParameterSet const & p)
 {
-  fTrackModuleLabel         = pset.get< std::string >("TrackModuleLabel"      , "pmtrack");
-  fCalorimetryModuleLabel   = pset.get< std::string >("CalorimetryModuleLabel", "calo"     );
-  fWCTrackLabel 		        = pset.get< std::string >("WCTrackLabel"          , "wctrack"  );
-  fWC2TPCModuleLabel      	= pset.get< std::string >("WC2TPCModuleLabel"     , "wctracktpctrackmatch");
+  fTrackModuleLabel         = p.get< std::string >("TrackModuleLabel"      , "pmtrack");
+  fCalorimetryModuleLabel   = p.get< std::string >("CalorimetryModuleLabel", "calo"     );
+  fWCTrackLabel 		        = p.get< std::string >("WCTrackLabel"          , "wctrack"  );
+  fWC2TPCModuleLabel      	= p.get< std::string >("WC2TPCModuleLabel"     , "wctracktpctrackmatch");
 }
 
 //------------------------------------------------------------------------------
-void RecoInTpcAna::analyze(art::Event const & e)
+void RecoInTpcAna::analyze(art::Event const & evt)
 {
   // Let's get the reco and wc stuff
   art::Handle< std::vector<ldp::WCTrack> > wctrackHandle;   // Container of wc tracks  
@@ -137,16 +174,16 @@ void RecoInTpcAna::analyze(art::Event const & e)
   // Check for track inversion
   if (realLastValidPos.Z() < realFirstValidPos.Z())
   {
-      isInvertedTracking = true;
-      std::cout << "point " << realFirstValidPos.Z() << " " << realLastValidPos.Z() << " " << isInvertedTracking << "\n";
-      auto bogusFirst = realFirstValidPos;
-      realFirstValidPos = realLastValidPos;
-      realLastValidPos = bogusFirst;
+    isInvertedTracking = true;
+    std::cout << "point " << realFirstValidPos.Z() << " " << realLastValidPos.Z() << " " << isInvertedTracking << "\n";
+    auto bogusFirst = realFirstValidPos;
+    realFirstValidPos = realLastValidPos;
+    realLastValidPos = bogusFirst;
   }
 
-  recoStaPos = realFirstValidPos.Vect();
-  recoEndPos = realFirstValidPos.Vect();
-  std::cout << "\n\n------------------>" << run << " " << subrun << " " << eventN << "\n"
+  auto recoStaPos = realFirstValidPos;
+  auto recoEndPos = realFirstValidPos;
+  std::cout << "\n\n------------------>" << evt.run() << " " << evt.subRun() << " " << evt.event() << "\n"
             << "Track " << recoStaPos.X() << " " << recoStaPos.Y() << " " << recoStaPos.Z() << " --- " << recoEndPos.X() << " " << recoEndPos.Y() << " " << recoEndPos.Z() << "\n";
 
   // Pileup check
@@ -165,11 +202,11 @@ void RecoInTpcAna::analyze(art::Event const & e)
       recoTrkPileUpLastPos = bogusFirst;
     }
 
-    double tracksDistance = (recoEndPos - recoTrkPileUpFirstPos).Mag();
+    double tracksDistance = std::sqrt((recoEndPos - recoTrkPileUpFirstPos).Mag2());
     if (recoTrkPileUpFirstPos.Z() < RANGE_TRKS_FF)
     {
-      std::cout << "          firstPos "; recoTrkPileUpFirstPos.Print();
-      std::cout << "           lastPos "; recoTrkPileUpLastPos.Print();
+      std::cout << "          firstPos " << recoTrkPileUpFirstPos.X() << " " << recoTrkPileUpFirstPos.Y() << " " << recoTrkPileUpFirstPos.Z() << "\n";
+      std::cout << "           lastPos " << recoTrkPileUpLastPos.X()  << " " << recoTrkPileUpLastPos.Y()  << " " << recoTrkPileUpLastPos.Z()  << "\n";
       std::cout << "    tracksDistance " << tracksDistance << std::endl;                                                                                                                                                                                                                               nTracksTPCFF++;
     }
   } //<-- End PileUp Check
@@ -197,7 +234,7 @@ void RecoInTpcAna::analyze(art::Event const & e)
         if (calos[iC]->XYZ()[iE].Z() < 0 || calos[iC]->XYZ()[iE].Z() > 90.)continue;
         // Let's register the furtherst point in Z to determine if the track interacted or not.
         if (calos[iC]->XYZ()[iE].Z() > furtherstInZCaloPointZ) furtherstInZCaloPointIndex = iE;
-        if (!inActiveVolume(calos[iC]->XYZ()[iE].Vect()))continue;
+        if (!inActiveVolume(calos[iC]->XYZ()[iE]))continue;
         
         vRecoPitch.push_back(calos[iC]->TrkPitchVec()[iE]);
         vRecoDeDx.push_back(calos[iC]->dEdx()[iE]);
@@ -217,13 +254,13 @@ void RecoInTpcAna::analyze(art::Event const & e)
       }
 
       // Let's check if this track is interacting
-      if (furtherstInZCaloPointIndex) isTrackInteracting = inActiveVolume(calos[iC]->XYZ()[furtherstInZCaloPointIndex]);
+      //if (furtherstInZCaloPointIndex) isTrackInteracting = inActiveVolume(calos[iC]->XYZ()[furtherstInZCaloPointIndex]);
     } // Loop on Collection Vs Induction
   }   //<-- End is calorimetry valid
 
-  WCMom = wctrack[0]->Momentum();
-  WC4X  = wctrack[0]->HitPosition(3, 0);
-  WC4Y  = wctrack[0]->HitPosition(3, 1);
+  auto WCMom = wctrack[0]->Momentum();
+  //auto WC4X  = wctrack[0]->HitPosition(3, 0);
+  //auto WC4Y  = wctrack[0]->HitPosition(3, 1);
 
 // ###############
   // Sanity checks
@@ -231,16 +268,17 @@ void RecoInTpcAna::analyze(art::Event const & e)
     return; // If there are no points, return
   if (nIdMatch != 1)
     return; // If for some reason I couldn't find the match track, I should return
-  if (recoEndX < -100. || recoEndY < -100. || recoEndZ < -100.)
+  if (recoEndPos.X() < -100. || recoEndPos.Y() < -100. || recoEndPos.Z() < -100.)
     throw cet::exception("RecoVsMcInTpc") << "Weird End of track...\n";
   if (WCMom < 0.)
     throw cet::exception("RecoVsMcInTpc") << "WCMom < 0...\n";
-  if (mass < 0.)
-    throw cet::exception("RecoVsMcInTpc") << "Mass < 0...\n";
-  if (vRecoPitch.size() != vRecoDeDx.size() != 
-      vRecoEnDep.size() != vRecoResR.size() !=
-      vRecoPitch.size() != vRecoZPos.size() !=
-      vRecoPitch.size() != vRecoEnDep.size())
+  
+  size_t testSize = vRecoPitch.size();
+  if (vRecoPitch.size() != testSize || 
+      vRecoDeDx.size()  != testSize ||
+      vRecoEnDep.size() != testSize ||
+      vRecoResR.size()  != testSize ||
+      vRecoZPos.size()  != testSize)
     throw cet::exception("RecoVsMcInTpc")
         << "Different dimensions... \n";
 // ###############
@@ -264,19 +302,30 @@ void RecoInTpcAna::analyze(art::Event const & e)
   }
   hRecoEnLossInTpc->Fill(energyDepositedThusFar);
 
-  for (int iPt = 0; iPt < vRecoPitch.size(); iPt++)
+  for (int iPt = 0; iPt < (int)vRecoPitch.size(); iPt++)
   {
     hRecoPitch->Fill(vRecoPitch[iPt]);
     hRecoDeDx->Fill(vRecoDeDx[iPt]);
     hRecoEnDep->Fill(vRecoEnDep[iPt]);
     hRecoResR->Fill(vRecoResR[iPt]);
-    hRecoZPos->Fill(hRecoZPos[iPt]);
+    hRecoZPos->Fill(vRecoZPos[iPt]);
   }
+}
+
+//------------------------------------------------------------------------------
+bool RecoInTpcAna::inActiveVolume( const TVector3& thePos  )
+{
+  if ( FV_X_BOUND[0] < thePos.X() && thePos.X() < FV_X_BOUND[1] &&
+       FV_Y_BOUND[0] < thePos.Y() && thePos.Y() < FV_Y_BOUND[1] &&
+       FV_Z_BOUND[0] < thePos.Z() && thePos.Z() < FV_Z_BOUND[1] ) return true;
+
+  return false;
 }
 
 //------------------------------------------------------------------------------
 void RecoInTpcAna::beginJob()
 {
+  art::ServiceHandle<art::TFileService> tfs;
   hRecoPitch = tfs->make<TH1D>("hRecoPitch", "RecoPitch", 1000, 0, 10);
   hRecoDeDx  = tfs->make<TH1D>("hRecoDeDx",  "RecoDeDx",  1000, 0, 10);
   hRecoEnDep = tfs->make<TH1D>("hRecoEnDep", "RecoEnDep", 1000, 0, 10);
