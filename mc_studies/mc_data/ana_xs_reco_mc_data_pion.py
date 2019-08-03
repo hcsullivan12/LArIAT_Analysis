@@ -117,9 +117,6 @@ def updateForEvtDisplay(is_inelastic, ent, dtype):
     #    
 
 ########################################################
-def divideTrk(ent):
-
-########################################################
 def getFirstAndLastPtInTpc(ent):
     enteredTpc = False
     sP = -1
@@ -145,17 +142,6 @@ def getFirstAndLastPtInTpc(ent):
     assert(sP != eP)
     return enteredTpc, sP, eP
 
-########################################################
-def doTruth(ent):
-    entered, sp, ep = getFirstAndLastPtInTpc(ent)
-    if not entered:
-        return
-    
-    start_point = ROOT.TVector3(MidPosX[0][sp],MidPosY[0][sp],MidPosZ[0][sp])
-    end_point   = ROOT.TVector3(MidPosX[0][ep],MidPosY[0][ep],MidPosZ[0][ep])
-    
-
-
 
 ########################################################
 def doAna(file, dtype, stop):
@@ -173,10 +159,6 @@ def doAna(file, dtype, stop):
             print n_events, '/', n_entries
         if stop > 0 and n_events == stop:
             break
-
-        # fill truth information
-        if dtype == 'mc':
-            doTruth(ent)
 
         # loop over tracks
         n_trks_matched = 0
