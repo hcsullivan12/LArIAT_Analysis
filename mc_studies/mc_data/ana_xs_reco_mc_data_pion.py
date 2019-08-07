@@ -7,9 +7,6 @@ import math
 hInteractingKe  = ROOT.TH1D('hInteractingKe',  'Interacting',   24, 0, 1200)
 hIncidentKe     = ROOT.TH1D('hIncidentKe',     'Incident',      24, 0, 1200)
 hCrossSectionKe = ROOT.TH1D('hCrossSectionKe', 'Cross Section', 24, 0, 1200)
-hTruthInteractingKe  = ROOT.TH1D('hInteractingKe',  'Interacting',   24, 0, 1200)
-hTruthIncidentKe     = ROOT.TH1D('hIncidentKe',     'Incident',      24, 0, 1200)
-hTruthCrossSectionKe = ROOT.TH1D('hCrossSectionKe', 'Cross Section', 24, 0, 1200)
 
 hLastZ          = ROOT.TH1D('hLastZ', 'Last z in tpc', 50, 0, 100)
 hDeDx           = ROOT.TH1D('hDeDx', 'dEdX', 200, 0, 50)
@@ -19,9 +16,14 @@ hPitch          = ROOT.TH1D('hPitch', 'Track pitch', 100, 0, 5)
 Maybe show plot of largest background or fault in selection
 '''
 
+# useful variables
+bkg_elastic = []
+bkg_other = []
+EVENT_FOR_EVT_DSP = 19033
+
 # define counters
 n_events = 0
-n_beam_match = 0
+n_beam_unique_match = 0
 elastic_events = []
 inelastic_events = []
 
@@ -46,7 +48,6 @@ def makePlots(dtype):
     hLastZ.Write()
     hDeDx.Write()
     hPitch.Write()
-
     f.Close()
 
 ########################################################
@@ -81,9 +82,9 @@ def doFilter(id_matched_trk, ent):
 ########################################################
 def inActiveVolume(pos):
     b = False
-    if FV_X_BOUND[0] < pos.X() and pos.X() < FV_X_BOUND[1]:
-        if FV_Y_BOUND[0] < pos.Y() and pos.Y() < FV_Y_BOUND[1]:
-            if FV_Z_BOUND[0] < pos.Z() and pos.Z() < FV_Z_BOUND[1]:
+    if 2. < pos.X() and pos.X() < 45:
+        if -18 < pos.Y() and pos.Y() < 18:
+            if 0 < pos.Z() and pos.Z() < 88:
                 b = True
     return b
 
@@ -100,53 +101,54 @@ def getFirstIntInTpc(ent):
     return p,proc
 
 ########################################################
-def updateForEvtDisplay(is_inelastic, ent, dtype):
-    global elastic_events
-    global inelastic_events
+def dump():
+    print '--------------------------------------'
+    print 'Events', n_events
+    print 'Beam unique match', n_beam_unique_match
+    print 'Bkg elastic', len(bkg_elastic)
+    print 'Bkg other', len(bkg_other)
 
-    # elastic
-    if not is_inelastic and len(elastic_events)<10:
-        elastic_events.append(ent.event)
-    # inelastic
-    if is_inelastic and len(inelastic_events)<10:
-        inelastic_events.append(ent.event)
-    # inelastic missed 
-    #if dtype is 'mc':
-    #    p, proc = getFirstIntInTpc(ent)
-    #    if proc == 'pi-Inelastic':
-    #    
+    print bkg_elastic
+    print '\n'
+    print bkg_other
 
 ########################################################
-def getFirstAndLastPtInTpc(ent):
-    enteredTpc = False
-    sP = -1
-    for c in range(0, len(MidPosX[0])):
-        point = ROOT.TVector3(MidPosX[0][c],MidPosY[0][c],MidPosZ[0][c])
-        if not inActiveVolume(point):
+def compareToTruth(ent, recoVertex, is_inelastic):
+    # find the closest interaction to the vertex
+    min_dist = 100000
+    closest_proc = 'none'
+    closest_pt = len(ent.MidPosX[0])
+    for ipt, iproc in zip(ent.InteractionPoint, ent.InteractionPointType):
+        v = ROOT.TVector3(ent.MidPosX[0][ipt], ent.MidPosY[0][ipt], ent.MidPosZ[0][ipt])
+        if not inActiveVolume(v):
             continue
-        # she entered!
-        enteredTpc = True
-        sP = c
-        break
+        dist = getDistance(recoVertex, v)
+        if dist < min_dist:
+            closest_pt   = ipt
+            closest_proc = iproc
+            min_dist = dist
     
-    # get last primary point
-    eP = len(MidPosX[0])
-    for c in range(len(MidPosX[0]), sP, -1):
-        point = ROOT.TVector3(MidPosX[0][c],MidPosY[0][c],MidPosZ[0][c])
-        if not inActiveVolume(point):
-            continue
-        # she entered!
-        eP = c
-        break
-    
-    assert(sP != eP)
-    return enteredTpc, sP, eP
+    # how'd we do?
+    global bkg_elastic
+    global bkg_other
+    if is_inelastic and closest_proc != 'pi-Inelastic':
+        if closest_proc == 'hadElastic' or closest_proc == 'CoulombScat':
+            bkg_elastic.append(min_dist)
+        bkg_other.append([ent.event, closest_proc, min_dist])
 
+    if ent.event == EVENT_FOR_EVT_DSP:
+        print '\nOutput for event display...'
+        print 'Run', ent.run, 'Subrun', ent.subrun, 'Event', ent.event
+        print is_inelastic
+        print recoVertex.X(), recoVertex.Y(), recoVertex.Z()
+        for ipt, iproc in zip(ent.InteractionPoint, ent.InteractionPointType):
+            v = ROOT.TVector3(ent.MidPosX[0][ipt], ent.MidPosY[0][ipt], ent.MidPosZ[0][ipt])
+            print v.X(), v.Y(), v.Z(), iproc
 
 ########################################################
 def doAna(file, dtype, stop):
     global n_events
-    global n_beam_match
+    global n_beam_unique_match
 
     file = ROOT.TFile.Open(str(args.source), 'READ')
     anatree = file.Get('anatree/anatree')
@@ -170,16 +172,13 @@ def doAna(file, dtype, stop):
                 n_trks_matched += 1
         if n_trks_matched != 1: 
             continue
-        n_beam_match += 1
+        n_beam_unique_match += 1
 
         # apply upstream filter
         doFilter(id_matched_trk, ent)
             
         # check if inelastic
         is_inelastic = isInelastic(id_matched_trk, ent)
-
-        # fill example event displays
-        updateForEvtDisplay(is_inelastic, ent, dtype)
         
         # we should have one trk matched
         # get the containers for calo information
@@ -207,9 +206,14 @@ def doAna(file, dtype, stop):
         if is_inelastic:
             hInteractingKe.Fill(kin_en)
 
+        # compare to truth
+        v = ROOT.TVector3(trk_x[-1], trk_y[-1], trk_z[-1])
+        compareToTruth(ent, v, is_inelastic)
+
     # finish up
     doXsCalculation(dtype)
     makePlots(dtype)
+    dump()
 
 ########################################################
 # check if track is inverted
