@@ -120,6 +120,11 @@ TH1D* hPitch         = new TH1D("hPitch",          "Track pitch",   100, 0, 5);
 TH1D* hTruFirstPosInTpcX = new TH1D("hTruFirstPosInTpcX", "First Position In Tpc X", 60, -5, 55);
 TH1D* hTruFirstPosInTpcY = new TH1D("hTruFirstPosInTpcY", "First Position In Tpc Y", 50, -25, 25);
 TH1D* hTruFirstPosInTpcZ = new TH1D("hTruFirstPosInTpcZ", "First Position In Tpc Z", 120, -10, 110);
+TH1D* hTruWc4KeCapture = new TH1D("hTruWc4KeCapture", "True Wc4 Ke Capture", 24, 0, 1200);
+TH1D* hTruWc4KeDecay   = new TH1D("hTruWc4KeDecay",   "True Wc4 Ke Decay",   24, 0, 1200);
+TH1D* hRecoDiffVtxX = new TH1D("hRecoDiffVtxX", "Reco Diff Vtx X", 100, -20, 20);
+TH1D* hRecoDiffVtxY = new TH1D("hRecoDiffVtxY", "Reco Diff Vtx Y", 100, -10, 10);
+TH1D* hRecoDiffVtxZ = new TH1D("hRecoDiffVtxZ", "Reco Diff Vtx Z", 100, -50, 50);
 /// @}
 
 /// Output root file
@@ -222,8 +227,33 @@ void xs_ana_truth::Loop(int inDebug)
     _vertices.clear();
     getInteractionsInTpc();
     if(IN_DEBUG){for(const auto& v : _vertices)v.Dump();}
+    for(const auto& v : _vertices)
+    {
+      // plotting kinetic energy at WC 4 for decay and capture
+      TVector3 mom(1000*MidPx->at(0)[0],1000*MidPy->at(0)[0],1000*MidPz->at(0)[0]);
+      float kinEn = std::sqrt(mom*mom + PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
+      if(v.process=="CaptureAtRest")hTruWc4KeCapture->Fill(kinEn);
+      if(v.process=="Decay")hTruWc4KeDecay->Fill(kinEn);
+    }
 
-    // now what?
+    // One option is to consider the first interation in the tpc
+    // let's instead consider the closest interation 
+    // potentially will ignore those small scatters upstream
+
+    TVector3 trk_endpos(track_end_x->at(idMatchedTrk),track_end_y->at(idMatchedTrk),track_end_z->at(idMatchedTrk));
+    Vertex_t vtx(-1,"none",trk_endpos); // closest vertex to not elastic?
+    float minDist = std::numeric_limits<float>::max();
+    for(const auto& v : _vertices)
+    {
+      float dist = (v.position-trk_endpos).Mag();
+      //if(v.process=="hadElastic")continue;
+      if(dist<minDist){minDist=dist;vtx=v;}
+    }
+    hRecoDiffVtxX->Fill( vtx.position.X()-trk_endpos.X() );
+    hRecoDiffVtxY->Fill( vtx.position.Y()-trk_endpos.Y() );
+    hRecoDiffVtxZ->Fill( vtx.position.Z()-trk_endpos.Z() );
+    //if(vtx.position.Z()-trk_endpos.Z() < -20)cout<<event<<" "<<vtx.position.Z()<<" "<<trk_endpos.Z()<<endl;
+
 
   }//<---End loop over entries
 
@@ -348,6 +378,7 @@ void xs_ana_truth::getInteractionsInTpc()
 {
   // @note We should've only filled the interactions with 
   //       what g4 spat out. We handle the zero case here.
+  // @todo Do we need to check the end point still?
   if (InteractionPoint->size())
   {
     for (int iInt=0; iInt<InteractionPoint->size(); iInt++)
@@ -488,10 +519,14 @@ void MakePlots()
   hTrkZ->Write();
   hDeDx->Write();
   hPitch->Write();
-
   hTruFirstPosInTpcX->Write();
   hTruFirstPosInTpcY->Write();
   hTruFirstPosInTpcZ->Write();
+  hTruWc4KeCapture->Write();
+  hTruWc4KeDecay->Write();
+  hRecoDiffVtxX->Write();
+  hRecoDiffVtxY->Write();
+  hRecoDiffVtxZ->Write();
 
   myRootFile.Close();
 }
