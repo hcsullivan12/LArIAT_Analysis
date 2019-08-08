@@ -181,9 +181,9 @@ void xs_ana_truth::Loop(int inDebug)
     {
       // What did then?
       // make sure candidates are charged, and proj onto front face
-      cout<<"Warning: Run #"<<run<<" Event #"<<event<<" primary did not enter tpc but a track was matched\n";
-      cout<<"Primary ended at "<<EndPointx->at(0)<<" " <<EndPointy->at(0)<<" " <<EndPointz->at(0)<<"\n";
-      cout<<"Candidates...\n";
+      if(IN_DEBUG)cout<<"Warning: Run #"<<run<<" Event #"<<event<<" primary did not enter tpc but a track was matched\n";
+      if(IN_DEBUG)cout<<"Primary ended at "<<EndPointx->at(0)<<" " <<EndPointy->at(0)<<" " <<EndPointz->at(0)<<"\n";
+      if(IN_DEBUG)cout<<"Candidates...\n";
       std::set<std::string> cand;
       for (int ig4=0; ig4<geant_list_size; ig4++)
       {
@@ -195,8 +195,9 @@ void xs_ana_truth::Loop(int inDebug)
         if(TPC_X_BOUND[0]>proj.X() || proj.X()>TPC_X_BOUND[1])continue;
         if(TPC_Y_BOUND[0]>proj.Y() || proj.Y()>TPC_Y_BOUND[1])continue;
         cand.insert(getParticle(PDG->at(ig4)));
+        _bkgCandidates.insert(getParticle(PDG->at(ig4)));
       }
-      for(const auto& c : cand){cout<<"\t"<<c<<endl;_bkgCandidates.insert(c);}
+      if(IN_DEBUG)for(const auto& c : cand){cout<<"\t"<<c<<endl;}
 
       // some particles take precedence
       if(cand.find("pion")!=cand.end()){_nPionBkg++;}
@@ -220,9 +221,7 @@ void xs_ana_truth::Loop(int inDebug)
     // get the interactions in the tpc
     _vertices.clear();
     getInteractionsInTpc();
-    cout<<"\nA\n";
     if(IN_DEBUG){for(const auto& v : _vertices)v.Dump();}
-    cout<<"\nB\n";
 
     // now what?
 
@@ -351,7 +350,6 @@ void xs_ana_truth::getInteractionsInTpc()
   //       what g4 spat out. We handle the zero case here.
   if (InteractionPoint->size())
   {
-    cout << "HERE\n";
     for (int iInt=0; iInt<InteractionPoint->size(); iInt++)
     {
       int prim_pt = InteractionPoint->at(iInt);
@@ -364,54 +362,56 @@ void xs_ana_truth::getInteractionsInTpc()
   }
   else
   {
-    if(IN_DEBUG)cout<<"Checking daughters...\n";
-    cout << "sdf\n";
-    // this has to be something catastrophic, check daughters 
-    int primTrkId=-999999;
-    cout<<"\n\nHEYY";
-    for (int ig4=0; ig4<geant_list_size; ig4++){if(process_primary->at(ig4)==1)primTrkId=TrackId->at(ig4);cout<<G4FinalProcess->at(ig4);break;}
-    if(primTrkId==-999999){cerr<<"Error: Did not get primary trk id,\n";exit(1);}
-cout<<"C\n"<<event<<endl;
-    int d_g4Id = -99999;
-    bool isDecay(false),isCapture(false),isInel(false);
+    if(IN_DEBUG)cout<<"Checking end process and daughters...\n";
+    // this has to be something catastrophic
+    std::string proc_maybe = "none";
+    int primTrkId = -999999;
+    int primG4Id  = -999999;
     for (int ig4=0; ig4<geant_list_size; ig4++)
     {
-      cout << PDG->at(ig4)<<endl;
-      cout<<Process->at(ig4)<<endl;
-      if(Mother->at(ig4)!=primTrkId)continue;
-      cout << "  here\n";
-      if(!isCharged(PDG->at(ig4)))continue;
-      auto proc = Process->at(ig4);
-cout<<proc<<endl;
-      // ignore these
-      if(proc.find("hadElastic")!=std::string::npos)continue;
-      if(proc.find("Ion")!=std::string::npos)continue;
-      if(proc.find("Scatt")!=std::string::npos)continue;
+      if(process_primary->at(ig4)!=1)continue;
 
-      // this should only leave decay, capture, and inelastic
-      if(proc.find("Decay")!=std::string::npos){isDecay=true;d_g4Id=ig4;}
-      if(proc.find("Capture")!=std::string::npos){isCapture=true;d_g4Id=ig4;}
-      if(proc.find("pi-Inelastic")!=std::string::npos){isInel=true;d_g4Id=ig4;}
+      primTrkId=TrackId->at(ig4);
+      primG4Id=ig4;
+
+      // make sure this is in the tpc, if not, she is throughgoing
+      TVector3 pos(EndPointx->at(ig4), EndPointy->at(ig4), EndPointz->at(ig4));
+      if(!InActiveRegion(pos))break;
+      proc_maybe = G4FinalProcess->at(ig4);
+      break;
     }
-    cout<<"D\n"<<d_g4Id<<endl;
-    // a few checks
-    if(isDecay&&isCapture){cerr<<"Error. Found both decay and capture\n";exit(1);}
-    // add the vertex, with capture or decay taking precedence
-    TVector3 pos(StartPointx->at(d_g4Id), StartPointy->at(d_g4Id), StartPointz->at(d_g4Id));
-    cout<<"E\n";
-    // only if this is in the tpc
-    if(InActiveRegion(pos))
+    if(primTrkId==-999999){cerr<<"Error: Did not get primary trk id,\n";exit(1);}
+
+    // @note For some reason, we must check the end process for Decay.
+    //       But others show up too, for the others, check the daughter's processes.
+    //       Don't know why this happens, but we have to hack something up to circumvent this.
+    if (proc_maybe!="Decay" && proc_maybe!="none" && proc_maybe!="LArVoxelReadoutScoringProcess")
+      {cerr<<"\nSomething happened at EVENT="<<event<<" PROCESS="<<proc_maybe<<"\n"<<endl;exit(1);}
+
+    // hopefully geant4 got this part correct...
+    if(proc_maybe=="none")return;
+
+    // if we found decay, get out of here
+    if (proc_maybe=="Decay")
     {
-      int prim_pt = getPrimaryPoint(pos);
-      std::string proc = "";
-      if(isDecay)proc="Decay";
-      else if(isCapture)proc="Capture";
-      else if(isInel)proc="pi-Inelastic";
-      else {cerr<<"Error. We handled the processes incorrectly\n";exit(1);}
-
-      Vertex_t vtx(prim_pt, proc, pos);
+      int prim_pt = MidPosX->at(0).size()-1;
+      TVector3 pos(EndPointx->at(primG4Id), EndPointy->at(primG4Id), EndPointz->at(primG4Id));
+      Vertex_t vtx(prim_pt, proc_maybe, pos);
       _vertices.push_back(vtx);
+      return;
     }
+
+    // check again... 
+    if(proc_maybe!="LArVoxelReadoutScoringProcess")
+      {cerr<<"\nSomething happened at EVENT="<<event<<" PROCESS="<<proc_maybe<<"\n"<<endl;exit(1);}
+
+  
+    // @note Event displays suggest that LArVoxelReadoutScoringProcess is actually CaptureAtRest.
+    //       There is a Bragg peak at the end of tracks. We will tag these as capture.
+    int prim_pt = MidPosX->at(0).size()-1;
+    TVector3 pos(EndPointx->at(primG4Id), EndPointy->at(primG4Id), EndPointz->at(primG4Id));
+    Vertex_t vtx(prim_pt, "CaptureAtRest", pos);
+    _vertices.push_back(vtx);
   }
 }
 
