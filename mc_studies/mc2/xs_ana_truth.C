@@ -18,7 +18,7 @@
 /// @{
 void MakePlots();
 bool InActiveRegion(const TVector3& thePos);
-bool InTPCRegion(const TVector3& thePos);
+bool InTpcRegion(const TVector3& thePos);
 inline void PrintVec(const TVector3& pos) {std::cout<<"\t("<<pos.X()<<", "<<pos.Y()<<", "<<pos.Z()<<")\n";};
 std::string IntProcessToString(const int& p);
 
@@ -117,14 +117,37 @@ TH1D* hIncidentKe    = new TH1D("hIncidentKe",     "Incident",      24, 0, 1200)
 TH1D* hTrkZ          = new TH1D("hTrkZ",           "Z pos in tpc",  50, 0, 100);
 TH1D* hDeDx          = new TH1D("hDeDx",           "dEdX",          200, 0, 50);
 TH1D* hPitch         = new TH1D("hPitch",          "Track pitch",   100, 0, 5);
-TH1D* hTruFirstPosInTpcX = new TH1D("hTruFirstPosInTpcX", "First Position In Tpc X", 60, -5, 55);
-TH1D* hTruFirstPosInTpcY = new TH1D("hTruFirstPosInTpcY", "First Position In Tpc Y", 50, -25, 25);
-TH1D* hTruFirstPosInTpcZ = new TH1D("hTruFirstPosInTpcZ", "First Position In Tpc Z", 120, -10, 110);
+
+TH1D* hTruFirstPosInTpcX = new TH1D("hTruFirstPosInTpcX", "First Position In Tpc X", 120, -5, 55);
+TH1D* hTruFirstPosInTpcY = new TH1D("hTruFirstPosInTpcY", "First Position In Tpc Y", 100, -25, 25);
+TH1D* hTruFirstPosInTpcZ = new TH1D("hTruFirstPosInTpcZ", "First Position In Tpc Z", 240, -10, 110);
+TH1D* hTruIntPosInTpcX = new TH1D("hTruIntPosInTpcX", "Last Position In Tpc X", 120, -5, 55);
+TH1D* hTruIntPosInTpcY = new TH1D("hTruIntPosInTpcY", "Last Position In Tpc Y", 100, -25, 25);
+TH1D* hTruIntPosInTpcZ = new TH1D("hTruIntPosInTpcZ", "Last Position In Tpc Z", 240, -10, 110);
+
 TH1D* hTruWc4KeCapture = new TH1D("hTruWc4KeCapture", "True Wc4 Ke Capture", 24, 0, 1200);
 TH1D* hTruWc4KeDecay   = new TH1D("hTruWc4KeDecay",   "True Wc4 Ke Decay",   24, 0, 1200);
-TH1D* hRecoDiffVtxX = new TH1D("hRecoDiffVtxX", "Reco Diff Vtx X", 100, -20, 20);
-TH1D* hRecoDiffVtxY = new TH1D("hRecoDiffVtxY", "Reco Diff Vtx Y", 100, -10, 10);
-TH1D* hRecoDiffVtxZ = new TH1D("hRecoDiffVtxZ", "Reco Diff Vtx Z", 100, -50, 50);
+
+TH1D* hRecoFirstPosInTpcX = new TH1D("hRecoFirstPosInTpcX", "Reco First Pos In Tpc X", 120, -5, 55);
+TH1D* hRecoFirstPosInTpcY = new TH1D("hRecoFirstPosInTpcY", "Reco First Pos In Tpc Y", 100, -25, 25);
+TH1D* hRecoFirstPosInTpcZ = new TH1D("hRecoFirstPosInTpcZ", "Reco First Pos In Tpc Z", 240, -10, 110);
+TH1D* hRecoIntPosInTpcX = new TH1D ("hRecoIntPosInTpcX",  "Reco Last Pos In Tpc X",  120, -5, 55);
+TH1D* hRecoIntPosInTpcY = new TH1D ("hRecoIntPosInTpcY",  "Reco Last Pos In Tpc Y",  100, -25, 25);
+TH1D* hRecoIntPosInTpcZ = new TH1D ("hRecoIntPosInTpcZ",  "Reco Last Pos In Tpc Z",  240, -10, 110);
+
+TH1D* hTruLength  = new TH1D("hTruLength",  "Tru Length",  200, 0, 100);
+TH1D* hRecoLength = new TH1D("hRecoLength", "Reco Length", 200, 0, 100);
+TH2D* hTruVsRecoLength = new TH2D("hTruVsRecoLength", "Tru Vs Reco Length", 200, 0, 100, 200, 0, 100);
+
+TH1D* hDiffLength           = new TH1D("hDiffLength", "hDiffLength", 400, -100, 100);
+TH1D* hDiffFirstPosInTpcX   = new TH1D("hDiffFirstPosInTpcX",   "hDiffFirstPosInTpcX",   80, -20, 20);
+TH1D* hDiffFirstPosInTpcY   = new TH1D("hDiffFirstPosInTpcY",   "hDiffFirstPosInTpcY",   80, -20, 20);
+TH1D* hDiffFirstPosInTpcZ   = new TH1D("hDiffFirstPosInTpcZ",   "hDiffFirstPosInTpcZ",   40, -10, 10);
+TH1D* hDiffFirstPosInTpcMag = new TH1D("hDiffFirstPosInTpcMag", "hDiffFirstPosInTpcMag", 200, 0, 100);
+TH1D* hDiffIntPosInTpcX    = new TH1D("hDiffIntPosInTpcX",    "hDiffIntPosInTpcX",    80, -20, 20);
+TH1D* hDiffIntPosInTpcY    = new TH1D("hDiffIntPosInTpcY",    "hDiffIntPosInTpcY",    80, -20, 20);
+TH1D* hDiffIntPosInTpcZ    = new TH1D("hDiffIntPosInTpcZ",    "hDiffIntPosInTpcZ",    400, -100, 100);
+TH1D* hDiffIntPosInTpcMag  = new TH1D("hDiffIntPosInTpcMag",  "hDiffIntPosInTpcMag",  200, 0, 100);
 /// @}
 
 /// Output root file
@@ -171,18 +194,17 @@ void xs_ana_truth::Loop(int inDebug)
     // apply filters
     //doFilter(idMatchedTrk);
 
-    // this is where reconstruction and truth split
     // look at primary truth information
     // get first point in tpc
     TVector3 firstPosInTpc(0,0,-100);
-    for (int iPt=0; iPt<=MidPosX->at(0).size(); iPt++)
+    for (int iPt=0; iPt<MidPosX->at(0).size(); iPt++)
     {
       TVector3 pos(MidPosX->at(0)[iPt], MidPosY->at(0)[iPt], MidPosZ->at(0)[iPt]);
-      if(!InActiveRegion(pos))continue;
+      if(!InTpcRegion(pos))continue;
       firstPosInTpc = pos;
       break;
     }
-    if(!InActiveRegion(firstPosInTpc))
+    if(!InTpcRegion(firstPosInTpc))
     {
       // What did then?
       // make sure candidates are charged, and proj onto front face
@@ -216,12 +238,16 @@ void xs_ana_truth::Loop(int inDebug)
       // we're done here, we can't track this particle
       continue;
     }
-
-    // should be properly matched pions
-    _nGoodEvents++;
-    hTruFirstPosInTpcX->Fill(firstPosInTpc.X());
-    hTruFirstPosInTpcY->Fill(firstPosInTpc.Y());
-    hTruFirstPosInTpcZ->Fill(firstPosInTpc.Z());
+    // get last position in tpc
+    int prim_pts = MidPosX->at(0).size();
+    TVector3 lastPosInTpc(MidPosX->at(0)[prim_pts-1],MidPosY->at(0)[prim_pts-1],MidPosZ->at(0)[prim_pts-1]);
+    for (int iPt=MidPosX->at(0).size()-1; iPt>=0; iPt--)
+    {
+      TVector3 pos(MidPosX->at(0)[iPt],MidPosY->at(0)[iPt],MidPosZ->at(0)[iPt]);
+      if(!InTpcRegion(pos))continue;
+      lastPosInTpc=pos;
+      break;
+    }
 
     // get the interactions in the tpc
     _vertices.clear();
@@ -236,12 +262,19 @@ void xs_ana_truth::Loop(int inDebug)
       if(v.process=="Decay")hTruWc4KeDecay->Fill(kinEn);
     }
 
-    // One option is to consider the first interation in the tpc
-    // let's instead consider the closest interation 
-    // potentially will ignore those small scatters upstream
-
+    // looking at reco
+    // check if track is inverted
+    TVector3 trk_startpos(track_start_x->at(idMatchedTrk),track_start_y->at(idMatchedTrk),track_start_z->at(idMatchedTrk));
     TVector3 trk_endpos(track_end_x->at(idMatchedTrk),track_end_y->at(idMatchedTrk),track_end_z->at(idMatchedTrk));
-    Vertex_t vtx(-1,"none",trk_endpos); // closest vertex to not elastic?
+    if(trk_endpos.Z()<trk_startpos.Z())
+    {
+      auto temp=trk_startpos;
+      trk_startpos=trk_endpos;
+      trk_endpos=temp;
+    }
+
+    // get closest interaction point in tpc, default is last tpc position
+    Vertex_t vtx(getPrimaryPoint(lastPosInTpc),"none",lastPosInTpc);
     float minDist = std::numeric_limits<float>::max();
     for(const auto& v : _vertices)
     {
@@ -249,11 +282,43 @@ void xs_ana_truth::Loop(int inDebug)
       //if(v.process=="hadElastic")continue;
       if(dist<minDist){minDist=dist;vtx=v;}
     }
-    hRecoDiffVtxX->Fill( vtx.position.X()-trk_endpos.X() );
-    hRecoDiffVtxY->Fill( vtx.position.Y()-trk_endpos.Y() );
-    hRecoDiffVtxZ->Fill( vtx.position.Z()-trk_endpos.Z() );
-    //if(vtx.position.Z()-trk_endpos.Z() < -20)cout<<event<<" "<<vtx.position.Z()<<" "<<trk_endpos.Z()<<endl;
+    if(vtx.position.Z()<firstPosInTpc.Z())cout<<event<<"Warning: Interaction point is before first point. "<<vtx.position.Z()<<" "<<firstPosInTpc.Z()<<"\n";
 
+    cout<<col_track_z->at(idMatchedTrk)[0]<<" " << col_track_z->at(idMatchedTrk)[col_track_z->at(idMatchedTrk).size()-1]<<endl;
+
+    // should be properly matched pions
+    _nGoodEvents++;
+    double trueLength = (firstPosInTpc-vtx.position).Mag();
+    double recoLength = (trk_startpos-trk_endpos).Mag();
+
+    hTruFirstPosInTpcX->Fill(firstPosInTpc.X());
+    hTruFirstPosInTpcY->Fill(firstPosInTpc.Y());
+    hTruFirstPosInTpcZ->Fill(firstPosInTpc.Z());
+    hTruIntPosInTpcX->Fill(vtx.position.X());
+    hTruIntPosInTpcY->Fill(vtx.position.Y());
+    hTruIntPosInTpcZ->Fill(vtx.position.Z());
+    hTruLength->Fill(trueLength);
+
+    hRecoFirstPosInTpcX->Fill(trk_startpos.X());
+    hRecoFirstPosInTpcY->Fill(trk_startpos.Y());
+    hRecoFirstPosInTpcZ->Fill(trk_startpos.Z());
+    hRecoIntPosInTpcX->Fill(trk_endpos.X());
+    hRecoIntPosInTpcY->Fill(trk_endpos.Y());
+    hRecoIntPosInTpcZ->Fill(trk_endpos.Z());
+    hRecoLength->Fill(recoLength);
+    
+    hTruVsRecoLength->Fill( recoLength, trueLength );
+    hDiffLength->Fill( recoLength - trueLength );
+    hDiffFirstPosInTpcX->Fill(   (trk_startpos-firstPosInTpc).X() );
+    hDiffFirstPosInTpcY->Fill(   (trk_startpos-firstPosInTpc).Y() );
+    hDiffFirstPosInTpcZ->Fill(   (trk_startpos-firstPosInTpc).Z() );
+    hDiffFirstPosInTpcMag->Fill( (trk_startpos-firstPosInTpc).Mag() );
+    hDiffIntPosInTpcX->Fill(   (trk_endpos-vtx.position).X() );
+    hDiffIntPosInTpcY->Fill(   (trk_endpos-vtx.position).Y() );
+    hDiffIntPosInTpcZ->Fill(   (trk_endpos-vtx.position).Z() );
+    hDiffIntPosInTpcMag->Fill( (trk_endpos-vtx.position).Mag() );
+
+    //if((trk_endpos-vtx.position).Mag()>20)cout<<event<<" "<<trk_endpos.Z()<<" "<<vtx.position.Z() <<endl;
 
   }//<---End loop over entries
 
@@ -393,7 +458,7 @@ void xs_ana_truth::getInteractionsInTpc()
   }
   else
   {
-    if(IN_DEBUG)cout<<"Checking end process and daughters...\n";
+    if(IN_DEBUG)cout<<event<<"Checking end process and daughters...\n";
     // this has to be something catastrophic
     std::string proc_maybe = "none";
     int primTrkId = -999999;
@@ -416,7 +481,7 @@ void xs_ana_truth::getInteractionsInTpc()
     // @note For some reason, we must check the end process for Decay.
     //       But others show up too, for the others, check the daughter's processes.
     //       Don't know why this happens, but we have to hack something up to circumvent this.
-    if (proc_maybe!="Decay" && proc_maybe!="none" && proc_maybe!="LArVoxelReadoutScoringProcess")
+    if(proc_maybe!="Decay" && proc_maybe!="none" && proc_maybe!="LArVoxelReadoutScoringProcess")
       {cerr<<"\nSomething happened at EVENT="<<event<<" PROCESS="<<proc_maybe<<"\n"<<endl;exit(1);}
 
     // hopefully geant4 got this part correct...
@@ -436,7 +501,6 @@ void xs_ana_truth::getInteractionsInTpc()
     if(proc_maybe!="LArVoxelReadoutScoringProcess")
       {cerr<<"\nSomething happened at EVENT="<<event<<" PROCESS="<<proc_maybe<<"\n"<<endl;exit(1);}
 
-  
     // @note Event displays suggest that LArVoxelReadoutScoringProcess is actually CaptureAtRest.
     //       There is a Bragg peak at the end of tracks. We will tag these as capture.
     int prim_pt = MidPosX->at(0).size()-1;
@@ -522,11 +586,29 @@ void MakePlots()
   hTruFirstPosInTpcX->Write();
   hTruFirstPosInTpcY->Write();
   hTruFirstPosInTpcZ->Write();
+  hTruIntPosInTpcX->Write();
+  hTruIntPosInTpcY->Write();
+  hTruIntPosInTpcZ->Write();
   hTruWc4KeCapture->Write();
   hTruWc4KeDecay->Write();
-  hRecoDiffVtxX->Write();
-  hRecoDiffVtxY->Write();
-  hRecoDiffVtxZ->Write();
+  hRecoFirstPosInTpcX->Write();
+  hRecoFirstPosInTpcY->Write();
+  hRecoFirstPosInTpcZ->Write();
+  hRecoIntPosInTpcX->Write();
+  hRecoIntPosInTpcY->Write();
+  hRecoIntPosInTpcZ->Write();
+  hTruLength->Write();
+  hRecoLength->Write();
+  hTruVsRecoLength->Write();
+  hDiffLength->Write();
+  hDiffFirstPosInTpcX->Write();
+  hDiffFirstPosInTpcY->Write();
+  hDiffFirstPosInTpcZ->Write();
+  hDiffFirstPosInTpcMag->Write();
+  hDiffIntPosInTpcX->Write();
+  hDiffIntPosInTpcY->Write();
+  hDiffIntPosInTpcZ->Write();
+  hDiffIntPosInTpcMag->Write();
 
   myRootFile.Close();
 }
@@ -552,7 +634,7 @@ bool InActiveRegion( const TVector3& thePos  )
  * @brief Check if position in TPC
  * 
  */
-bool InTPCRegion( const TVector3& thePos  )
+bool InTpcRegion( const TVector3& thePos  )
 {
   if ( TPC_X_BOUND[0] < thePos.X() && thePos.X() < TPC_X_BOUND[1] &&
        TPC_Y_BOUND[0] < thePos.Y() && thePos.Y() < TPC_Y_BOUND[1] &&

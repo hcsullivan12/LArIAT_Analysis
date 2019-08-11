@@ -36,7 +36,9 @@ int _nTotalEvents(0), _nEventsInel(0),
     _nEventsInelOneSec(0);
 
 /// Vector of g4 Ids for visible secondaries
-std::vector<size_t> visSec;
+std::vector<size_t> _visSec;
+
+std::vector<Vertex_t> _vertices;
 /// @}
 
 /// @name Cuts and constants
@@ -79,6 +81,9 @@ TH1D* hIncidentKe    = new TH1D("hIncidentKe",     "Incident",      24, 0, 1200)
 TH1D* hTrkZ          = new TH1D("hTrkZ",           "Z pos in tpc",  50, 0, 100);
 TH1D* hDeDx          = new TH1D("hDeDx",           "dEdX",          200, 0, 50);
 TH1D* hPitch         = new TH1D("hPitch",          "Track pitch",   100, 0, 5);
+TH1D* hVertexDistSec = new TH1D("hVertexDistSec", "Vertex Dist Sec", 100, 0, 10);
+
+TH1D* hDiffInitKe = new TH1D("hDiffInitKe", "hDiffInitKe", 1000, -500, 500);
 /// @}
 
 /// Output root file
@@ -89,22 +94,22 @@ TFile myRootFile("XS_ANA.root", "RECREATE");
  * 
  * @param inDebug For debugging
  */
-void xs_ana::Loop(int inDebug)
+void xs_ana::Loop(int inDebug, int isMc)
 {
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (int jentry=0; jentry<=nentries;jentry++) 
+  for (int jentry=8000; jentry<=nentries;jentry++) 
   {
     IN_DEBUG = inDebug;
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) break;
     nb = fChain->GetEntry(jentry);   nbytes += nb;
-    
+
     // Increment our total event counter 
     _nTotalEvents++;
     if(_nTotalEvents%500==0)cout<<_nTotalEvents<<" / "<<nentries<<endl;
-    //if(_nTotalEvents==10)break;
+    if(_nTotalEvents%10==0)continue;
 
     // loop over tracks
     size_t nTrksMatched = 0;
@@ -125,19 +130,72 @@ void xs_ana::Loop(int inDebug)
     // apply filters
     //doFilter(idMatchedTrk);
 
+    // Fill these containers 
+    std::vector<double> trk_x, trk_y, trk_z, trk_p, trk_dedx;
+    int slabs = col_track_x->at(idMatchedTrk).size();
+    for (int iSb=0; iSb<slabs; iSb++)
+    {
+      trk_x.push_back(col_track_x->at(idMatchedTrk)[iSb]);
+      trk_y.push_back(col_track_y->at(idMatchedTrk)[iSb]);
+      trk_z.push_back(col_track_z->at(idMatchedTrk)[iSb]);
+      trk_p.push_back(col_track_pitch_hit->at(idMatchedTrk)[iSb]);
+      trk_dedx.push_back(col_track_dedx->at(idMatchedTrk)[iSb]);
+    }
+    // check for inversion
+    if(col_track_z->at(idMatchedTrk)[0] > col_track_z->at(idMatchedTrk)[trk_z.size()-1])
+    {
+      std::reverse(trk_x.begin(), trk_x.end());
+      std::reverse(trk_y.begin(), trk_y.end());
+      std::reverse(trk_z.begin(), trk_z.end());
+      std::reverse(trk_p.begin(), trk_p.end());
+      std::reverse(trk_dedx.begin(), trk_dedx.end());
+    }
+
     // check if inelastic
     bool isInel = isInelastic(idMatchedTrk);
     if(isInel)_nEventsInel++;
+    if(isMc)
+    {
+      // get vertices
+      _vertices.clear();
+      getInteractionsInTpc();
+      bool foundInel(false);
+      cout<<"\nEvent #"<<event<<endl;
+      for(const auto& v : _vertices){if(v.process=="pi-Inelastic")foundInel=true;v.Dump();}
+      if(isInel && foundInel)cout<<"Correct1!\n";
+      if(isInel && !foundInel)cout<<"Determined but not inelastic!\n";
+      if(!isInel && foundInel)cout<<"Missed!\n";
+      if(!isInel && !foundInel)cout<<"Correct2!\n";
+    }
 
     // ke at front face
     // @todo what do I do about the WC momentum?
     float wcMom = wctrk_momentum[0];
     float kinEn = std::sqrt( wcMom*wcMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
     kinEn -= ENTRY_TPC_ENERGY_LOSS;
+    if(isMc)
+    {
+      // find the closest trajectory point to the reco start point
+      TVector3 reco_sp(trk_x[0], trk_y[0], trk_z[0]);
+      float minDist = std::numeric_limits<float>::max();
+      int closest_pt = 0;
+      for(int iPt=0; iPt<MidPosX->at(0).size(); iPt++)
+      {
+        TVector3 pos(MidPosX->at(0)[iPt], MidPosY->at(0)[iPt], MidPosZ->at(0)[iPt]);
+        float dist = (pos-reco_sp).Mag();
+        if(dist<minDist)
+        {
+          minDist=dist;
+          closest_pt = iPt;
+        }
+      }
+      TVector3 trueMom(1000*MidPx->at(0)[closest_pt-1], 1000*MidPy->at(0)[closest_pt-1], 1000*MidPz->at(0)[closest_pt-1]);
+      float trueKe = std::sqrt(trueMom*trueMom + PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
+      hDiffInitKe->Fill(trueKe-kinEn);
+    }
 
     // fill incident
     // @note The equals sign here <=
-    int slabs = col_track_x->at(idMatchedTrk).size();
     for (int iSb = 0; iSb<=slabs; iSb++)
     {
       float dedx  = col_track_dedx->at(idMatchedTrk)[iSb];
@@ -185,7 +243,7 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
   // 2) If one, check angle
   // 3) If none, where is the end point? 
 
-  // get the start and enpoint
+  // get the start and endpoint
   int mtrk_n_points = col_track_x->at(idMatchedTrk).size();
   TVector3 mtrk_start_point( col_track_x->at(idMatchedTrk)[0],
                              col_track_y->at(idMatchedTrk)[0],
@@ -224,7 +282,7 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
     float dist2 = (mtrk_end_point - end_point).Mag();
     float dist_min = dist1 < dist2 ? dist1 : dist2;
 
-    // checl inversion
+    // check inversion
     if(dist2<dist1)
     {
       if(IN_DEBUG)cout<<"Track inverted: "<<start_point.Z()<<" "<<end_point.Z()<<endl;
@@ -234,6 +292,7 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
     }
         
     // we're done with this track if it's not close enough
+    hVertexDistSec->Fill(dist_min);
     if(dist_min>VERTEX_CUT)continue;
 
     // we got one!
@@ -242,12 +301,11 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
   }
   // we should have all secondaries connected to vertex
   // Case 1)
-  if(sec_ids.size() > 1){_nEventsInelSec++; return true;}
+  if(sec_ids.size() > 1){_nEventsInelSec++;return true;}
   else if(sec_ids.size()==1)
   {
     if(idMatchedTrk==sec_ids[0])cerr<<"Error: Sec id = matched\n";
     float angle = getAngle(idMatchedTrk, sec_ids[0]);
-    cout<<angle<<endl;
     if(angle>ANGLE_CUT){_nEventsInelOneSec++; return true;}
     // @todo anything else here?
     else return false;
@@ -261,8 +319,8 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
   //       For now, assume inelastic.
   //
   if(sec_ids.size())cerr<<"Error. Sec ids > 0\n";
-  
-  if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT){_nEventsInelZeroSec++;return true;}
+  //for(const auto& i : *InteractionPointType)cout<<i<<endl;
+  //if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT){_nEventsInelZeroSec++;cout<<"Event #"<<event<<" "<<ntracks_reco<<" "<<mtrk_end_point.Z()<<endl;return true;}
   return false;
 }
 
@@ -313,6 +371,81 @@ float xs_ana::getAngle(int const& idm, int const& ids)
 }
 
 /**
+ * @brief Getting interactions in tpc
+ * 
+ */
+void xs_ana::getInteractionsInTpc()
+{
+  // @note We should've only filled the interactions with 
+  //       what g4 spat out. We handle the zero case here.
+  // @todo Do we need to check the end point still?
+  if (InteractionPoint->size())
+  {
+    for (int iInt=0; iInt<InteractionPoint->size(); iInt++)
+    {
+      int prim_pt = InteractionPoint->at(iInt);
+      std::string proc = InteractionPointType->at(iInt);
+      TVector3 pos(MidPosX->at(0)[prim_pt], MidPosY->at(0)[prim_pt], MidPosZ->at(0)[prim_pt]);
+      if(!InActiveRegion(pos))continue;
+      Vertex_t vtx(prim_pt, proc, pos);
+      _vertices.push_back(vtx);
+    }
+  }
+  else
+  {
+    if(IN_DEBUG)cout<<event<<"Checking end process and daughters...\n";
+    // this has to be something catastrophic
+    std::string proc_maybe = "none";
+    int primTrkId = -999999;
+    int primG4Id  = -999999;
+    for (int ig4=0; ig4<geant_list_size; ig4++)
+    {
+      if(process_primary->at(ig4)!=1)continue;
+
+      primTrkId=TrackId->at(ig4);
+      primG4Id=ig4;
+
+      // make sure this is in the tpc, if not, she is throughgoing
+      TVector3 pos(EndPointx->at(ig4), EndPointy->at(ig4), EndPointz->at(ig4));
+      if(!InActiveRegion(pos))break;
+      proc_maybe = G4FinalProcess->at(ig4);
+      break;
+    }
+    if(primTrkId==-999999){cerr<<"Error: Did not get primary trk id,\n";exit(1);}
+
+    // @note For some reason, we must check the end process for Decay.
+    //       But others show up too, for the others, check the daughter's processes.
+    //       Don't know why this happens, but we have to hack something up to circumvent this.
+    if(proc_maybe!="Decay" && proc_maybe!="none" && proc_maybe!="LArVoxelReadoutScoringProcess")
+      {cerr<<"\nSomething happened at EVENT="<<event<<" PROCESS="<<proc_maybe<<"\n"<<endl;exit(1);}
+
+    // hopefully geant4 got this part correct...
+    if(proc_maybe=="none")return;
+
+    // if we found decay, get out of here
+    if (proc_maybe=="Decay")
+    {
+      int prim_pt = MidPosX->at(0).size()-1;
+      TVector3 pos(EndPointx->at(primG4Id), EndPointy->at(primG4Id), EndPointz->at(primG4Id));
+      Vertex_t vtx(prim_pt, proc_maybe, pos);
+      _vertices.push_back(vtx);
+      return;
+    }
+
+    // check again... 
+    if(proc_maybe!="LArVoxelReadoutScoringProcess")
+      {cerr<<"\nSomething happened at EVENT="<<event<<" PROCESS="<<proc_maybe<<"\n"<<endl;exit(1);}
+
+    // @note Event displays suggest that LArVoxelReadoutScoringProcess is actually CaptureAtRest.
+    //       There is a Bragg peak at the end of tracks. We will tag these as capture.
+    int prim_pt = MidPosX->at(0).size()-1;
+    TVector3 pos(EndPointx->at(primG4Id), EndPointy->at(primG4Id), EndPointz->at(primG4Id));
+    Vertex_t vtx(prim_pt, "CaptureAtRest", pos);
+    _vertices.push_back(vtx);
+  }
+}
+
+/**
  * @brief Make plots and save to output file
  * 
  */
@@ -324,6 +457,8 @@ void MakePlots()
   hTrkZ->Write();
   hDeDx->Write();
   hPitch->Write();
+  hVertexDistSec->Write();
+  hDiffInitKe->Write();
 
   myRootFile.Close();
 }
