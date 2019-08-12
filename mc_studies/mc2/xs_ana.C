@@ -33,12 +33,20 @@ inline double toKineticEnergy(const TVector3& mom){return std::sqrt( mom.Mag()*m
 int _nTotalEvents(0), _nEventsInel(0),
     _nEventsUniqueMatch(0), _nEventsMatch(0),
     _nEventsInelSec(0), _nEventsInelZeroSec(0),
-    _nEventsInelOneSec(0);
+    _nEventsInelOneSec(0), _nCorrect_alg1(0), 
+    _nIncorrect_alg1(0), _nMissed_alg1(0),
+    _nCorrect_alg2(0), _nIncorrect_alg2(0), 
+    _nMissed_alg2(0);
 
 /// Vector of g4 Ids for visible secondaries
 std::vector<size_t> _visSec;
 
+/// interaction vertices
 std::vector<Vertex_t> _vertices;
+
+/// the reason for tagging
+std::string _reason_alg1 = "";
+std::string _reason_alg2 = "";
 /// @}
 
 /// @name Cuts and constants
@@ -56,16 +64,17 @@ float FV_Y_BOUND[2] = { -18.0, 18.0 };
 float FV_Z_BOUND[2] = {   0.0, 88.0 };
 
 /// Track length cut for secondaries
-float SECONDARY_LENGTH_CUT(2.0);
+float SECONDARY_LENGTH_CUT(1.0);
+float SECONDARY_LENGTH_CUT2(3.0);
 
 /// Vertex cut
 float VERTEX_CUT(3.0);
 
 /// angle cut
-float ANGLE_CUT(20);
+float ANGLE_CUT(10);
 
 /// downstream cut
-float DOWNSTREAM_Z_CUT(88);
+float DOWNSTREAM_Z_CUT(80);
 
 /// max on dedx
 float DEDX_MAX(40);
@@ -99,7 +108,7 @@ void xs_ana::Loop(int inDebug, int isMc)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (int jentry=8000; jentry<=nentries;jentry++) 
+  for (int jentry=0; jentry<=nentries;jentry++) 
   {
     IN_DEBUG = inDebug;
     Long64_t ientry = LoadTree(jentry);
@@ -152,20 +161,43 @@ void xs_ana::Loop(int inDebug, int isMc)
     }
 
     // check if inelastic
-    bool isInel = isInelastic(idMatchedTrk);
-    if(isInel)_nEventsInel++;
+    cout<<"\nEvent #"<<event<<endl;
+    cout<<"Kinks "<<track_kink_x->at(idMatchedTrk).size()<<endl;
+    bool isInel_1 = isInelastic_Alg1(idMatchedTrk);
+    bool isInel_2 = isInelastic_Alg2(idMatchedTrk);
+    bool passKink = checkKink(idMatchedTrk);
+    if(!isInel_1 && passKink) isInel_1=true;
+    if(!isInel_2 && passKink) isInel_2=true;
+    if(isInel_1)_nEventsInel++;
     if(isMc)
     {
       // get vertices
       _vertices.clear();
       getInteractionsInTpc();
       bool foundInel(false);
-      cout<<"\nEvent #"<<event<<endl;
-      for(const auto& v : _vertices){if(v.process=="pi-Inelastic")foundInel=true;v.Dump();}
-      if(isInel && foundInel)cout<<"Correct1!\n";
-      if(isInel && !foundInel)cout<<"Determined but not inelastic!\n";
-      if(!isInel && foundInel)cout<<"Missed!\n";
-      if(!isInel && !foundInel)cout<<"Correct2!\n";
+      bool foundOther(false);
+      // @note for now, skip decay and capture at rest
+      for(const auto& v : _vertices)
+      {
+        v.Dump();
+        if(v.process=="pi-Inelastic")foundInel=true;
+        if(v.process=="Decay"||v.process=="CaptureAtRest")foundOther=true;
+      }
+      if(foundOther)continue;
+      cout<<"First alg...\n";
+      cout<<"\tThe reason "<<_reason_alg1<<endl;
+      if(isInel_1 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg1++;}
+      if(isInel_1 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg1++;}
+      if(!isInel_1 && foundInel){cout<<"\tMissed!\n";_nMissed_alg1++;}
+      if(!isInel_1 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg1++;}
+      cout<<"Second alg...\n";
+      cout<<"\tThe reason "<<_reason_alg2<<endl;
+      if(isInel_2 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg2++;}
+      if(isInel_2 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg2++;}
+      if(!isInel_2 && foundInel){cout<<"\tMissed!\n";_nMissed_alg2++;}
+      if(!isInel_2 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg2++;}
+
+      cout<<"Ntracks = "<<ntracks_reco<<endl;
     }
 
     // ke at front face
@@ -212,7 +244,7 @@ void xs_ana::Loop(int inDebug, int isMc)
       if(kinEn<=0){cout<<"Warning: Filling zero\n";break;}
     }
     // fill interacting
-    if(isInel)hInteractingKe->Fill(kinEn);
+    if(isInel_1)hInteractingKe->Fill(kinEn);
   }//<---End loop over entries
 
 
@@ -225,6 +257,12 @@ void xs_ana::Loop(int inDebug, int isMc)
             << "Inelastic by > 2 sec:        " << _nEventsInelSec     << endl
             << "Inelastic by 1 sec:          " << _nEventsInelOneSec  << endl
             << "Inelastic by 0 sec:          " << _nEventsInelZeroSec << endl
+            << "Correct_1:                   " << _nCorrect_alg1      << endl
+            << "Incorrect_1:                 " << _nIncorrect_alg1    << endl
+            << "Missed_1:                    " << _nMissed_alg1       << endl
+            << "Correct_2:                   " << _nCorrect_alg2      << endl
+            << "Incorrect_2:                 " << _nIncorrect_alg2    << endl
+            << "Missed_2:                    " << _nMissed_alg2       << endl
             << endl;
 
   // Make plots
@@ -233,12 +271,12 @@ void xs_ana::Loop(int inDebug, int isMc)
 }//<---- End main loop
 
 /**
- * @brief Area to determine inelasticity
+ * @brief Area to determine inelasticity using crude method
  *
  */
-bool xs_ana::isInelastic(int const& idMatchedTrk)
+bool xs_ana::isInelastic_Alg1(int const& idMatchedTrk)
 {
-  // three cases to consider
+  // A few cases to consider
   // 1) If more than one track attached to vertex, yes
   // 2) If one, check angle
   // 3) If none, where is the end point? 
@@ -261,7 +299,7 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
     mtrk_end_point = temp;
   }
 
-  // loop over tracks to see if any are attached to vertex
+  // loop over tracks to look for candidate secondaries
   std::vector<int> sec_ids;
   for (int iTrk=0; iTrk<ntracks_reco; iTrk++)
   {
@@ -270,7 +308,6 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
 
     // make sure this track has points
     int n_points = col_track_x->at(iTrk).size();
-    if(n_points<2)continue;
       
     TVector3 start_point( col_track_x->at(iTrk)[0],
                           col_track_y->at(iTrk)[0],
@@ -278,6 +315,8 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
     TVector3 end_point( col_track_x->at(iTrk)[n_points-1],
                         col_track_y->at(iTrk)[n_points-1],
                         col_track_z->at(iTrk)[n_points-1] );
+    float length = (start_point-end_point).Mag();
+    if(length<SECONDARY_LENGTH_CUT)continue;
     float dist1 = (mtrk_end_point - start_point).Mag();
     float dist2 = (mtrk_end_point - end_point).Mag();
     float dist_min = dist1 < dist2 ? dist1 : dist2;
@@ -290,23 +329,22 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
       start_point = end_point;
       end_point = temp;
     }
-        
-    // we're done with this track if it's not close enough
     hVertexDistSec->Fill(dist_min);
-    if(dist_min>VERTEX_CUT)continue;
 
+    // begin checking for connection to vertex
+    if(dist_min>VERTEX_CUT)continue;
     // we got one!
-    // @todo can we not use vertex information from reconstruction?
     sec_ids.push_back(iTrk);
   }
   // we should have all secondaries connected to vertex
   // Case 1)
-  if(sec_ids.size() > 1){_nEventsInelSec++;return true;}
+  if(sec_ids.size() > 1){_nEventsInelSec++;_reason_alg1=">2 secondaries";return true;}
   else if(sec_ids.size()==1)
   {
     if(idMatchedTrk==sec_ids[0])cerr<<"Error: Sec id = matched\n";
     float angle = getAngle(idMatchedTrk, sec_ids[0]);
-    if(angle>ANGLE_CUT){_nEventsInelOneSec++; return true;}
+    _reason_alg1="angle="+std::to_string(angle);
+    if(angle>ANGLE_CUT){_nEventsInelOneSec++;return true;}
     // @todo anything else here?
     else return false;
   }    
@@ -319,8 +357,132 @@ bool xs_ana::isInelastic(int const& idMatchedTrk)
   //       For now, assume inelastic.
   //
   if(sec_ids.size())cerr<<"Error. Sec ids > 0\n";
-  //for(const auto& i : *InteractionPointType)cout<<i<<endl;
-  //if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT){_nEventsInelZeroSec++;cout<<"Event #"<<event<<" "<<ntracks_reco<<" "<<mtrk_end_point.Z()<<endl;return true;}
+  _reason_alg1="track endpoint";
+  if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT){_nEventsInelZeroSec++;return true;}
+  return false;
+}
+
+/**
+ * @brief Area to determine inelasticity based on reco info
+ * 
+ */
+bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk)
+{
+  // get the start and endpoint
+  int mtrk_n_points = col_track_x->at(idMatchedTrk).size();
+  TVector3 mtrk_start_point( col_track_x->at(idMatchedTrk)[0],
+                             col_track_y->at(idMatchedTrk)[0],
+                             col_track_z->at(idMatchedTrk)[0] );
+  TVector3 mtrk_end_point( col_track_x->at(idMatchedTrk)[mtrk_n_points-1],
+                           col_track_y->at(idMatchedTrk)[mtrk_n_points-1],
+                           col_track_z->at(idMatchedTrk)[mtrk_n_points-1] );
+    
+  // check if inverted
+  if(mtrk_start_point.Z()>mtrk_end_point.Z())
+  {
+    if(IN_DEBUG)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
+    auto temp = mtrk_start_point;
+    mtrk_start_point = mtrk_end_point;
+    mtrk_end_point = temp;
+  }
+
+  // check the vertex information
+  struct recob_vertex_t 
+  {
+    std::vector<int> tids;
+    double x,y,z;
+    void dump()const{cout<<"\tVertex at ("<<x<<","<<y<<","<<z<<") with "<<tids.size()<<" tracks\n";};
+  };
+  std::vector<recob_vertex_t> vtxs;
+  for (int iVtx=0; iVtx< vertex_x->size(); iVtx++)
+  {
+    recob_vertex_t vtx;
+    vtx.x = vertex_x->at(iVtx);
+    vtx.y = vertex_y->at(iVtx);
+    vtx.z = vertex_z->at(iVtx);
+    cout<<vtx.z<<" "<<vertex_track_ids->at(iVtx).size()<<endl;
+    // we only care about those which contain the matched track
+    bool pass(false);
+    for (int iTrk = 0; iTrk<vertex_track_ids->at(iVtx).size(); iTrk++)
+    {
+      if(vertex_track_ids->at(iVtx)[iTrk]==idMatchedTrk)pass=true;
+      // check track length
+      int tid = vertex_track_ids->at(iVtx)[iTrk];
+      cout<<track_length->at(tid)<<endl;
+      if(track_length->at(tid) < SECONDARY_LENGTH_CUT2)continue;
+      vtx.tids.push_back(vertex_track_ids->at(iVtx)[iTrk]);
+    }
+    if(pass&&vtx.tids.size())vtxs.push_back(vtx);
+    
+  }
+  if(!vtxs.size())
+  {
+    _reason_alg2 = "vtx = 0";
+    if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT) return true;
+    return false;
+  }
+  for(const auto& v : vtxs)v.dump();
+
+  // sort in increasing z
+  std::sort(vtxs.begin(), vtxs.end(), [](const auto& l, const auto& r){return l.z<r.z;});
+  if(vtxs.back().tids.size()>1){_reason_alg2="> 1"; return true;}
+
+  _reason_alg2 = "vtx = 1";
+  if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT)return true;
+  return false;
+}
+
+/**
+ * @brief Check for kinks in primary track 
+ *  
+ */
+bool xs_ana::checkKink(int const& idMatchedTrk)
+{
+  // get the start and endpoint
+  int mtrk_n_points = col_track_x->at(idMatchedTrk).size();
+  TVector3 mtrk_start_point( col_track_x->at(idMatchedTrk)[0],
+                             col_track_y->at(idMatchedTrk)[0],
+                             col_track_z->at(idMatchedTrk)[0] );
+  TVector3 mtrk_end_point( col_track_x->at(idMatchedTrk)[mtrk_n_points-1],
+                           col_track_y->at(idMatchedTrk)[mtrk_n_points-1],
+                           col_track_z->at(idMatchedTrk)[mtrk_n_points-1] );
+    
+  // check if inverted
+  if(mtrk_start_point.Z()>mtrk_end_point.Z())
+  {
+    if(IN_DEBUG)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
+    auto temp = mtrk_start_point;
+    mtrk_start_point = mtrk_end_point;
+    mtrk_end_point = temp;
+  }
+
+  // get the kink information
+  int nKinks = track_kink_x->at(idMatchedTrk).size();
+  if(!nKinks)return false;
+  int kinkCount = 1;
+  TVector3 thisPos = mtrk_start_point;
+  while (kinkCount <= nKinks)
+  {
+    TVector3 kinkPos(track_kink_x->at(idMatchedTrk)[kinkCount-1], track_kink_y->at(idMatchedTrk)[kinkCount-1], track_kink_z->at(idMatchedTrk)[kinkCount-1]);
+    TVector3 nextKinkPos;
+    if(kinkCount != nKinks) nextKinkPos = TVector3(track_kink_x->at(idMatchedTrk)[kinkCount], track_kink_y->at(idMatchedTrk)[kinkCount], track_kink_z->at(idMatchedTrk)[kinkCount]);
+    else nextKinkPos = mtrk_end_point;
+
+    // compare 
+    TVector3 incDir = (kinkPos-thisPos).Unit();
+    TVector3 outDir = (nextKinkPos-kinkPos).Unit();
+    float angle = std::acos(incDir.Dot(outDir))*180./M_PI;
+
+
+    if(angle > ANGLE_CUT)
+    {
+      _reason_alg1=_reason_alg1+" angle cut";
+      _reason_alg2=_reason_alg2+" angle cut";
+      return true;
+    }
+    thisPos = kinkPos;
+    kinkCount++;
+  }
   return false;
 }
 
