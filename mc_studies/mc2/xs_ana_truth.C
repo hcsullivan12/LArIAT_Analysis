@@ -91,18 +91,6 @@ float FV_X_BOUND[2] = {   1.0, 46.0 };
 float FV_Y_BOUND[2] = { -18.0, 18.0 };
 float FV_Z_BOUND[2] = {   0.0, 88.0 };
 
-/// Track length cut for secondaries
-float SECONDARY_LENGTH_CUT(2.0);
-
-/// Vertex cut
-float VERTEX_CUT(3.0);
-
-/// angle cut
-float ANGLE_CUT(20);
-
-/// downstream cut
-float DOWNSTREAM_Z_CUT(88);
-
 /// max on dedx
 float DEDX_MAX(40);
 
@@ -112,11 +100,10 @@ float ENTRY_TPC_ENERGY_LOSS(36); //MeV
 
 /// @name Histograms
 /// @{
-TH1D* hInteractingKe = new TH1D("hInteractingKe",  "Interacting",   24, 0, 1200);
-TH1D* hIncidentKe    = new TH1D("hIncidentKe",     "Incident",      24, 0, 1200);         
-TH1D* hTrkZ          = new TH1D("hTrkZ",           "Z pos in tpc",  50, 0, 100);
-TH1D* hDeDx          = new TH1D("hDeDx",           "dEdX",          200, 0, 50);
-TH1D* hPitch         = new TH1D("hPitch",          "Track pitch",   100, 0, 5);
+TH1D* hTrueInteractingKe = new TH1D("hTrueInteractingKe",  "True Interacting",   24, 0, 1200);
+TH1D* hTrueIncidentKe    = new TH1D("hTrueIncidentKe",     "True Incident",      24, 0, 1200);
+TH1D* hTruePitch         = new TH1D("hTruePitch", "hTruePitch", 1000, 0, 100);
+TH1D* hTrueEnDep         = new TH1D("hTrueEnDep", "hTrueEnDep", 1000, 0, 100);
 
 TH1D* hTruFirstPosInTpcX = new TH1D("hTruFirstPosInTpcX", "First Position In Tpc X", 120, -5, 55);
 TH1D* hTruFirstPosInTpcY = new TH1D("hTruFirstPosInTpcY", "First Position In Tpc Y", 100, -25, 25);
@@ -151,7 +138,7 @@ TH1D* hDiffIntPosInTpcMag  = new TH1D("hDiffIntPosInTpcMag",  "hDiffIntPosInTpcM
 /// @}
 
 /// Output root file
-TFile myRootFile("XS_ANA.root", "RECREATE");
+TFile myRootFile("XS_ANA_TRUTH.root", "RECREATE");
 
 /**
  * @brief Main loop
@@ -174,6 +161,14 @@ void xs_ana_truth::Loop(int inDebug)
     _nTotalEvents++;
     if(_nTotalEvents%500==0)cout<<_nTotalEvents<<" / "<<nentries<<endl;
     if(IN_DEBUG)cout<<"\nProcessing run #"<<run<<" event#"<<event<<"\n";
+
+    // get the interactions in the tpc
+    _vertices.clear();
+    getInteractionsInTpc();
+    if(IN_DEBUG){for(const auto& v : _vertices)v.Dump();}
+
+    // Measure true cross section
+    //doTrueXs();
 
     // loop over tracks
     size_t nTrksMatched = 0;
@@ -249,10 +244,7 @@ void xs_ana_truth::Loop(int inDebug)
       break;
     }
 
-    // get the interactions in the tpc
-    _vertices.clear();
-    getInteractionsInTpc();
-    if(IN_DEBUG){for(const auto& v : _vertices)v.Dump();}
+    // cases of decay and capture
     for(const auto& v : _vertices)
     {
       // plotting kinetic energy at WC 4 for decay and capture
@@ -284,7 +276,7 @@ void xs_ana_truth::Loop(int inDebug)
     }
     if(vtx.position.Z()<firstPosInTpc.Z())cout<<event<<"Warning: Interaction point is before first point. "<<vtx.position.Z()<<" "<<firstPosInTpc.Z()<<"\n";
 
-    cout<<col_track_z->at(idMatchedTrk)[0]<<" " << col_track_z->at(idMatchedTrk)[col_track_z->at(idMatchedTrk).size()-1]<<endl;
+    //cout<<col_track_z->at(idMatchedTrk)[0]<<" " << col_track_z->at(idMatchedTrk)[col_track_z->at(idMatchedTrk).size()-1]<<endl;
 
     // should be properly matched pions
     _nGoodEvents++;
@@ -342,98 +334,6 @@ void xs_ana_truth::Loop(int inDebug)
   MakePlots();
   gApplication->Terminate(0);
 }//<---- End main loop
-
-/**
- * @brief Area to determine inelasticity
- *
- */
-bool xs_ana_truth::isInelastic(int const& idMatchedTrk)
-{
-  // three cases to consider
-  // 1) If more than one track attached to vertex, yes
-  // 2) If one, check angle
-  // 3) If none, where is the end point? 
-
-  // get the start and enpoint
-  int mtrk_n_points = col_track_x->at(idMatchedTrk).size();
-  TVector3 mtrk_start_point( col_track_x->at(idMatchedTrk)[0],
-                             col_track_y->at(idMatchedTrk)[0],
-                             col_track_z->at(idMatchedTrk)[0] );
-  TVector3 mtrk_end_point( col_track_x->at(idMatchedTrk)[mtrk_n_points-1],
-                           col_track_y->at(idMatchedTrk)[mtrk_n_points-1],
-                           col_track_z->at(idMatchedTrk)[mtrk_n_points-1] );
-    
-  // check if inverted
-  if(mtrk_start_point.Z()>mtrk_end_point.Z())
-  {
-    if(IN_DEBUG)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
-    auto temp = mtrk_start_point;
-    mtrk_start_point = mtrk_end_point;
-    mtrk_end_point = temp;
-  }
-
-  // loop over tracks to see if any are attached to vertex
-  std::vector<int> sec_ids;
-  for (int iTrk=0; iTrk<ntracks_reco; iTrk++)
-  {
-    // skip the matched trk
-    if(iTrk==idMatchedTrk)continue;
-
-    // make sure this track has points
-    int n_points = col_track_x->at(iTrk).size();
-    if(n_points<2)continue;
-      
-    TVector3 start_point( col_track_x->at(iTrk)[0],
-                          col_track_y->at(iTrk)[0],
-                          col_track_z->at(iTrk)[0] );
-    TVector3 end_point( col_track_x->at(iTrk)[n_points-1],
-                        col_track_y->at(iTrk)[n_points-1],
-                        col_track_z->at(iTrk)[n_points-1] );
-    float dist1 = (mtrk_end_point - start_point).Mag();
-    float dist2 = (mtrk_end_point - end_point).Mag();
-    float dist_min = dist1 < dist2 ? dist1 : dist2;
-
-    // checl inversion
-    if(dist2<dist1)
-    {
-      if(IN_DEBUG)cout<<"Track inverted: "<<start_point.Z()<<" "<<end_point.Z()<<endl;
-      auto temp = start_point;
-      start_point = end_point;
-      end_point = temp;
-    }
-        
-    // we're done with this track if it's not close enough
-    if(dist_min>VERTEX_CUT)continue;
-
-    // we got one!
-    // @todo can we not use vertex information from reconstruction?
-    sec_ids.push_back(iTrk);
-  }
-  // we should have all secondaries connected to vertex
-  // Case 1)
-  if(sec_ids.size() > 1){_nEventsInelSec++; return true;}
-  else if(sec_ids.size()==1)
-  {
-    if(idMatchedTrk==sec_ids[0])cerr<<"Error: Sec id = matched\n";
-    float angle = getAngle(idMatchedTrk, sec_ids[0]);
-    cout<<angle<<endl;
-    if(angle>ANGLE_CUT){_nEventsInelOneSec++; return true;}
-    // @todo anything else here?
-    else return false;
-  }    
-
-  //
-  // @todo Think about what to do if sec = 0 but the track endpoint 
-  //       is in the middle of the tpc. It's not obvious to me right 
-  //       what's better to do: assume no interaction, assume inelastic
-  //       'or some other third thing' - SS
-  //       For now, assume inelastic.
-  //
-  if(sec_ids.size())cerr<<"Error. Sec ids > 0\n";
-  
-  if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT){_nEventsInelZeroSec++;return true;}
-  return false;
-}
 
 /**
  * @brief Getting interactions in tpc
@@ -511,52 +411,6 @@ void xs_ana_truth::getInteractionsInTpc()
 }
 
 /**
- * @brief Get angle between to tracks
- * 
- * @todo This currently assumes the tracks have no kinks,
- *       namely, it uses start and end points.
- * 
- */
-float xs_ana_truth::getAngle(int const& idm, int const& ids)
-{
-  TVector3 trk1_sp( track_start_x->at(idm),
-                    track_start_y->at(idm),
-                    track_start_z->at(idm) );
-  TVector3 trk1_ep( track_end_x->at(idm),
-                    track_end_y->at(idm),
-                    track_end_z->at(idm) );
-  // check inversion
-  if(trk1_sp.Z()>trk1_ep.Z())
-  {
-    if(IN_DEBUG)cout<<"Track inverted: "<<trk1_sp.Z()<<" "<<trk1_ep.Z()<<endl;
-    auto temp = trk1_sp;
-    trk1_sp = trk1_ep;
-    trk1_ep = temp;
-  }
-  auto dir1 = (trk1_ep-trk1_sp).Unit();
-
-  TVector3 trk2_sp( track_start_x->at(ids),
-                    track_start_y->at(ids),
-                    track_start_z->at(ids) );
-  TVector3 trk2_ep( track_end_x->at(ids),
-                    track_end_y->at(ids),
-                    track_end_z->at(ids) );
-  // check inversion
-  float dist1 = (trk1_ep - trk2_sp).Mag();
-  float dist2 = (trk1_ep - trk2_ep).Mag();
-  if(dist2<dist1)
-  {
-    if(IN_DEBUG)cout<<"Track inverted: "<<trk2_sp.Z()<<" "<<trk2_ep.Z()<<endl;
-    auto temp = trk2_sp;
-    trk2_sp = trk2_ep;
-    trk2_ep = temp;
-  }
-
-  auto dir2 = (trk2_ep-trk2_sp).Unit();
-  return std::acos(dir1.Dot(dir2))*180./M_PI;
-}
-
-/**
  * @brief Convert position to primary point
  * 
  */
@@ -571,6 +425,116 @@ int xs_ana_truth::getPrimaryPoint(const TVector3& pos)
   return 0;
 }
 
+  /**
+ * @brief Area to apply thin slab to true energy deposits
+ *
+ */
+void xs_ana_truth::doTrueXs()
+{
+  // get first position in tpc
+  TVector3 firstTpcPos(0,0,-100);
+  TVector3 initialMom(0,0,0);
+  for (int iPt=0; iPt < MidPosX->at(0).size(); iPt++)
+  {
+    TVector3 true_pos(MidPosX->at(0)[iPt],MidPosY->at(0)[iPt],MidPosZ->at(0)[iPt]);
+    if(!InActiveRegion(true_pos))continue;
+    firstTpcPos=true_pos;
+    initialMom = TVector3(1000*MidPx->at(0)[iPt], 1000*MidPy->at(0)[iPt], 1000*MidPz->at(0)[iPt]);
+    break;
+  }
+  if(!InActiveRegion(firstTpcPos))return;
+  // get last position closest to end position
+  TVector3 lastTpcPos(0,0,200);
+  for (int iPt=MidPosX->at(0).size()-1; iPt>=0; iPt--)
+  {
+    TVector3 true_pos(MidPosX->at(0)[iPt],MidPosY->at(0)[iPt],MidPosZ->at(0)[iPt]);
+    if(!InActiveRegion(true_pos))continue;
+    lastTpcPos=true_pos;
+    break;
+  }
+  if(!InActiveRegion(lastTpcPos))return;
+  if(firstTpcPos.Z()>lastTpcPos.Z())cout<<"Warning: Check the tpc positions.\n";
+
+  // get unifomly spaced points to the nearest inelastic vertex
+  std::vector<TVector3> orderedPoints;
+  bool isInel = false;
+  if(_vertices.size())
+  {
+    TVector3 current_pos = firstTpcPos;
+    for(const auto& v : _vertices)
+    {
+      orderedPoints.push_back(current_pos);
+      // adding in range (current, v.pos)
+      addUniformPoints(current_pos, v.position, orderedPoints);
+      current_pos = v.position;
+      if(v.process.find("pi-Inelastic")!=std::string::npos){isInel=true;break;}
+    }
+  }
+  else 
+  {
+    orderedPoints.push_back(firstTpcPos);
+    addUniformPoints(firstTpcPos, lastTpcPos, orderedPoints);
+    orderedPoints.push_back(lastTpcPos);
+  }
+
+  // ides need to be ordered
+  std::map<double, std::vector<double>> orderedIdes;
+  for(int iIde=0; iIde<TrackIdes_x->at(0).size(); iIde++)
+  {
+    std::vector<double> temp = {TrackIdes_x->at(0)[iIde], TrackIdes_y->at(0)[iIde], TrackIdes_z->at(0)[iIde], TrackIdes_e->at(0)[iIde]};
+    orderedIdes.emplace(TrackIdes_z->at(0)[iIde], temp);
+  }
+
+  // now we can fill
+  double kinEn = std::sqrt(initialMom.Mag()*initialMom.Mag()+PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
+
+  int oldPt = 0;
+  for (int iPt=1; iPt<orderedPoints.size(); iPt++, oldPt++)
+  {
+    auto oldPos     = orderedPoints[oldPt];
+    auto currentPos = orderedPoints[iPt];
+
+    auto itOldIde = orderedIdes.begin();
+    double eDep = 0;
+    for(auto itIde = orderedIdes.begin(); itIde!=orderedIdes.end(); itIde++,itOldIde++)
+    {
+      auto thisIde = itIde->second;
+      if(thisIde[2]<oldPos.Z())continue;
+      if(thisIde[2]>currentPos.Z())continue;
+      eDep += thisIde[3];
+    }
+    kinEn -= eDep;
+
+    hTruePitch->Fill((oldPos-currentPos).Mag());
+    hTrueEnDep->Fill(eDep);
+    hTrueIncidentKe->Fill(kinEn);
+  }
+  if(isInel)hTrueInteractingKe->Fill(kinEn);
+}
+
+/**
+ * @brief Add ordered points between two positions
+ *
+ */
+void xs_ana_truth::addUniformPoints(const TVector3& x0, const TVector3& xf, std::vector<TVector3>& orderedPoints)
+{
+  // we're not including the end points
+  float length = (x0-xf).Mag();
+  float trackPitch = 0.47;
+  int nPts = (int)(length/trackPitch);
+  for(int iPt=1;iPt<=nPts;iPt++)
+  {
+    auto newPoint = x0 + iPt*(trackPitch/length) * (xf - x0);
+    orderedPoints.push_back(newPoint);
+  }
+  // remove second to last point if it's too close to the last point
+  auto secondToLastPoint = orderedPoints.end()-2;
+  int distance = std::distance(orderedPoints.begin(), secondToLastPoint);
+  if( (*secondToLastPoint-xf).Mag() < trackPitch*0.5 )orderedPoints.erase(secondToLastPoint);
+}
+
+
+
 /**
  * @brief Make plots and save to output file
  * 
@@ -578,11 +542,10 @@ int xs_ana_truth::getPrimaryPoint(const TVector3& pos)
 void MakePlots()
 {
   myRootFile.cd();
-  hInteractingKe->Write();
-  hIncidentKe->Write();
-  hTrkZ->Write();
-  hDeDx->Write();
-  hPitch->Write();
+  hTrueInteractingKe->Write();
+  hTrueIncidentKe->Write();
+  hTruePitch->Write();
+  hTrueEnDep->Write();
   hTruFirstPosInTpcX->Write();
   hTruFirstPosInTpcY->Write();
   hTruFirstPosInTpcZ->Write();
