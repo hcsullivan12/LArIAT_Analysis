@@ -13,8 +13,8 @@ CONVERSION     = 2.1043084 # NUMBER_DENSITY * 1e-28
 ########################################################
 def doXsCalculation(file):
     f = ROOT.TFile.Open(file, 'READ')
-    hIntKe = f.Get('hInteractingKe')
-    hIncKe = f.Get('hIncidentKe')
+    hIntKe = f.Get('hTrueInteractingKe')
+    hIncKe = f.Get('hTrueIncidentKe')
 
     nBins = hIncKe.GetNbinsX()
     for iBin in range(1, nBins+1):
@@ -48,33 +48,45 @@ if __name__ == "__main__":
     doXsCalculation(str(args.source))
 
     cXs = ROOT.TCanvas('cXs', 'Cross section', 1000, 1000)
-    hCrossSectionKe.SetLineWidth(3)
+    hCrossSectionKe.SetLineWidth(2)
+    hCrossSectionKe.SetMarkerStyle(8)
+    hCrossSectionKe.SetMarkerSize(1.5)
     if args.type == 'data':
         hCrossSectionKe.SetMarkerColor(1)
         hCrossSectionKe.SetLineColor(1)
-        hCrossSectionKe.SetMarkerStyle(8)
     else:
         hCrossSectionKe.SetFillColor(ROOT.kAzure-3)
-        hCrossSectionKe.SetLineColor(4)
+        hCrossSectionKe.SetLineColor(ROOT.kViolet+4)
+        hCrossSectionKe.SetMarkerColor(ROOT.kViolet+4)
 
     if args.type == 'mc':
-        hCrossSectionKe.Draw('e2')
+        hCrossSectionKe.Draw('e')
     else:
         hCrossSectionKe.Draw()
+
+    #cXs.SetGrid()
+    #ROOT.gStyle.SetOptStat(0)
+    #ROOT.gStyle.SetGridStyle(2)
+    #ROOT.gStyle.SetGridWidth(2)
 
     hCrossSectionKe.SetMinimum(0)
     hCrossSectionKe.SetMaximum(1.2)
     hCrossSectionKe.GetXaxis().SetTitle('KE [MeV]')
     hCrossSectionKe.GetYaxis().SetTitle('Cross Section [barns]')
     hG4Xs.Draw('same l')
-    hG4Xs.SetLineColor(2)
-    hG4Xs.SetLineWidth(2)
+    hG4Xs.SetLineColor(ROOT.kOrange+7)
+    hG4Xs.SetLineWidth(4)
 
     leg = ROOT.TLegend(0.1,0.7,0.48,0.9)
     name = 'Data Reco'
     if args.type == 'mc': name = 'MC Reco (only pions)'
-    leg.AddEntry(hCrossSectionKe, name, 'f')
-    leg.AddEntry(hG4Xs, 'MC Thin Target', 'l')
+    leg.AddEntry(hCrossSectionKe, name, 'pl')
+    leg.AddEntry(hG4Xs, 'G4Prediction Inelastic XS', 'l')
     leg.Draw('same')
+
+    ##########
+    output = ROOT.TFile.Open('histograms.root', 'RECREATE')
+    hG4Xs.Write()
+    hCrossSectionKe.Write()
 
     wait = input(' ')

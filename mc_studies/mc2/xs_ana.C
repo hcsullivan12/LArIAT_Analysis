@@ -120,7 +120,7 @@ float ANGLE_CUT(10);
 float DOWNSTREAM_Z_CUT(80);
 
 /// max on dedx
-float DEDX_MAX(20);
+float DEDX_MAX(40);
 
 /// max on pitch
 float PITCH_MAX(2.0);
@@ -133,14 +133,14 @@ float ENTRY_TPC_ENERGY_LOSS(42); //MeV
 /// @{
 TH1D* hInteractingKe = new TH1D("hInteractingKe",  "Interacting",   24, 0, 1200);
 TH1D* hIncidentKe    = new TH1D("hIncidentKe",     "Incident",      24, 0, 1200);         
+TH1D* hWellRecoInteractingKe = new TH1D("hWellRecoInteractingKe",  "WellRecoInteracting",   24, 0, 1200);
+TH1D* hWellRecoIncidentKe    = new TH1D("hWellRecoIncidentKe",     "WellRecoIncident",      24, 0, 1200);         
 TH1D* hTrkZ          = new TH1D("hTrkZ",           "Z pos in tpc",  50, 0, 100);
 TH1D* hDeDx          = new TH1D("hDeDx",           "dEdX",          200, 0, 50);
 TH1D* hPitch         = new TH1D("hPitch",          "Track pitch",   100, 0, 5);
-TH1D* hVertexDistSec = new TH1D("hVertexDistSec", "Vertex Dist Sec", 100, 0, 10);
-
 TH1D* hDiffInitKe = new TH1D("hDiffInitKe", "hDiffInitKe", 1000, -500, 500);
 TH1D* hEnLossUpstream = new TH1D("hEnLossUpstream", "hEnLossUpstream", 1000, -500, 500);
-
+TH1D* hVertexDistSec = new TH1D("hVertexDistSec", "Vertex Dist Sec", 100, 0, 10);
 TH1D* hDiffFirstPosInTpcX   = new TH1D("hDiffFirstPosInTpcX",   "hDiffFirstPosInTpcX",   80, -20, 20);
 TH1D* hDiffFirstPosInTpcY   = new TH1D("hDiffFirstPosInTpcY",   "hDiffFirstPosInTpcY",   80, -20, 20);
 TH1D* hDiffFirstPosInTpcZ   = new TH1D("hDiffFirstPosInTpcZ",   "hDiffFirstPosInTpcZ",   40, -10, 10);
@@ -149,10 +149,15 @@ TH1D* hDiffIntPosInTpcX   = new TH1D("hDiffIntPosInTpcX",   "hDiffIntPosInTpcX",
 TH1D* hDiffIntPosInTpcY   = new TH1D("hDiffIntPosInTpcY",   "hDiffIntPosInTpcY",   80, -20, 20);
 TH1D* hDiffIntPosInTpcZ   = new TH1D("hDiffIntPosInTpcZ",   "hDiffIntPosInTpcZ",   400, -100, 100);
 TH1D* hDiffIntPosInTpcMag = new TH1D("hDiffIntPosInTpcMag", "hDiffIntPosInTpcMag", 200, 0, 100);
-
 TH2D* hTruVsRecoLength = new TH2D("hTruVsRecoLength", "Tru Vs Reco Length", 200, 0, 100, 200, 0, 100);
-
 TH1D* hDiffLength           = new TH1D("hDiffLength", "hDiffLength", 400, -100, 100);
+TH2D* hTrueVsRecoKinEn = new TH2D("hTrueVsRecoKinEn", "hTrueVsRecoKinEn", 24, 0, 1200, 24, 0, 1200);
+TH1D* hKeWc4Decay   = new TH1D("hKeWc4Decay", "hKeWc4Decay", 24, 0, 1200);
+TH1D* hKeWc4Capture = new TH1D("hKeWc4Capture", "hKeWc4Capture", 24, 0, 1200);
+TH1D* hTruePitch      = new TH1D("hTruePitch",      "hTruePitch",      100, 0, 5);
+TH1D* hTrueEnDep      = new TH1D("hTrueEnDep",      "hTrueEnDep",      1000, 0, 1000);
+TH1D* hTrueIncidentKe = new TH1D("hTrueIncidentKe", "hTrueIncidentKe", 24, 0, 1200);
+TH1D* hTrueInteractingKe = new TH1D("hTrueInteractingKe", "hTrueInteractingKe", 24, 0, 1200);
 /// @}
 
 /// Output root file
@@ -168,7 +173,7 @@ void xs_ana::Loop(int inDebug, int isMc)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (int jentry=223; jentry<=223/*nentries*/;jentry++) 
+  for (int jentry=0; jentry<=nentries;jentry++) 
   {
     IN_DEBUG = inDebug;
     Long64_t ientry = LoadTree(jentry);
@@ -200,49 +205,10 @@ void xs_ana::Loop(int inDebug, int isMc)
     //doFilter(idMatchedTrk);
 
     // checking the particle in the tpc
-    if(isMc)
+    if (isMc) 
     {
-      TVector3 firstPosInTpc(0,0,-100);
-      for (int iPt=0; iPt<MidPosX->at(0).size(); iPt++)
-      {
-        TVector3 pos(MidPosX->at(0)[iPt], MidPosY->at(0)[iPt], MidPosZ->at(0)[iPt]);
-        if(!inTpcRegion(pos))continue;
-        firstPosInTpc = pos;
-        break;
-      }
-      if(!inTpcRegion(firstPosInTpc))
-      {
-        // What did then?
-        // make sure candidates are charged, and proj onto front face
-        if(IN_DEBUG)cout<<"Warning: Run #"<<run<<" Event #"<<event<<" primary did not enter tpc but a track was matched\n";
-        if(IN_DEBUG)cout<<"Primary ended at "<<EndPointx->at(0)<<" " <<EndPointy->at(0)<<" " <<EndPointz->at(0)<<"\n";
-        if(IN_DEBUG)cout<<"Candidates...\n";
-        std::set<std::string> cand;
-        for (int ig4=0; ig4<geant_list_size; ig4++)
-        {
-          if(process_primary->at(ig4)==1)continue;
-          if(!isCharged(PDG->at(ig4)))continue;
-          TVector3 sp(StartPointx->at(ig4), StartPointy->at(ig4), StartPointz->at(ig4)); 
-          TVector3 mom(StartPx->at(ig4), StartPy->at(ig4), StartPz->at(ig4)); 
-          TVector3 proj = sp - (sp.Z()/mom.Z())*mom;
-          if(TPC_X_BOUND[0]>proj.X() || proj.X()>TPC_X_BOUND[1])continue;
-          if(TPC_Y_BOUND[0]>proj.Y() || proj.Y()>TPC_Y_BOUND[1])continue;
-          cand.insert(getParticle(PDG->at(ig4)));
-          _bkgCandidates.insert(getParticle(PDG->at(ig4)));
-        }
-        if(IN_DEBUG)for(const auto& c : cand){cout<<"\t"<<c<<endl;}
-
-        // some particles take precedence
-        if(cand.find("pion")!=cand.end()){_nPionBkg++;_trueTpcParticle="sec_pion";}
-        else if(cand.find("muon")!=cand.end()){_nMuonBkg++;_trueTpcParticle="muon";}
-        else if(cand.find("proton")!=cand.end()){_nProtonBkg++;_trueTpcParticle="proton";}
-        else if(cand.find("electron")!=cand.end()){_nElectronBkg++;_trueTpcParticle="electron";}
-        else {_nOtherBkg++;}
-
-        // if there are no candidates, wth did we do wrong?
-        if(!cand.size()){cerr<<"Error. No candidates for matched track!\n";exit(1);}
-        if(_trueTpcParticle!="pion")continue;
-      }
+      bool isPrimPion = checkParticleInTpc();
+      if(!isPrimPion)continue;
     }
 
     // Fill these temporary containers 
@@ -268,18 +234,29 @@ void xs_ana::Loop(int inDebug, int isMc)
     }
 
     // check if inelastic
-    cout<<"\nEvent #"<<event<<endl;
-    cout<<"Kinks "<<track_kink_x->at(idMatchedTrk).size()<<endl;
+    //cout<<"\nEvent #"<<event<<endl;
+    //cout<<"Kinks "<<track_kink_x->at(idMatchedTrk).size()<<endl;
     TVector3 end_position(t_trk_x.back(), t_trk_y.back(), t_trk_z.back());
-    TVector3 recobVertex(t_trk_x.back(), t_trk_y.back(), t_trk_z.back());
+    TVector3 recobVertex = end_position;
     bool isInel_1 = isInelastic_Alg1(idMatchedTrk);
     bool isInel_2 = isInelastic_Alg2(idMatchedTrk, recobVertex);
+
+    // trust the vertex reconstruction
     if(isInel_2 && recobVertex.Z()>t_trk_z.front()) end_position = recobVertex;
 
+    // check for kinks
     TVector3 kink_position;
     bool passKink = checkKink(idMatchedTrk, kink_position);
-    if(!isInel_1 && passKink && kink_position.Z()>t_trk_z.back()) {isInel_1=true;end_position=kink_position;}
-    if(!isInel_2 && passKink && kink_position.Z()>t_trk_z.back()) {isInel_2=true;end_position=kink_position;}
+    //passKink = false;
+
+    // check to see if kink is before current current prediction if it passed the inelasticity test 
+    // it may be the case that we tagged a decay or capture!
+    if(isInel_1 && passKink && kink_position.Z()>t_trk_z.front() && kink_position.Z()<end_position.Z())end_position = kink_position;
+    if(isInel_2 && passKink && kink_position.Z()>t_trk_z.front() && kink_position.Z()<end_position.Z())end_position = kink_position;
+
+    // this is case if we didn't tag as inelastic
+    if(!isInel_1 && passKink && kink_position.Z()>t_trk_z.front()) {isInel_1=true;end_position=kink_position;}
+    if(!isInel_2 && passKink && kink_position.Z()>t_trk_z.front()) {isInel_2=true;end_position=kink_position;}
 
     // now we have to decide which one to take and the end point
     bool isInel = isInel_1 || isInel_2;
@@ -296,143 +273,43 @@ void xs_ana::Loop(int inDebug, int isMc)
       trk_dedx.push_back(t_trk_dedx[iSb]);
     }
 
+    // look for bragg peak, only if we determined it to be inelastic 
+    //if(isInel && isBraggPeak(trk_x, trk_y, trk_z, trk_p, trk_dedx))isInel = false;
+
     // ke at front face
     // @todo what do I do about the WC momentum?
     float wcMom = wctrk_momentum[0];
-    float kinEn = std::sqrt( wcMom*wcMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
-    kinEn -= ENTRY_TPC_ENERGY_LOSS;
-    if(isMc)
+    float recoKinEn = std::sqrt( wcMom*wcMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
+    recoKinEn -= ENTRY_TPC_ENERGY_LOSS;
+    if(isMc) 
     {
-      // get vertices
-      _vertices.clear();
-      getInteractionsInTpc();
-      bool foundInel(false);
-      bool foundOther(false);
-      // @note for now, skip decay and capture at rest
-      for(const auto& v : _vertices)
-      {
-        v.Dump();
-        if(v.process=="pi-Inelastic")foundInel=true;
-        if(v.process=="Decay"||v.process=="CaptureAtRest")foundOther=true;
-      }
-      if(foundOther)continue;
-      
-      cout<<"First alg...\n";
-      cout<<"\tThe reason "<<_reason_alg1<<endl;
-      if(isInel_1 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg1++;}
-      if(isInel_1 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg1++;}
-      if(!isInel_1 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg1++;}
-      if(!isInel_1 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg1++;}
-      cout<<"Second alg...\n";
-      cout<<"\tThe reason "<<_reason_alg2<<endl;
-      if(isInel_2 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg2++;}
-      if(isInel_2 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg2++;}
-      if(!isInel_2 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg2++;}
-      if(!isInel_2 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg2++;}
-      
-      cout<<"Ntracks = "<<ntracks_reco<<endl;
-      cout<<"Start point ("<<trk_x[0]<<","<<trk_y[0]<<","<<trk_z[0]<<")\n";
-      cout<<"End point   ("<<trk_x[trk_x.size()-1]<<","<<trk_y[trk_x.size()-1]<<","<<trk_z[trk_x.size()-1]<<")\n";
-      if(isInel && foundInel)_n_correct++;
-      if(isInel_1 && !foundInel)_n_incorrect++;
-      if(!isInel_1 && foundInel)_n_missed++;
-      if(!isInel_1 && !foundInel)_n_correct++;
-
-      // find nearest pi-inelastic vertex
-      TVector3 trk_startpos(trk_x.front(), trk_y.front(), trk_z.front());
-      TVector3 trk_endpos(trk_x.back(), trk_y.back(), trk_z.back());
-      float minDist = std::numeric_limits<float>::max();
-      Vertex_t closest_vtx(-1, "none", trk_endpos);
-      for(const auto& v : _vertices)
-      {
-        if(v.process.find("pi-Inelastic")==std::string::npos)continue;
-        float dist = (trk_endpos-v.position).Mag();
-        if(dist<minDist){minDist=dist; closest_vtx=v;}
-      }
-      
-      // get first position closest to reco start position
-      TVector3 firstTruePos(0,0,-100);
-      TVector3 lastTruePos(0,0,200);
-      TVector3 initialMom(0,0,0);
-      minDist = std::numeric_limits<float>::max();
-      for (int iPt=0; iPt < MidPosX->at(0).size(); iPt++)
-      {
-        TVector3 true_pos(MidPosX->at(0)[iPt],MidPosY->at(0)[iPt],MidPosZ->at(0)[iPt]);
-        TVector3 true_mom(1000*MidPx->at(0)[iPt],1000*MidPy->at(0)[iPt],1000*MidPz->at(0)[iPt]);
-        float dist = (true_pos-trk_startpos).Mag();
-        if(dist<minDist){minDist=dist;firstTruePos=true_pos;initialMom=true_mom;}
-      }
-      // get last position closest to reco end position
-      minDist = std::numeric_limits<float>::max();
-      for (int iPt=MidPosX->at(0).size()-1; iPt>=0; iPt--)
-      {
-        TVector3 true_pos(MidPosX->at(0)[iPt],MidPosY->at(0)[iPt],MidPosZ->at(0)[iPt]);
-        float dist = (true_pos-trk_endpos).Mag();
-        if(dist<minDist){minDist=dist;lastTruePos=true_pos;}
-      }
-      if(firstTruePos.Z()<0)cout<<"Warning: Check true first position\n";
-      if(lastTruePos.Z()>90)cout<<"Warning: Check true last position\n";
-      if(firstTruePos.Z()>lastTruePos.Z())cout<<"Warning: Check true positions\n";
-
-      hDiffFirstPosInTpcX->Fill(   (trk_startpos-firstTruePos).X() );
-      hDiffFirstPosInTpcY->Fill(   (trk_startpos-firstTruePos).Y() );
-      hDiffFirstPosInTpcZ->Fill(   (trk_startpos-firstTruePos).Z() );
-      hDiffFirstPosInTpcMag->Fill( (trk_startpos-firstTruePos).Mag() );
-
-      auto last_interesting_point = closest_vtx.position;
-      if(closest_vtx.process=="none") last_interesting_point = lastTruePos;
-
-      cout<<firstTruePos.Z()<<" "<<last_interesting_point.Z()<<endl;
-      if((firstTruePos-last_interesting_point).Mag()<1)cout<<"\nHEYYY "<<event<<endl;
-
-      hDiffIntPosInTpcX->Fill(   (trk_endpos-last_interesting_point).X() );
-      hDiffIntPosInTpcY->Fill(   (trk_endpos-last_interesting_point).Y() );
-      hDiffIntPosInTpcZ->Fill(   (trk_endpos-last_interesting_point).Z() );
-      hDiffIntPosInTpcMag->Fill( (trk_endpos-last_interesting_point).Mag() );
-      hDiffLength->Fill(      (trk_startpos-trk_endpos).Mag() - (firstTruePos-last_interesting_point).Mag());
-      hTruVsRecoLength->Fill( (trk_startpos-trk_endpos).Mag(),  (firstTruePos-last_interesting_point).Mag());
-      //if((trk_endpos-lastTruePos).Z()>60)cout<<"EVENT "<<event<<endl;
-
-      // compare the kinetic energies
-      TVector3 startingMom(1000*MidPx->at(0)[0], 1000*MidPy->at(0)[0], 1000*MidPz->at(0)[0]);
-      float startKe   = std::sqrt(startingMom*startingMom + PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
-      float initialKe = std::sqrt(initialMom*initialMom + PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
-      hEnLossUpstream->Fill(startKe-initialKe);
-      hDiffInitKe->Fill(initialKe-kinEn);
+      if(studyMc())continue;
     }
 
-    // interpolate
-    //float last_dedx = trk_dedx.front();
-    //float enLoss(0);
-    //for (int iSb = 1; iSb<(trk_x.size()-1); iSb++)
-    //{
-    //  float dedx = trk_dedx[iSb];
-    //  float pitch = trk_p[iSb];
-    //  enLoss += dedx*pitch;
-    //  float next_dedx = trk_dedx[iSb+1];
-    //  //if(dedx<DEDX_MAX)continue;
-    //}
-
     // fill incident
+    float lastPosKinEn = recoKinEn;
     for (int iSb = 0; iSb<trk_x.size(); iSb++)
     {
       float dedx  = trk_dedx[iSb];
       float pitch = trk_p[iSb];
       // protection against large dedx and pitch
       //if(pitch>PITCH_MAX){cout<<"HEYYY "<<pitch<<" "<<iSb<<"/"<<trk_x.size()<<endl;continue;}
-      if(dedx>DEDX_MAX)continue;
-
-      hIncidentKe->Fill(kinEn);
+      if(dedx>DEDX_MAX)dedx=2.1; // mean value from dedx curve
+      
+      hIncidentKe->Fill(recoKinEn);
       hDeDx->Fill(dedx);
       hPitch->Fill(pitch);
-      if(iSb!=(trk_x.size()-1))kinEn -= dedx * pitch;
+      if(iSb!=(trk_x.size()-1))recoKinEn -= dedx * pitch;
 
+      //keeping track of the last > 0 ke
+      if(recoKinEn>0)lastPosKinEn=recoKinEn;
+      
       // check for < 0
-      if(kinEn<=0){cout<<"Warning: "<<event<<" Filling zero\n";break;}
+      if(recoKinEn<=0){cout<<"Warning: "<<event<<" Filling zero\n";break;}
     }
-  
+    
     // fill interacting
-    if(isInel)hInteractingKe->Fill(kinEn);
+    if(isInel)hInteractingKe->Fill(lastPosKinEn);
   }//<---End loop over entries
 
 
@@ -605,7 +482,6 @@ bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk, TVector3& recobVertex)
       vtx.tids.push_back(vertex_track_ids->at(iVtx)[iTrk]);
     }
     if(pass&&vtx.tids.size())vtxs.push_back(vtx);
-    
   }
   if(!vtxs.size())
   {
@@ -617,11 +493,256 @@ bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk, TVector3& recobVertex)
 
   // sort in increasing z
   std::sort(vtxs.begin(), vtxs.end(), [](const auto& l, const auto& r){return l.z<r.z;});
-  if(vtxs.back().tids.size()>1){_reason_alg2="> 1";recobVertex = TVector3(vtxs.back().x, vtxs.back().y, vtxs.back().z);return true;}
+
+  // we take the first vertex with > 1 tids attached
+  // @todo what about checking the angle first?
+  for(const auto& v : vtxs)
+  {
+    if(v.tids.size()>1){_reason_alg2="> 1";recobVertex = TVector3(v.x, v.y, v.z);return true;}
+  }
+
+  // @note this needs to be addressed again. perhaps need to check if secondary ranges out
 
   _reason_alg2 = "vtx = 1";
   if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT  && inActiveRegion(mtrk_end_point))return true;
   return false;
+}
+
+/**
+ * @brief Check that the primary entered in the tpc, if it didn't, what did?
+ * 
+ * @return true Is our primary pion
+ * @return false Is not our primary pion
+ */
+bool xs_ana::checkParticleInTpc()
+{
+  TVector3 firstPosInTpc(0,0,-100);
+  for (int iPt=0; iPt<MidPosX->at(0).size(); iPt++)
+  {
+    TVector3 pos(MidPosX->at(0)[iPt], MidPosY->at(0)[iPt], MidPosZ->at(0)[iPt]);
+    if(!inTpcRegion(pos))continue;
+    firstPosInTpc = pos;
+    break;
+  }
+  if(!inTpcRegion(firstPosInTpc))
+  {
+    // What did then?
+    // make sure candidates are charged, and proj onto front face
+    if(IN_DEBUG)cout<<"Warning: Run #"<<run<<" Event #"<<event<<" primary did not enter tpc but a track was matched\n";
+    if(IN_DEBUG)cout<<"Primary ended at "<<EndPointx->at(0)<<" " <<EndPointy->at(0)<<" " <<EndPointz->at(0)<<"\n";
+    if(IN_DEBUG)cout<<"Candidates...\n";
+    std::set<std::string> cand;
+    for (int ig4=0; ig4<geant_list_size; ig4++)
+    {
+      if(process_primary->at(ig4)==1)continue;
+      if(!isCharged(PDG->at(ig4)))continue;
+      TVector3 sp(StartPointx->at(ig4), StartPointy->at(ig4), StartPointz->at(ig4)); 
+      TVector3 mom(StartPx->at(ig4), StartPy->at(ig4), StartPz->at(ig4)); 
+      TVector3 proj = sp - (sp.Z()/mom.Z())*mom;
+      if(TPC_X_BOUND[0]>proj.X() || proj.X()>TPC_X_BOUND[1])continue;
+      if(TPC_Y_BOUND[0]>proj.Y() || proj.Y()>TPC_Y_BOUND[1])continue;
+      cand.insert(getParticle(PDG->at(ig4)));
+      _bkgCandidates.insert(getParticle(PDG->at(ig4)));
+    }
+    if(IN_DEBUG)for(const auto& c : cand){cout<<"\t"<<c<<endl;}
+    
+    // some particles take precedence
+    if(cand.find("pion")!=cand.end()){_nPionBkg++;_trueTpcParticle="sec_pion";}
+    else if(cand.find("muon")!=cand.end()){_nMuonBkg++;_trueTpcParticle="muon";}
+    else if(cand.find("proton")!=cand.end()){_nProtonBkg++;_trueTpcParticle="proton";}
+    else if(cand.find("electron")!=cand.end()){_nElectronBkg++;_trueTpcParticle="electron";}
+    else {_nOtherBkg++;}
+    
+    // if there are no candidates, wth did we do wrong?
+    if(!cand.size()){cerr<<"Error. No candidates for matched track!\n";exit(1);}
+  }
+  if(_trueTpcParticle=="pion")return true;
+  return false;
+}
+
+/**
+ * @brief Check energy reconstruction
+ * 
+ */
+void xs_ana::makeSmearingPlot(const std::vector<double>& trk_x,
+                              const std::vector<double>& trk_y, 
+                              const std::vector<double>& trk_z, 
+                              const std::vector<double>& trk_p, 
+                              const std::vector<double>& trk_dedx, 
+                              float recoKinEn, 
+                              float trueKinEn)
+{
+  // for each trk point, find the nearest true point
+  int iOldPt = 0;
+  for(int iPt=1; iPt<trk_x.size(); iPt++, iOldPt++)
+  {
+    float dedx  = trk_dedx[iPt];
+    float pitch = trk_p[iPt];
+    if(dedx>DEDX_MAX)dedx = 2.1; // mean of dedx curve
+    recoKinEn -= dedx * pitch;
+
+    TVector3 oldPos(trk_x[iOldPt], trk_y[iOldPt], trk_z[iOldPt]);
+    TVector3 currentPos(trk_x[iPt], trk_y[iPt], trk_z[iPt]);
+    for(int iTrPt=0; iTrPt<TrackIdes_x->at(0).size(); iTrPt++)
+    {
+      TVector3 true_pos(TrackIdes_x->at(0)[iTrPt],TrackIdes_y->at(0)[iTrPt],TrackIdes_z->at(0)[iTrPt]);
+      if(true_pos.Z() < oldPos.Z())continue;
+      if(true_pos.Z() > currentPos.Z())continue;
+      trueKinEn -= TrackIdes_e->at(0)[iTrPt];
+    }
+    hTrueVsRecoKinEn->Fill(trueKinEn, recoKinEn);
+
+    float diff = std::abs(trueKinEn-recoKinEn);
+    if(diff > 100)cout<<"\nHEYY "<<event<<endl;
+    if(event==223)cout<<oldPos.Z()<<" True = "<<trueKinEn<<" Reco = "<<recoKinEn<<" Diff = "<<diff<<" dedx = "<<dedx<<" pitch = "<<pitch<<endl;
+  }
+}
+
+/**
+ * @brief A place to make study mc information
+ * 
+ * @return true Skip this event
+ * 
+ */
+bool xs_ana::studyMc()
+{
+  // get vertices
+  _vertices.clear();
+  getInteractionsInTpc();
+  bool foundInel(false);
+  bool foundOther(false);
+  // look for decay and capture
+  for(const auto& v : _vertices)
+  {
+    //v.Dump();
+    if(v.process=="pi-Inelastic")foundInel=true;
+    if(v.process=="Decay"){hKeWc4Decay->Fill(wcMom);foundOther=true;}
+    if(v.process=="CaptureAtRest"){hKeWc4Capture->Fill(wcMom);foundOther=true;}
+  }
+  if(foundOther)return true;
+      
+  //cout<<"First alg...\n";
+  //cout<<"\tThe reason "<<_reason_alg1<<endl;
+  //if(isInel_1 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg1++;}
+  //if(isInel_1 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg1++;}
+  //if(!isInel_1 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg1++;}
+  //if(!isInel_1 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg1++;}
+  //cout<<"Second alg...\n";
+  //cout<<"\tThe reason "<<_reason_alg2<<endl;
+  //if(isInel_2 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg2++;}
+  //if(isInel_2 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg2++;}
+  //if(!isInel_2 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg2++;}
+  //if(!isInel_2 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg2++;}
+  
+  //cout<<"Ntracks = "<<ntracks_reco<<endl;
+  //cout<<"Start point ("<<trk_x[0]<<","<<trk_y[0]<<","<<trk_z[0]<<")\n";
+  //cout<<"End point   ("<<trk_x[trk_x.size()-1]<<","<<trk_y[trk_x.size()-1]<<","<<trk_z[trk_x.size()-1]<<")\n";
+  if(isInel && foundInel)_n_correct++;
+  if(isInel && !foundInel)_n_incorrect++;
+  if(!isInel && foundInel)_n_missed++;
+  if(!isInel && !foundInel)_n_correct++;
+
+  // find nearest pi-inelastic vertex
+  TVector3 trk_startpos(trk_x.front(), trk_y.front(), trk_z.front());
+  TVector3 trk_endpos(trk_x.back(), trk_y.back(), trk_z.back());
+  float minDist = std::numeric_limits<float>::max();
+  Vertex_t closest_vtx(-1, "none", trk_endpos);
+  int closest_vtx_id(-1);
+  for(int iVtx=0; iVtx<_vertices.size(); iVtx++)
+  {
+    if(_vertices[iVtx].process.find("pi-Inelastic")==std::string::npos)continue;
+    float dist = (trk_endpos-_vertices[iVtx].position).Mag();
+    if(dist<minDist){minDist=dist; closest_vtx=_vertices[iVtx]; closest_vtx_id=iVtx;}
+  }
+      
+  // get first position in tpc (3cm from front face hit removal)
+  TVector3 firstTruePos(0,0,-100);
+  TVector3 lastTruePos(0,0,200);
+  TVector3 initialMom(0,0,0);
+  int hit_removal_low(3);
+  int hit_removal_high(87);
+  for (int iPt=0; iPt < MidPosX->at(0).size(); iPt++)
+  {
+    TVector3 true_pos(MidPosX->at(0)[iPt],MidPosY->at(0)[iPt],MidPosZ->at(0)[iPt]);
+    TVector3 true_mom(1000*MidPx->at(0)[iPt],1000*MidPy->at(0)[iPt],1000*MidPz->at(0)[iPt]);
+    if(true_pos.Z()<0)continue;
+    firstTruePos=true_pos;
+    if(true_pos.Z()<hit_removal_low)continue;
+    firstTruePos=true_pos;
+    initialMom=true_mom;
+    break;
+  }
+  // get last position in tpc (87cm from front face hit removal)
+  minDist = std::numeric_limits<float>::max();
+  for (int iPt=MidPosX->at(0).size()-1; iPt>=0; iPt--)
+  {
+    TVector3 true_pos(MidPosX->at(0)[iPt],MidPosY->at(0)[iPt],MidPosZ->at(0)[iPt]);
+    if(!inTpcRegion(true_pos))continue;
+    if(true_pos.Z()>hit_removal_high)continue;
+    lastTruePos = true_pos;
+    break;
+  }
+  if(firstTruePos.Z()<0){cout<<event<<"Warning: Check true first position\n";firstTruePos.Print();}
+  if(lastTruePos.Z()>hit_removal_high){cout<<"Warning: Check true last position\n";lastTruePos.Print();}
+  if(firstTruePos.Z()>lastTruePos.Z())cout<<"Warning: Check true positions\n";
+
+  hDiffFirstPosInTpcX->Fill(   (trk_startpos-firstTruePos).X() );
+  hDiffFirstPosInTpcY->Fill(   (trk_startpos-firstTruePos).Y() );
+  hDiffFirstPosInTpcZ->Fill(   (trk_startpos-firstTruePos).Z() );
+  hDiffFirstPosInTpcMag->Fill( (trk_startpos-firstTruePos).Mag() );
+
+  auto last_interesting_point = closest_vtx.position;
+  if(closest_vtx.process=="none") last_interesting_point = lastTruePos;
+
+  float reco_length = (trk_endpos-trk_startpos).Mag();
+  float true_length = (firstTruePos-last_interesting_point).Mag();
+  hDiffIntPosInTpcX->Fill(   (trk_endpos-last_interesting_point).X() );
+  hDiffIntPosInTpcY->Fill(   (trk_endpos-last_interesting_point).Y() );
+  hDiffIntPosInTpcZ->Fill(   (trk_endpos-last_interesting_point).Z() );
+  hDiffIntPosInTpcMag->Fill( (trk_endpos-last_interesting_point).Mag() );
+  hDiffLength->Fill( reco_length - true_length );
+  hTruVsRecoLength->Fill( reco_length,  true_length );
+  if(40 < reco_length && reco_length<50 && true_length > 80)cout<<"\n\nHEYYYYY"<<event<<endl;
+
+  // compare the kinetic energies
+  TVector3 startingMom(1000*MidPx->at(0)[0], 1000*MidPy->at(0)[0], 1000*MidPz->at(0)[0]);
+  float startKe   = std::sqrt(startingMom*startingMom + PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
+  float initialKe = std::sqrt(initialMom*initialMom + PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
+  hEnLossUpstream->Fill(startKe-initialKe);
+  hDiffInitKe->Fill(initialKe-recoKinEn);
+
+  // how we doing on energy reconstruction?
+  if((reco_length-true_length) < 2 && (recoKinEn-initialKe)<10)
+  {
+    doTrueXs(initialMom, firstTruePos, last_interesting_point, closest_vtx_id); 
+    makeSmearingPlot(trk_x, trk_y, trk_z, trk_p, trk_dedx, recoKinEn, initialKe);
+    // fill incident
+    float recoKinEn_copy = recoKinEn;
+    float lastPosKinEn = recoKinEn;
+    for (int iSb = 0; iSb<trk_x.size(); iSb++)
+    {
+      float dedx  = trk_dedx[iSb];
+      float pitch = trk_p[iSb];
+      //cout<<"recoKinEn = " <<recoKinEn_copy<<" dedx = "<<dedx<<" pitch = "<<pitch<<endl;
+      // protection against large dedx and pitch
+      //if(pitch>PITCH_MAX){cout<<"HEYYY "<<pitch<<" "<<iSb<<"/"<<trk_x.size()<<endl;continue;}
+      if(dedx>DEDX_MAX)dedx=2.1; // mean value from dedx curve
+      
+      hWellRecoIncidentKe->Fill(recoKinEn_copy);
+      hDeDx->Fill(dedx);
+      hPitch->Fill(pitch);
+      if(iSb!=(trk_x.size()-1))recoKinEn_copy -= dedx * pitch;
+
+      //keeping track of the last > 0 ke
+      if(recoKinEn_copy>0)lastPosKinEn=recoKinEn_copy;
+      
+      // check for < 0
+      if(recoKinEn_copy<=0){cout<<"Warning: "<<event<<" Got zero at "<<iSb<<" / "<<trk_x.size()-1<<"\n";break;}
+    }
+
+    // fill interacting
+    if(isInel)hWellRecoInteractingKe->Fill(lastPosKinEn);
+  }
 }
 
 /**
@@ -630,6 +751,7 @@ bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk, TVector3& recobVertex)
  */
 bool xs_ana::checkKink(int const& idMatchedTrk, TVector3& kink_position)
 {
+  if(IN_DEBUG)cout<<"Checking the kinks...\n";
   // get the start and endpoint
   int mtrk_n_points = col_track_x->at(idMatchedTrk).size();
   TVector3 mtrk_start_point( col_track_x->at(idMatchedTrk)[0],
@@ -651,7 +773,11 @@ bool xs_ana::checkKink(int const& idMatchedTrk, TVector3& kink_position)
   // get the kink information
   int nKinks = track_kink_x->at(idMatchedTrk).size();
   if(!nKinks)return false;
+
+  // check all kinks and use the maximum
   int kinkCount = 1;
+  float max_angle(0);
+  bool didPass(false);
   while (kinkCount <= nKinks)
   {
     // get points before and after kink
@@ -664,14 +790,19 @@ bool xs_ana::checkKink(int const& idMatchedTrk, TVector3& kink_position)
     TVector3 outDir = (afterKinkPos-kinkPos).Unit();
     float angle = std::acos(incDir.Dot(outDir))*180./M_PI;
 
-    if(angle > ANGLE_CUT)
+    if(angle > ANGLE_CUT && angle > max_angle)
     {
-      _reason_alg1=_reason_alg1+" angle="+std::to_string(angle);
-      _reason_alg2=_reason_alg2+" angle="+std::to_string(angle);
+      max_angle = angle;
       kink_position = kinkPos;
-      return true;
+      didPass = true;
     }
     kinkCount++;
+  }
+  if(didPass)
+  {
+    _reason_alg1=_reason_alg1+" angle="+std::to_string(max_angle);
+    _reason_alg2=_reason_alg2+" angle="+std::to_string(max_angle);
+    return true;
   }
   return false;
 }
@@ -837,6 +968,85 @@ void xs_ana::getInteractionsInTpc()
 }
 
 /**
+ * @brief Fill true incident and interacting histograms
+ *
+ */
+void xs_ana::doTrueXs(const TVector3& initialMom, 
+                      const TVector3& firstPos, 
+                      const TVector3& lastPos, 
+                      const int& closest_vtx_id)
+{
+  // for now we will assume this is a straight track
+  // get unifomly spaced points to the last pos
+  std::vector<TVector3> orderedPoints;
+  bool isInel = false;
+  if(closest_vtx_id>=0)
+  {
+    TVector3 current_pos = firstPos;
+    for(int iVtx=0; iVtx<=closest_vtx_id; iVtx++)
+    {
+      if(_vertices[iVtx].position.Z()>lastPos.Z())break;
+      orderedPoints.push_back(current_pos);
+      // adding in range (current, v.pos)
+      addUniformPoints(current_pos, _vertices[iVtx].position, orderedPoints);
+      current_pos = _vertices[iVtx].position;
+    }
+    if(_vertices[closest_vtx_id].process.find("pi-Inelastic")!=std::string::npos)isInel=true;
+  }
+  else 
+  {
+    orderedPoints.push_back(firstPos);
+    addUniformPoints(firstPos, lastPos, orderedPoints);
+    orderedPoints.push_back(lastPos);
+  }
+
+  // now we can fill
+  double kinEn = std::sqrt(initialMom.Mag()*initialMom.Mag()+PARTICLE_MASS*PARTICLE_MASS)-PARTICLE_MASS;
+
+  int oldPt = 0;
+  for (int iPt=1; iPt<orderedPoints.size(); iPt++, oldPt++)
+  {
+    auto oldPos     = orderedPoints[oldPt];
+    auto currentPos = orderedPoints[iPt];
+
+    double eDep = 0;
+    for(int iIde=0; iIde<TrackIdes_x->at(0).size(); iIde++)
+    {
+      if(TrackIdes_z->at(0)[iIde]<oldPos.Z())continue;
+      if(TrackIdes_z->at(0)[iIde]>currentPos.Z())continue;
+      eDep += TrackIdes_e->at(0)[iIde];
+    }
+    kinEn -= eDep;
+
+    hTruePitch->Fill((oldPos-currentPos).Mag());
+    hTrueEnDep->Fill(eDep);
+    hTrueIncidentKe->Fill(kinEn);
+  }
+  if(isInel)hTrueInteractingKe->Fill(kinEn);
+}
+
+/**
+ * @brief Add ordered points between two positions
+ *
+ */
+void xs_ana::addUniformPoints(const TVector3& x0, const TVector3& xf, std::vector<TVector3>& orderedPoints)
+{
+  // we're not including the end points
+  float length = (x0-xf).Mag();
+  float trackPitch = 0.47;
+  int nPts = (int)(length/trackPitch);
+  for(int iPt=1;iPt<=nPts;iPt++)
+  {
+    auto newPoint = x0 + iPt*(trackPitch/length) * (xf - x0);
+    orderedPoints.push_back(newPoint);
+  }
+  // remove second to last point if it's too close to the last point
+  auto secondToLastPoint = orderedPoints.end()-2;
+  int distance = std::distance(orderedPoints.begin(), secondToLastPoint);
+  if( (*secondToLastPoint-xf).Mag() < trackPitch*0.5 )orderedPoints.erase(secondToLastPoint);
+}
+
+/**
  * @brief Make plots and save to output file
  * 
  */
@@ -861,6 +1071,15 @@ void makePlots()
   hDiffIntPosInTpcMag->Write();
   hTruVsRecoLength->Write();
   hDiffLength->Write();
+  hTrueVsRecoKinEn->Write();
+  hWellRecoInteractingKe->Write();
+  hWellRecoIncidentKe->Write();
+  hKeWc4Decay->Write();
+  hKeWc4Capture->Write();
+  hTruePitch->Write();
+  hTrueEnDep->Write();
+  hTrueIncidentKe->Write();
+  hTrueInteractingKe->Write();
 
   myRootFile.Close();
 }
