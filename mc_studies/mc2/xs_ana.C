@@ -39,7 +39,7 @@ inline double toKineticEnergy(const TVector3& mom){return std::sqrt( mom.Mag()*m
 
 /// @name Useful variables
 /// @{
-  /// Container for pdg codes for charged particles (cuz I can't remember) 
+/// Container for pdg codes for charged particles (cuz I can't remember) 
 enum PdgCodes_t
 {
   kElectron = 11,
@@ -100,6 +100,12 @@ std::string _trueTpcParticle = "pion";
 
 /// Background in matching
 std::set<std::string> _bkgCandidates;
+
+/// Output root file
+TFile myRootFile("XS_ANA.root", "RECREATE");
+
+/// entry in tree
+int _jentry(0);
 /// @}
 
 /// @name Cuts and constants
@@ -185,11 +191,6 @@ TH2D* hTruVsRecoLength = new TH2D("hTruVsRecoLength", "Tru Vs Reco Length", 200,
 TH2D* hTrueVsRecoKinEn = new TH2D("hTrueVsRecoKinEn", "hTrueVsRecoKinEn", 24, 0, 1200, 24, 0, 1200);
 /// @}
 
-/// Output root file
-TFile myRootFile("XS_ANA.root", "RECREATE");
-
-/// entry in tree
-int _jentry(0);
 
 /**
  * @brief Main loop
@@ -311,7 +312,6 @@ void xs_ana::Loop(int v, int isMc)
     //if(isInel && isBraggPeak(trk_x, trk_y, trk_z, trk_p, trk_dedx))isInel = false;
 
     // ke at front face
-    // @todo what do I do about the WC momentum?
     float wcMom = wctrk_momentum[0];
     float recoKinEn = std::sqrt( wcMom*wcMom + PARTICLE_MASS*PARTICLE_MASS ) - PARTICLE_MASS;
     recoKinEn -= ENTRY_TPC_ENERGY_LOSS;
@@ -384,7 +384,12 @@ void dumpHeader(const int& runId, const int& evtId, const int& jent)
 
 /**
  * @brief Area to determine inelasticity using crude method
- *
+ * @todo Anything else for case 1?
+ * @todo Think about what to do if sec = 0 but the track endpoint 
+ *       is in the middle of the tpc. It's not obvious to me right 
+ *       what's better to do: assume no interaction, assume inelastic
+ *       'or some other third thing' - SS
+ *       For now, assume inelastic.
  */
 bool xs_ana::isInelastic_Alg1(int const& idMatchedTrk)
 {
@@ -461,17 +466,9 @@ bool xs_ana::isInelastic_Alg1(int const& idMatchedTrk)
     float angle = getAngle(idMatchedTrk, sec_ids[0]);
     _reason_alg1="angle="+std::to_string(angle);
     if(angle>ANGLE_CUT){_nEventsInelOneSec++;return true;}
-    // @todo anything else here?
     else return false;
   }    
 
-  //
-  // @todo Think about what to do if sec = 0 but the track endpoint 
-  //       is in the middle of the tpc. It's not obvious to me right 
-  //       what's better to do: assume no interaction, assume inelastic
-  //       'or some other third thing' - SS
-  //       For now, assume inelastic.
-  //
   if(sec_ids.size())cerr<<"Error. Sec ids > 0\n";
   _reason_alg1="track endpoint";
   if(mtrk_end_point.Z() < DOWNSTREAM_Z_CUT && inActiveRegion(mtrk_end_point)){_nEventsInelZeroSec++;return true;}
@@ -480,6 +477,7 @@ bool xs_ana::isInelastic_Alg1(int const& idMatchedTrk)
 
 /**
  * @brief Area to determine inelasticity based on reco info
+ * @todo what about checking the angle first for > 1 vtx?
  * 
  */
 bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk, TVector3& recobVertex)
@@ -542,7 +540,6 @@ bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk, TVector3& recobVertex)
   std::sort(vtxs.begin(), vtxs.end(), [](const auto& l, const auto& r){return l.z<r.z;});
 
   // we take the first vertex with > 1 tids attached
-  // @todo what about checking the angle first?
   for(const auto& v : vtxs)
   {
     if(v.tids.size()>1){_reason_alg2="> 1";recobVertex = TVector3(v.x, v.y, v.z);return true;}
@@ -1020,13 +1017,12 @@ float xs_ana::getAngle(int const& idm, int const& ids)
 
 /**
  * @brief Getting interactions in tpc
- * 
+ * @note We should've only filled the interactions with 
+ *       what g4 spat out. We handle the zero case here.
+ * @todo Do we need to check the end point still?
  */
 void xs_ana::getInteractionsInTpc()
 {
-  // @note We should've only filled the interactions with 
-  //       what g4 spat out. We handle the zero case here.
-  // @todo Do we need to check the end point still?
   if (InteractionPoint->size())
   {
     for (int iInt=0; iInt<InteractionPoint->size(); iInt++)
