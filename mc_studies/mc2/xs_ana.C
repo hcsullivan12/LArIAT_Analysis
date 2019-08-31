@@ -21,6 +21,16 @@ bool inActiveRegion(const TVector3& thePos);
 bool inTpcRegion(const TVector3& thePos);
 inline void PrintVec(const TVector3& pos) {std::cout<<"\t("<<pos.X()<<", "<<pos.Y()<<", "<<pos.Z()<<")\n";};
 std::string IntProcessToString(const int& p);
+void reset();
+void dumpHeader(const int& runId, const int& evtId, const int& jent);
+void fillXsPlots(float                      recoKinEn, 
+                 const int&                 evtId,
+                 const std::vector<double>& trk_x, 
+                 const std::vector<double>& trk_y, 
+                 const std::vector<double>& trk_z,
+                 const std::vector<double>& trk_p, 
+                 const std::vector<double>& trk_dedx, 
+                 const bool& isInel);
 
 /// Mass of pion in MeV
 float PARTICLE_MASS(139.57); 
@@ -63,17 +73,17 @@ inline std::string getParticle(int pdg)
 }
 
 /// Counters
-int _nTotalEvents(0), _nEventsInel(0),
+int _nTotalEvents(0),       _nEventsInel(0),
     _nEventsUniqueMatch(0), _nEventsMatch(0),
-    _nEventsInelSec(0), _nEventsInelZeroSec(0),
-    _nEventsInelOneSec(0), _nCorrect_alg1(0), 
-    _nIncorrect_alg1(0), _nMissed_alg1(0),
-    _nCorrect_alg2(0), _nIncorrect_alg2(0), 
-    _nMissed_alg2(0), _n_correct(0),
-    _n_incorrect(0), _n_missed(0), 
-    _nMuonBkg(0),
-    _nProtonBkg(0), _nOtherBkg(0),
-    _nElectronBkg(0), _nPionBkg(0);
+    _nEventsInelSec(0),     _nEventsInelZeroSec(0),
+    _nEventsInelOneSec(0),  _nCorrect_alg1(0), 
+    _nIncorrect_alg1(0),    _nMissed_alg1(0),
+    _nCorrect_alg2(0),      _nIncorrect_alg2(0), 
+    _nMissed_alg2(0),       _n_correct(0),
+    _n_incorrect(0),        _n_missed(0), 
+    _nMuonBkg(0),           _nProtonBkg(0), 
+    _nOtherBkg(0),          _nElectronBkg(0), 
+    _nPionBkg(0),           _nEventsPrimPion(0);
 
 /// Vector of g4 Ids for visible secondaries
 std::vector<size_t> _visSec;
@@ -94,7 +104,11 @@ std::set<std::string> _bkgCandidates;
 
 /// @name Cuts and constants
 /// @{
-int IN_DEBUG(0);
+/// verbosity schema:
+///     >=1 Warnings
+///     >=2 Tracking
+///     >=3 Identification
+int VERBOSE=(0);
 
 /// TPC boundaries
 float TPC_X_BOUND[2] = {   0.0, 47.0 };
@@ -131,16 +145,33 @@ float ENTRY_TPC_ENERGY_LOSS(42); //MeV
 
 /// @name Histograms
 /// @{
-TH1D* hInteractingKe = new TH1D("hInteractingKe",  "Interacting",   24, 0, 1200);
-TH1D* hIncidentKe    = new TH1D("hIncidentKe",     "Incident",      24, 0, 1200);         
+// plots for xs
+TH1D* hInteractingKe         = new TH1D("hInteractingKe",  "Interacting",   24, 0, 1200);
+TH1D* hIncidentKe            = new TH1D("hIncidentKe",     "Incident",      24, 0, 1200);         
 TH1D* hWellRecoInteractingKe = new TH1D("hWellRecoInteractingKe",  "WellRecoInteracting",   24, 0, 1200);
 TH1D* hWellRecoIncidentKe    = new TH1D("hWellRecoIncidentKe",     "WellRecoIncident",      24, 0, 1200);         
+TH1D* hTrueIncidentKe            = new TH1D("hTrueIncidentKe", "hTrueIncidentKe", 24, 0, 1200);
+TH1D* hTrueInteractingKe         = new TH1D("hTrueInteractingKe", "hTrueInteractingKe", 24, 0, 1200);
+// reco
 TH1D* hTrkZ          = new TH1D("hTrkZ",           "Z pos in tpc",  50, 0, 100);
 TH1D* hDeDx          = new TH1D("hDeDx",           "dEdX",          200, 0, 50);
 TH1D* hPitch         = new TH1D("hPitch",          "Track pitch",   100, 0, 5);
-TH1D* hDiffInitKe = new TH1D("hDiffInitKe", "hDiffInitKe", 1000, -500, 500);
+TH1D* hRecoLength      = new TH1D("hRecoLength", "hRecoLength", 110, 0, 110);
+// well reco stuff
+TH1D* hWellRecoLength     = new TH1D("hWellRecoLength", "hWellRecoLength", 110, 0, 110);
+TH1D* hWellRecoTrueLength = new TH1D("hWellRecoTrueLength", "hWellRecoTrueLength", 110, 0, 110);
+TH1D* hWellRecoDiffLength = new TH1D("hWellRecoDiffLength", "hWellRecoDiffLength", 400, -100, 100);
+TH2D* hWellRecoTruVsRecoLength = new TH2D("hWellRecoTruVsRecoLength", "Well Reco Tru Vs Reco Length", 200, 0, 100, 200, 0, 100);
+// truth
 TH1D* hEnLossUpstream = new TH1D("hEnLossUpstream", "hEnLossUpstream", 1000, -500, 500);
 TH1D* hVertexDistSec = new TH1D("hVertexDistSec", "Vertex Dist Sec", 100, 0, 10);
+TH1D* hTrueLength      = new TH1D("hTrueLength", "hTrueLength", 110, 0, 110);
+TH1D* hKeWc4Decay   = new TH1D("hKeWc4Decay", "hKeWc4Decay", 24, 0, 1200);
+TH1D* hKeWc4Capture = new TH1D("hKeWc4Capture", "hKeWc4Capture", 24, 0, 1200);
+TH1D* hTruePitch      = new TH1D("hTruePitch",      "hTruePitch",      100, 0, 5);
+TH1D* hTrueEnDep      = new TH1D("hTrueEnDep",      "hTrueEnDep",      1000, 0, 1000);
+// diffs or reco/truth comparison
+TH1D* hDiffInitKe = new TH1D("hDiffInitKe", "hDiffInitKe", 1000, -500, 500);
 TH1D* hDiffFirstPosInTpcX   = new TH1D("hDiffFirstPosInTpcX",   "hDiffFirstPosInTpcX",   80, -20, 20);
 TH1D* hDiffFirstPosInTpcY   = new TH1D("hDiffFirstPosInTpcY",   "hDiffFirstPosInTpcY",   80, -20, 20);
 TH1D* hDiffFirstPosInTpcZ   = new TH1D("hDiffFirstPosInTpcZ",   "hDiffFirstPosInTpcZ",   40, -10, 10);
@@ -149,36 +180,38 @@ TH1D* hDiffIntPosInTpcX   = new TH1D("hDiffIntPosInTpcX",   "hDiffIntPosInTpcX",
 TH1D* hDiffIntPosInTpcY   = new TH1D("hDiffIntPosInTpcY",   "hDiffIntPosInTpcY",   80, -20, 20);
 TH1D* hDiffIntPosInTpcZ   = new TH1D("hDiffIntPosInTpcZ",   "hDiffIntPosInTpcZ",   400, -100, 100);
 TH1D* hDiffIntPosInTpcMag = new TH1D("hDiffIntPosInTpcMag", "hDiffIntPosInTpcMag", 200, 0, 100);
+TH1D* hDiffLength      = new TH1D("hDiffLength", "hDiffLength", 400, -100, 100);
 TH2D* hTruVsRecoLength = new TH2D("hTruVsRecoLength", "Tru Vs Reco Length", 200, 0, 100, 200, 0, 100);
-TH1D* hDiffLength           = new TH1D("hDiffLength", "hDiffLength", 400, -100, 100);
 TH2D* hTrueVsRecoKinEn = new TH2D("hTrueVsRecoKinEn", "hTrueVsRecoKinEn", 24, 0, 1200, 24, 0, 1200);
-TH1D* hKeWc4Decay   = new TH1D("hKeWc4Decay", "hKeWc4Decay", 24, 0, 1200);
-TH1D* hKeWc4Capture = new TH1D("hKeWc4Capture", "hKeWc4Capture", 24, 0, 1200);
-TH1D* hTruePitch      = new TH1D("hTruePitch",      "hTruePitch",      100, 0, 5);
-TH1D* hTrueEnDep      = new TH1D("hTrueEnDep",      "hTrueEnDep",      1000, 0, 1000);
-TH1D* hTrueIncidentKe = new TH1D("hTrueIncidentKe", "hTrueIncidentKe", 24, 0, 1200);
-TH1D* hTrueInteractingKe = new TH1D("hTrueInteractingKe", "hTrueInteractingKe", 24, 0, 1200);
 /// @}
 
 /// Output root file
 TFile myRootFile("XS_ANA.root", "RECREATE");
 
+/// entry in tree
+int _jentry(0);
+
 /**
  * @brief Main loop
  * 
- * @param inDebug For debugging
+ * @param v Verbosity
  */
-void xs_ana::Loop(int inDebug, int isMc)
+void xs_ana::Loop(int v, int isMc)
 {
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (int jentry=0; jentry<=nentries;jentry++) 
+  for (int jentry=1013; jentry<=nentries;jentry++) 
   {
-    IN_DEBUG = inDebug;
+    VERBOSE = v;
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) break;
     nb = fChain->GetEntry(jentry);   nbytes += nb;
+
+    // Reset global variables 
+    reset();
+    if(VERBOSE)dumpHeader(run,event,jentry);
+    _jentry = jentry;
 
     // Increment our total event counter 
     _nTotalEvents++;
@@ -208,7 +241,8 @@ void xs_ana::Loop(int inDebug, int isMc)
     if (isMc) 
     {
       bool isPrimPion = checkParticleInTpc();
-      if(!isPrimPion)continue;
+      if(!isPrimPion && VERBOSE>=1){cout<<"Skipping due to non entering primary pion...\n\n";continue;}
+      _nEventsPrimPion++;
     }
 
     // Fill these temporary containers 
@@ -249,7 +283,7 @@ void xs_ana::Loop(int inDebug, int isMc)
     bool passKink = checkKink(idMatchedTrk, kink_position);
     //passKink = false;
 
-    // check to see if kink is before current current prediction if it passed the inelasticity test 
+    // check to see if kink is before current prediction if it passed the inelasticity test 
     // it may be the case that we tagged a decay or capture!
     if(isInel_1 && passKink && kink_position.Z()>t_trk_z.front() && kink_position.Z()<end_position.Z())end_position = kink_position;
     if(isInel_2 && passKink && kink_position.Z()>t_trk_z.front() && kink_position.Z()<end_position.Z())end_position = kink_position;
@@ -283,33 +317,12 @@ void xs_ana::Loop(int inDebug, int isMc)
     recoKinEn -= ENTRY_TPC_ENERGY_LOSS;
     if(isMc) 
     {
-      if(studyMc())continue;
+      bool isDecayOrCap = studyMc(wcMom, recoKinEn, isInel, isInel_1, isInel_2, trk_x, trk_y, trk_z, trk_p, trk_dedx);
+      if(isDecayOrCap && VERBOSE>=1){cout<<"Skipping due to decay or capture...\n\n";continue;}
     }
 
-    // fill incident
-    float lastPosKinEn = recoKinEn;
-    for (int iSb = 0; iSb<trk_x.size(); iSb++)
-    {
-      float dedx  = trk_dedx[iSb];
-      float pitch = trk_p[iSb];
-      // protection against large dedx and pitch
-      //if(pitch>PITCH_MAX){cout<<"HEYYY "<<pitch<<" "<<iSb<<"/"<<trk_x.size()<<endl;continue;}
-      if(dedx>DEDX_MAX)dedx=2.1; // mean value from dedx curve
-      
-      hIncidentKe->Fill(recoKinEn);
-      hDeDx->Fill(dedx);
-      hPitch->Fill(pitch);
-      if(iSb!=(trk_x.size()-1))recoKinEn -= dedx * pitch;
-
-      //keeping track of the last > 0 ke
-      if(recoKinEn>0)lastPosKinEn=recoKinEn;
-      
-      // check for < 0
-      if(recoKinEn<=0){cout<<"Warning: "<<event<<" Filling zero\n";break;}
-    }
-    
-    // fill interacting
-    if(isInel)hInteractingKe->Fill(lastPosKinEn);
+    // fill incident interacting histos
+    fillXsPlots(recoKinEn, event, trk_x, trk_y, trk_z, trk_p, trk_dedx, isInel);
   }//<---End loop over entries
 
 
@@ -318,6 +331,7 @@ void xs_ana::Loop(int inDebug, int isMc)
             << "Events:                      " << _nTotalEvents       << endl
             << "Events with WC match:        " << _nEventsMatch       << endl
             << "Events with unique WC match: " << _nEventsUniqueMatch << endl
+            << "Events primary pion:         " << _nEventsPrimPion    << endl
             << "Inelastic interactions:      " << _nEventsInel        << endl
             << "Inelastic by > 2 sec:        " << _nEventsInelSec     << endl
             << "Inelastic by 1 sec:          " << _nEventsInelOneSec  << endl
@@ -331,12 +345,42 @@ void xs_ana::Loop(int inDebug, int isMc)
             << "Correct:                     " << _n_correct          << endl
             << "Incorrect:                   " << _n_incorrect        << endl
             << "Missed:                      " << _n_missed           << endl
+            << "Muon Bkg:                    " << _nMuonBkg           << endl
+            << "Proton Bkg:                  " << _nProtonBkg         << endl
+            << "Electron Bkg:                " << _nElectronBkg       << endl
+            << "Sec pion Bkg:                " << _nPionBkg           << endl
+            << "Other Bkg:                   " << _nOtherBkg          << endl
             << endl;
+
 
   // Make plots
   makePlots();
   gApplication->Terminate(0);
 }//<---- End main loop
+
+/**
+ * @brief Reset global variables (playing with fire)
+ * 
+ */
+void reset()
+{
+  _visSec.clear();
+  _vertices.clear();
+  _reason_alg1 = "";
+  _reason_alg2 = "";
+  _trueTpcParticle = "pion";
+  _bkgCandidates.clear();
+}
+
+/**
+ * @brief Make it pretty 
+ *
+ */
+void dumpHeader(const int& runId, const int& evtId, const int& jent)
+{
+  cout<<"\n#########################################################\n";
+  cout<<"RUN #"<<runId<<", EVENT #"<<evtId<<", JENTRY #"<<jent<<endl;
+}
 
 /**
  * @brief Area to determine inelasticity using crude method
@@ -361,10 +405,11 @@ bool xs_ana::isInelastic_Alg1(int const& idMatchedTrk)
   // check if inverted
   if(mtrk_start_point.Z()>mtrk_end_point.Z())
   {
-    if(IN_DEBUG)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
+    if(VERBOSE>=2)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<" ";
     auto temp = mtrk_start_point;
     mtrk_start_point = mtrk_end_point;
     mtrk_end_point = temp;
+    if(VERBOSE>=2)cout<<" ==> "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
   }
 
   // loop over tracks to look for candidate secondaries
@@ -393,10 +438,11 @@ bool xs_ana::isInelastic_Alg1(int const& idMatchedTrk)
     // check inversion
     if(dist2<dist1)
     {
-      if(IN_DEBUG)cout<<"Track inverted: "<<start_point.Z()<<" "<<end_point.Z()<<endl;
+      if(VERBOSE>=2)cout<<"Sec track inverted: "<<start_point.Z()<<" "<<end_point.Z()<<" ";
       auto temp = start_point;
       start_point = end_point;
       end_point = temp;
+      if(VERBOSE>=2)cout<<" ==> "<<start_point.Z()<<" "<<end_point.Z()<<endl;
     }
     hVertexDistSec->Fill(dist_min);
 
@@ -450,10 +496,11 @@ bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk, TVector3& recobVertex)
   // check if inverted
   if(mtrk_start_point.Z()>mtrk_end_point.Z())
   {
-    if(IN_DEBUG)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
+    if(VERBOSE>=2)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<" ";
     auto temp = mtrk_start_point;
     mtrk_start_point = mtrk_end_point;
     mtrk_end_point = temp;
+    if(VERBOSE>=2)cout<<" ==> "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
   }
 
   // check the vertex information
@@ -517,20 +564,23 @@ bool xs_ana::isInelastic_Alg2(int const& idMatchedTrk, TVector3& recobVertex)
 bool xs_ana::checkParticleInTpc()
 {
   TVector3 firstPosInTpc(0,0,-100);
+  bool enteredTpc(false);
   for (int iPt=0; iPt<MidPosX->at(0).size(); iPt++)
   {
     TVector3 pos(MidPosX->at(0)[iPt], MidPosY->at(0)[iPt], MidPosZ->at(0)[iPt]);
     if(!inTpcRegion(pos))continue;
     firstPosInTpc = pos;
+    enteredTpc=true;
     break;
   }
-  if(!inTpcRegion(firstPosInTpc))
+
+  if(!enteredTpc)
   {
     // What did then?
     // make sure candidates are charged, and proj onto front face
-    if(IN_DEBUG)cout<<"Warning: Run #"<<run<<" Event #"<<event<<" primary did not enter tpc but a track was matched\n";
-    if(IN_DEBUG)cout<<"Primary ended at "<<EndPointx->at(0)<<" " <<EndPointy->at(0)<<" " <<EndPointz->at(0)<<"\n";
-    if(IN_DEBUG)cout<<"Candidates...\n";
+    if(VERBOSE>=1)cout<<"Warning: Run #"<<run<<" Event #"<<event<<" primary did not enter tpc but a track was matched\n";
+    if(VERBOSE>=1)cout<<"Primary ended at ("<<EndPointx->at(0)<<", " <<EndPointy->at(0)<<", " <<EndPointz->at(0)<<")\n";
+    if(VERBOSE>=1)cout<<"Candidates...\n";
     std::set<std::string> cand;
     for (int ig4=0; ig4<geant_list_size; ig4++)
     {
@@ -544,20 +594,59 @@ bool xs_ana::checkParticleInTpc()
       cand.insert(getParticle(PDG->at(ig4)));
       _bkgCandidates.insert(getParticle(PDG->at(ig4)));
     }
-    if(IN_DEBUG)for(const auto& c : cand){cout<<"\t"<<c<<endl;}
+    if(VERBOSE>=1)for(const auto& c : cand){cout<<"\t"<<c<<endl;}
     
     // some particles take precedence
     if(cand.find("pion")!=cand.end()){_nPionBkg++;_trueTpcParticle="sec_pion";}
     else if(cand.find("muon")!=cand.end()){_nMuonBkg++;_trueTpcParticle="muon";}
     else if(cand.find("proton")!=cand.end()){_nProtonBkg++;_trueTpcParticle="proton";}
     else if(cand.find("electron")!=cand.end()){_nElectronBkg++;_trueTpcParticle="electron";}
-    else {_nOtherBkg++;}
+    else {_nOtherBkg++;_trueTpcParticle="other";}
+    if(VERBOSE>=1)cout<<"Candidate decided to be "<<_trueTpcParticle<<endl;
     
     // if there are no candidates, wth did we do wrong?
     if(!cand.size()){cerr<<"Error. No candidates for matched track!\n";exit(1);}
   }
-  if(_trueTpcParticle=="pion")return true;
-  return false;
+  return enteredTpc;
+}
+
+/**
+ * @brief This is where we fill our interacting and incident plots using 
+ *        reconstructed information.
+ * 
+ */
+void fillXsPlots(float                      recoKinEn,
+                 const int&                 evtId, 
+                 const std::vector<double>& trk_x, 
+                 const std::vector<double>& trk_y, 
+                 const std::vector<double>& trk_z,
+                 const std::vector<double>& trk_p, 
+                 const std::vector<double>& trk_dedx, 
+                 const bool& isInel)
+{
+  float lastPosKinEn = recoKinEn;
+  for (int iSb = 0; iSb<trk_x.size(); iSb++)
+  {
+    float dedx  = trk_dedx[iSb];
+    float pitch = trk_p[iSb];
+    // protection against large dedx and pitch
+    //if(pitch>PITCH_MAX){cout<<"HEYYY "<<pitch<<" "<<iSb<<"/"<<trk_x.size()<<endl;continue;}
+    if(dedx>DEDX_MAX)dedx=2.1; // mean value from dedx curve
+    
+    hIncidentKe->Fill(recoKinEn);
+    hDeDx->Fill(dedx);
+    hPitch->Fill(pitch);
+    if(iSb!=(trk_x.size()-1))recoKinEn -= dedx * pitch;
+
+    //keeping track of the last > 0 ke
+    if(recoKinEn>0)lastPosKinEn=recoKinEn;
+    
+    // check for < 0
+    if(recoKinEn<=0 && VERBOSE>=1){cout<<"Warning: "<<evtId<<" Filling zero\n";break;}
+  }
+  
+  // fill interacting
+  if(isInel)hInteractingKe->Fill(lastPosKinEn);
 }
 
 /**
@@ -604,7 +693,10 @@ void xs_ana::makeSmearingPlot(const std::vector<double>& trk_x,
  * @return true Skip this event
  * 
  */
-bool xs_ana::studyMc()
+bool xs_ana::studyMc(const float& wcMom, const float& recoKinEn, const bool& isInel,
+                     const bool& isInel_1, const bool& isInel_2,
+                     const std::vector<double>& trk_x, const std::vector<double>& trk_y, const std::vector<double>& trk_z,
+                     const std::vector<double>& trk_p, const std::vector<double>& trk_dedx)
 {
   // get vertices
   _vertices.clear();
@@ -616,31 +708,35 @@ bool xs_ana::studyMc()
   {
     //v.Dump();
     if(v.process=="pi-Inelastic")foundInel=true;
-    if(v.process=="Decay"){hKeWc4Decay->Fill(wcMom);foundOther=true;}
-    if(v.process=="CaptureAtRest"){hKeWc4Capture->Fill(wcMom);foundOther=true;}
+    else if(v.process=="Decay"){hKeWc4Decay->Fill(wcMom);foundOther=true;}
+    else if(v.process=="CaptureAtRest"){hKeWc4Capture->Fill(wcMom);foundOther=true;}
   }
   if(foundOther)return true;
-      
-  //cout<<"First alg...\n";
-  //cout<<"\tThe reason "<<_reason_alg1<<endl;
-  //if(isInel_1 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg1++;}
-  //if(isInel_1 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg1++;}
-  //if(!isInel_1 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg1++;}
-  //if(!isInel_1 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg1++;}
-  //cout<<"Second alg...\n";
-  //cout<<"\tThe reason "<<_reason_alg2<<endl;
-  //if(isInel_2 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg2++;}
-  //if(isInel_2 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg2++;}
-  //if(!isInel_2 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg2++;}
-  //if(!isInel_2 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg2++;}
-  
-  //cout<<"Ntracks = "<<ntracks_reco<<endl;
-  //cout<<"Start point ("<<trk_x[0]<<","<<trk_y[0]<<","<<trk_z[0]<<")\n";
-  //cout<<"End point   ("<<trk_x[trk_x.size()-1]<<","<<trk_y[trk_x.size()-1]<<","<<trk_z[trk_x.size()-1]<<")\n";
-  if(isInel && foundInel)_n_correct++;
-  if(isInel && !foundInel)_n_incorrect++;
-  if(!isInel && foundInel)_n_missed++;
-  if(!isInel && !foundInel)_n_correct++;
+
+  if(VERBOSE>=3){cout<<"First alg...\n";}
+  if(VERBOSE>=3){cout<<"\tThe reason "<<_reason_alg1<<endl;}
+  if(VERBOSE>=3){if(isInel_1 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg1++;}}
+  if(VERBOSE>=3){if(isInel_1 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg1++;}}
+  if(VERBOSE>=3){if(!isInel_1 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg1++;}}
+  if(VERBOSE>=3){if(!isInel_1 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg1++;}}
+  if(VERBOSE>=3){cout<<"Second alg...\n";}
+  if(VERBOSE>=3){cout<<"\tThe reason "<<_reason_alg2<<endl;}
+  if(VERBOSE>=3){if(isInel_2 && foundInel){cout<<"\tCorrect1!\n";_nCorrect_alg2++;}}
+  if(VERBOSE>=3){if(isInel_2 && !foundInel){cout<<"\tDetermined but not inelastic!\n";_nIncorrect_alg2++;}}
+  if(VERBOSE>=3){if(!isInel_2 && foundInel){cout<<event<<"\tMissed!\n";_nMissed_alg2++;}}
+  if(VERBOSE>=3){if(!isInel_2 && !foundInel){cout<<"\tCorrect2!\n";_nCorrect_alg2++;}}
+  if(VERBOSE>=3){cout<<"Ntracks = "<<ntracks_reco<<endl;}
+  if(VERBOSE>=3){cout<<"Start point ("<<trk_x[0]<<","<<trk_y[0]<<","<<trk_z[0]<<")\n";}
+  if(VERBOSE>=3){cout<<"End point   ("<<trk_x[trk_x.size()-1]<<","<<trk_y[trk_x.size()-1]<<","<<trk_z[trk_x.size()-1]<<")\n";}
+  if(VERBOSE>=3){if(isInel && foundInel)_n_correct++;}
+  if(VERBOSE>=3){if(isInel && !foundInel)_n_incorrect++;}
+  if(VERBOSE>=3){if(!isInel && foundInel)_n_missed++;}
+  if(VERBOSE>=3){if(!isInel && !foundInel)_n_correct++;}
+
+  //####################################
+  // Area to check events 
+  if((isInel && !foundInel) || (!isInel && foundInel)){cout<<"entry: "<<_jentry<<" event: "<<event<<endl;dumpEventInfo();}
+  //####################################
 
   // find nearest pi-inelastic vertex
   TVector3 trk_startpos(trk_x.front(), trk_y.front(), trk_z.front());
@@ -648,13 +744,17 @@ bool xs_ana::studyMc()
   float minDist = std::numeric_limits<float>::max();
   Vertex_t closest_vtx(-1, "none", trk_endpos);
   int closest_vtx_id(-1);
+
+  if(VERBOSE>=3)cout<<"Inelastic interactions in tpc:\n";
   for(int iVtx=0; iVtx<_vertices.size(); iVtx++)
   {
     if(_vertices[iVtx].process.find("pi-Inelastic")==std::string::npos)continue;
     float dist = (trk_endpos-_vertices[iVtx].position).Mag();
     if(dist<minDist){minDist=dist; closest_vtx=_vertices[iVtx]; closest_vtx_id=iVtx;}
+    if(VERBOSE>=3){cout<<"\t";_vertices[iVtx].Dump();}
   }
-      
+  if(VERBOSE>=3){cout<<"Closest (inelastic) vertex: "; closest_vtx.Dump();}
+
   // get first position in tpc (3cm from front face hit removal)
   TVector3 firstTruePos(0,0,-100);
   TVector3 lastTruePos(0,0,200);
@@ -682,9 +782,9 @@ bool xs_ana::studyMc()
     lastTruePos = true_pos;
     break;
   }
-  if(firstTruePos.Z()<0){cout<<event<<"Warning: Check true first position\n";firstTruePos.Print();}
-  if(lastTruePos.Z()>hit_removal_high){cout<<"Warning: Check true last position\n";lastTruePos.Print();}
-  if(firstTruePos.Z()>lastTruePos.Z())cout<<"Warning: Check true positions\n";
+  if(firstTruePos.Z()<0 && VERBOSE>=1){cout<<event<<"Warning: Check true first position";PrintVec(firstTruePos);}
+  if(lastTruePos.Z()>hit_removal_high && VERBOSE>=1){cout<<"Warning: Check true last position";PrintVec(lastTruePos);}
+  if(firstTruePos.Z()>lastTruePos.Z() && VERBOSE>=1)cout<<"Warning: Check true positions\n";
 
   hDiffFirstPosInTpcX->Fill(   (trk_startpos-firstTruePos).X() );
   hDiffFirstPosInTpcY->Fill(   (trk_startpos-firstTruePos).Y() );
@@ -702,7 +802,7 @@ bool xs_ana::studyMc()
   hDiffIntPosInTpcMag->Fill( (trk_endpos-last_interesting_point).Mag() );
   hDiffLength->Fill( reco_length - true_length );
   hTruVsRecoLength->Fill( reco_length,  true_length );
-  if(40 < reco_length && reco_length<50 && true_length > 80)cout<<"\n\nHEYYYYY"<<event<<endl;
+  if(40 < reco_length && reco_length<50 && true_length > 80)cout<<"\n\nsadfsadfsdafHEYYYYY"<<event<<endl;
 
   // compare the kinetic energies
   TVector3 startingMom(1000*MidPx->at(0)[0], 1000*MidPy->at(0)[0], 1000*MidPz->at(0)[0]);
@@ -711,11 +811,13 @@ bool xs_ana::studyMc()
   hEnLossUpstream->Fill(startKe-initialKe);
   hDiffInitKe->Fill(initialKe-recoKinEn);
 
-  // how we doing on energy reconstruction?
-  if((reco_length-true_length) < 2 && (recoKinEn-initialKe)<10)
+  // how about the well reco tracks?
+  bool wellReco = abs(reco_length-true_length) < 2 && abs(recoKinEn-initialKe)<10;
+  if(wellReco)
   {
     doTrueXs(initialMom, firstTruePos, last_interesting_point, closest_vtx_id); 
     makeSmearingPlot(trk_x, trk_y, trk_z, trk_p, trk_dedx, recoKinEn, initialKe);
+    
     // fill incident
     float recoKinEn_copy = recoKinEn;
     float lastPosKinEn = recoKinEn;
@@ -737,12 +839,13 @@ bool xs_ana::studyMc()
       if(recoKinEn_copy>0)lastPosKinEn=recoKinEn_copy;
       
       // check for < 0
-      if(recoKinEn_copy<=0){cout<<"Warning: "<<event<<" Got zero at "<<iSb<<" / "<<trk_x.size()-1<<"\n";break;}
+      if(recoKinEn_copy<=0 && VERBOSE>=1){cout<<"Warning: "<<event<<" Got zero at "<<iSb<<" / "<<trk_x.size()-1<<"\n";break;}
     }
 
     // fill interacting
     if(isInel)hWellRecoInteractingKe->Fill(lastPosKinEn);
   }
+  return false;
 }
 
 /**
@@ -751,7 +854,7 @@ bool xs_ana::studyMc()
  */
 bool xs_ana::checkKink(int const& idMatchedTrk, TVector3& kink_position)
 {
-  if(IN_DEBUG)cout<<"Checking the kinks...\n";
+  if(VERBOSE>=2)cout<<"Checking the kinks...\n";
   // get the start and endpoint
   int mtrk_n_points = col_track_x->at(idMatchedTrk).size();
   TVector3 mtrk_start_point( col_track_x->at(idMatchedTrk)[0],
@@ -764,10 +867,11 @@ bool xs_ana::checkKink(int const& idMatchedTrk, TVector3& kink_position)
   // check if inverted
   if(mtrk_start_point.Z()>mtrk_end_point.Z())
   {
-    if(IN_DEBUG)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
+    if(VERBOSE>=2)cout<<"Track inverted: "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<" ";
     auto temp = mtrk_start_point;
     mtrk_start_point = mtrk_end_point;
     mtrk_end_point = temp;
+    if(VERBOSE>=2)cout<<" ==> "<<mtrk_start_point.Z()<<" "<<mtrk_end_point.Z()<<endl;
   }
 
   // get the kink information
@@ -842,8 +946,28 @@ void xs_ana::getPosNearKink(int const& idMatchedTrk, TVector3& beforeKinkPos, co
     afterKinkPos = TVector3(t_trk_x[iPt], t_trk_y[iPt], t_trk_z[iPt]);
     break;
   }
-  if(beforeKinkPos.Z()>afterKinkPos.Z())
-  {cout<<"Warning: "<<event<<" Check kink positions!\n";}
+  if(beforeKinkPos.Z()>afterKinkPos.Z() && VERBOSE>=1)
+  {cout<<"Warning: Check kink positions!\n";}
+}
+
+/**
+ * @brief For debug
+ * 
+ */
+void xs_ana::dumpEventInfo()
+{
+  cout<<"Interactions...\n";
+  for(int iPt=0; iPt<InteractionPoint->size(); iPt++)cout<<"\tz = "<<MidPosZ->at(0)[InteractionPoint->at(iPt)]<<"  process = "<<InteractionPointType->at(iPt)<<endl;
+  cout<<"End z = "<<EndPointz->at(0)<<endl;
+
+  cout<<"Daughters...\n";
+  for(int ig4 = 0; ig4 < geant_list_size; ig4++)
+  {
+    if(process_primary->at(ig4))cout<<"YES\n";
+    if(Mother->at(ig4)!=1)continue;
+    //cout<<"PDG = "<<PDG->at(ig4)<<" startz = "<<StartPointz->at(ig4)<<" process = "<<Process->at(ig4)<<endl;
+  }
+
 }
 
 /**
@@ -864,10 +988,11 @@ float xs_ana::getAngle(int const& idm, int const& ids)
   // check inversion
   if(trk1_sp.Z()>trk1_ep.Z())
   {
-    if(IN_DEBUG)cout<<"Track inverted: "<<trk1_sp.Z()<<" "<<trk1_ep.Z()<<endl;
+    if(VERBOSE>=2)cout<<"Track inverted: "<<trk1_sp.Z()<<" "<<trk1_ep.Z()<<" ";
     auto temp = trk1_sp;
     trk1_sp = trk1_ep;
     trk1_ep = temp;
+    if(VERBOSE>=2)cout<<" ==> "<<trk1_sp.Z()<<" "<<trk1_ep.Z()<<endl;
   }
   auto dir1 = (trk1_ep-trk1_sp).Unit();
 
@@ -882,10 +1007,11 @@ float xs_ana::getAngle(int const& idm, int const& ids)
   float dist2 = (trk1_ep - trk2_ep).Mag();
   if(dist2<dist1)
   {
-    if(IN_DEBUG)cout<<"Track inverted: "<<trk2_sp.Z()<<" "<<trk2_ep.Z()<<endl;
+    if(VERBOSE>=2)cout<<"Sec track inverted: "<<trk2_sp.Z()<<" "<<trk2_ep.Z()<<" ";
     auto temp = trk2_sp;
     trk2_sp = trk2_ep;
     trk2_ep = temp;
+    if(VERBOSE>=2)cout<<" ==> "<<trk2_sp.Z()<<" "<<trk2_ep.Z()<<endl;
   }
 
   auto dir2 = (trk2_ep-trk2_sp).Unit();
@@ -915,7 +1041,7 @@ void xs_ana::getInteractionsInTpc()
   }
   else
   {
-    if(IN_DEBUG)cout<<event<<"Checking end process and daughters...\n";
+    if(VERBOSE>=2)cout<<event<<"Checking end process and daughters...\n";
     // this has to be something catastrophic
     std::string proc_maybe = "none";
     int primTrkId = -999999;
@@ -1055,12 +1181,30 @@ void makePlots()
   myRootFile.cd();
   hInteractingKe->Write();
   hIncidentKe->Write();
+  hWellRecoInteractingKe->Write();
+  hWellRecoIncidentKe->Write();
+  hTrueIncidentKe->Write();
+  hTrueInteractingKe->Write();
+
   hTrkZ->Write();
   hDeDx->Write();
   hPitch->Write();
-  hVertexDistSec->Write();
-  hDiffInitKe->Write();
+  hRecoLength->Write();
+
+  hWellRecoLength->Write();
+  hWellRecoTrueLength->Write();
+  hWellRecoDiffLength->Write();
+  hWellRecoTruVsRecoLength->Write();
+
   hEnLossUpstream->Write();
+  hVertexDistSec->Write();
+  hTrueLength->Write();
+  hKeWc4Decay->Write();
+  hKeWc4Capture->Write();
+  hTruePitch->Write();
+  hTrueEnDep->Write();
+
+  hDiffInitKe->Write();
   hDiffFirstPosInTpcX->Write();
   hDiffFirstPosInTpcY->Write();
   hDiffFirstPosInTpcZ->Write();
@@ -1069,17 +1213,9 @@ void makePlots()
   hDiffIntPosInTpcY->Write();
   hDiffIntPosInTpcZ->Write();
   hDiffIntPosInTpcMag->Write();
-  hTruVsRecoLength->Write();
   hDiffLength->Write();
+  hTruVsRecoLength->Write();
   hTrueVsRecoKinEn->Write();
-  hWellRecoInteractingKe->Write();
-  hWellRecoIncidentKe->Write();
-  hKeWc4Decay->Write();
-  hKeWc4Capture->Write();
-  hTruePitch->Write();
-  hTrueEnDep->Write();
-  hTrueIncidentKe->Write();
-  hTrueInteractingKe->Write();
 
   myRootFile.Close();
 }

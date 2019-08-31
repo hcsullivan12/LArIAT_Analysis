@@ -3,12 +3,12 @@ import ROOT
 path = '/home/hunter/Desktop/piInelasticStudies/hists'
 f_true_inc = ROOT.TFile.Open(path+'/hMCIncidentKE.root', 'READ')
 f_true_int = ROOT.TFile.Open(path+'/hMCInteractingKE.root', 'READ')
-f_reco = ROOT.TFile.Open('../../mc_studies/mc1/piMinusAna.root', 'READ')
+f_reco = ROOT.TFile.Open('XS_ANA.root', 'READ')
 
 h_true_inc = f_true_inc.Get('Canvas_1').GetPrimitive('hXsG4IncidentKinEn') or 0
 h_true_int = f_true_int.Get('Canvas_1').GetPrimitive('hXsG4InteractingKinEn') or 0
-h_reco_inc = f_reco.Get('reco/hRecoIncidentKE') or 0
-h_reco_int = f_reco.Get('reco/hRecoInteractingKE') or 0
+h_reco_inc = f_reco.Get('hTrueIncidentKe') or 0
+h_reco_int = f_reco.Get('hTrueInteractingKe') or 0
 
 h_true_inc.Scale(1/h_true_inc.Integral(0, 1000))
 h_true_int.Scale(1/h_true_int.Integral(0, 1000))

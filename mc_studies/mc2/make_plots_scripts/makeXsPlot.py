@@ -13,8 +13,8 @@ CONVERSION     = 2.1043084 # NUMBER_DENSITY * 1e-28
 ########################################################
 def doXsCalculation(file):
     f = ROOT.TFile.Open(file, 'READ')
-    hIntKe = f.Get('hTrueInteractingKe')
-    hIncKe = f.Get('hTrueIncidentKe')
+    hIntKe = f.Get('hWellRecoInteractingKe')
+    hIncKe = f.Get('hWellRecoIncidentKe')
 
     nBins = hIncKe.GetNbinsX()
     for iBin in range(1, nBins+1):
@@ -64,6 +64,7 @@ if __name__ == "__main__":
     else:
         hCrossSectionKe.Draw()
 
+    hCrossSectionKe.GetXaxis().SetRangeUser(0, 1000)
     #cXs.SetGrid()
     #ROOT.gStyle.SetOptStat(0)
     #ROOT.gStyle.SetGridStyle(2)
