@@ -13,8 +13,8 @@ CONVERSION     = 2.1043084 # NUMBER_DENSITY * 1e-28
 ########################################################
 def doXsCalculation(file):
     f = ROOT.TFile.Open(file, 'READ')
-    hIntKe = f.Get('hWellRecoInteractingKe')
-    hIncKe = f.Get('hWellRecoIncidentKe')
+    hIntKe = f.Get('hTrueInteractingKe')
+    hIncKe = f.Get('hTrueIncidentKe')
 
     nBins = hIncKe.GetNbinsX()
     for iBin in range(1, nBins+1):
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     cXs = ROOT.TCanvas('cXs', 'Cross section', 1000, 1000)
     hCrossSectionKe.SetLineWidth(2)
-    hCrossSectionKe.SetMarkerStyle(8)
+    hCrossSectionKe.SetMarkerStyle(1)
     hCrossSectionKe.SetMarkerSize(1.5)
     if args.type == 'data':
         hCrossSectionKe.SetMarkerColor(1)
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         hCrossSectionKe.SetMarkerColor(ROOT.kViolet+4)
 
     if args.type == 'mc':
-        hCrossSectionKe.Draw('e')
+        hCrossSectionKe.Draw('l')
     else:
         hCrossSectionKe.Draw()
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     leg = ROOT.TLegend(0.1,0.7,0.48,0.9)
     name = 'Data Reco'
     if args.type == 'mc': name = 'MC Reco (only pions)'
-    leg.AddEntry(hCrossSectionKe, name, 'pl')
+    leg.AddEntry(hCrossSectionKe, name, 'l')
     leg.AddEntry(hG4Xs, 'G4Prediction Inelastic XS', 'l')
     leg.Draw('same')
 
