@@ -217,7 +217,7 @@ void xs_ana::Loop(int v, int isMc)
   if (fChain == 0) return;
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  for (int jentry=0; jentry<=nentries;jentry++) 
+  for (int jentry=20000; jentry<=nentries;jentry++) 
   {
     VERBOSE = v;
     Long64_t ientry = LoadTree(jentry);
@@ -359,7 +359,7 @@ void xs_ana::Loop(int v, int isMc)
       for(const auto& v : _vertices)
       {
         //v.Dump();
-        else if(v.process=="Decay"){hKeWc4Decay->Fill(wcMom);isDecayOrCap=true;}
+        if(v.process=="Decay"){hKeWc4Decay->Fill(wcMom);isDecayOrCap=true;}
         else if(v.process=="CaptureAtRest"){hKeWc4Capture->Fill(wcMom);isDecayOrCap=true;}
       }
       if(VERBOSE>=3)dumpEventInfo();
@@ -1252,12 +1252,13 @@ void xs_ana::tagInelasticChannel()
 
   bool isPrimaryChargedPion(false);
   TVector3 primaryFinalPosition;
+  int primTrkId(-1);
 
   // Loop over the g4 particles
   for (size_t ig4 = 0; ig4 < geant_list_size; ig4++)
   {
     if (!process_primary->at(ig4)) continue;
-
+    primTrkId = TrackId->at(ig4);
     // if charged pion
     if (std::abs(PDG->at(ig4)) == PdgCodes_t::kPion)
     {
@@ -1273,15 +1274,13 @@ void xs_ana::tagInelasticChannel()
   for (size_t ig4 = 0; ig4 < geant_list_size; ig4++)
   {
     // we only care about particles that start in the tpc
-    TVector3 dtrStartPos(StartPosx->at(ig4), StartPosy->at(ig4), StartPosz->at(ig4)); 
+    TVector3 dtrStartPos(StartPointx->at(ig4), StartPointy->at(ig4), StartPointz->at(ig4)); 
     if (!inTpcRegion(dtrStartPos)) continue;
-
-    // skip if particle is not a child of the primary
-    if (abs(Mother->at(ig4)) == 1) continue;
-
+    //
+    //// skip if particle is not a child of the primary
+    if (Mother->at(ig4) != primTrkId) continue;
     // get pdg code
     int pdgCode = std::abs(PDG->at(ig4));
-    if(isCharged(pdgCode))nChargedParticles++;
 
     // which vertex is she attached to
     float minDist = std::numeric_limits<float>::max();
@@ -1296,7 +1295,7 @@ void xs_ana::tagInelasticChannel()
     }
     if(index>=0)
     {
-      _vertices[iVtx].secondaries.push_back(pdgCode);
+      _vertices[index].secondaries.push_back(pdgCode);
     }
   }
 
@@ -1307,9 +1306,10 @@ void xs_ana::tagInelasticChannel()
     _vertices[iVtx].subtype = "error";
     int nChargedPionDaughters(0), nNeutralPionDaughters(0),
         nProtonDaughters(0),      nNeutronDaughters(0),
-        nMuonDaughters(0),        nKaonDaughters(0),
-        nChargedParticles(0);
-    for(const auto& sec : _vertices[iVtx])
+        nMuonDaughters(0),        nKaonDaughters(0);
+
+    // add up all the secondaries at this vertex
+    for(const auto& sec : _vertices[iVtx].secondaries)
     {
       // we will classify the interaction based on pions, kaons, muons, protons, and neutrons
       switch(sec)
@@ -1330,7 +1330,6 @@ void xs_ana::tagInelasticChannel()
                 << "\nNumber of neutral pions:     " << nNeutralPionDaughters
                 << "\nNumber of charged kaons:     " << nKaonDaughters
                 << "\nNumber of muons:             " << nMuonDaughters
-                << "\nNumber of charged particles: " << nChargedParticles 
                 << "\nPrimary end vertex: (" 
                 << primaryFinalPosition.X() << ", " 
                 << primaryFinalPosition.Y() << ", "
@@ -1338,13 +1337,12 @@ void xs_ana::tagInelasticChannel()
     }
     // Handle absorption and inelastic
     if (nChargedPionDaughters == 0 && nNeutralPionDaughters == 0)_vertices[iVtx].subtype = "PionAbsorption";
-    else if (isTheEnd)_vertices[iVtx].subtype = "QuasiElastic";
     // Handle charge exchange
-    if (nNeutralPionDaughters == 1 && nChargedPionDaughters == 0)_vertices[iVtx].subtype = "ChargeExchange";
+    else if (nNeutralPionDaughters == 1 && nChargedPionDaughters == 0)_vertices[iVtx].subtype = "ChargeExchange";
     // Special case
-    if (nChargedPionDaughters == 1 && nNeutralPionDaughters == 0)_vertices[iVtx].subtype = "QuasiElastic";
+    else if (nChargedPionDaughters == 1 && nNeutralPionDaughters == 0)_vertices[iVtx].subtype = "QuasiElastic";
     // Everything else should be pion production
-    _vertices[iVtx].subtype = "PionProduction";
+    else {_vertices[iVtx].subtype = "PionProduction";}
   }
 }
 
